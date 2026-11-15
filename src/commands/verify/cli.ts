@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, rm as nodeRm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import {
@@ -47,6 +47,7 @@ import {
   findTerminalEvent,
   headCommitOf,
   type InputDescriptor,
+  isInsidePayloadDirectory,
   isVerifyChangeIdentity,
   isVerifyTerminalStatus,
   isVerifyVerificationType,
@@ -63,6 +64,8 @@ import {
   runJudgedDeletionsOf,
   runJudgedPathsOf,
   type RunLocator,
+  runRelativePayloadPath,
+  runTokenOfPayloadDirectoryName,
   scopeJudgedDeletionsOf,
   scopeJudgedPathsOf,
   type StartContentExpectation,
@@ -77,6 +80,7 @@ import {
   VERIFY_EXPECTATIONS_ERROR,
   VERIFY_INPUT_CHECK_FAILURE,
   VERIFY_INPUT_CHECK_RESULT,
+  VERIFY_PAYLOAD_ERROR,
   VERIFY_SCOPE_ERROR,
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
@@ -90,6 +94,8 @@ import {
   type VerifyInputCheckFailureReport,
   type VerifyInputCheckOutcome,
   verifyInputRecordPath,
+  verifyPayloadDir,
+  verifyPayloadRootDir,
   type VerifyRunProjection,
   type VerifyRunScope,
   verifyRunsDir,
@@ -113,6 +119,7 @@ import {
   REVISION_COMMIT_OUTCOME,
 } from "@/lib/git/root";
 import {
+  branchScopesDir,
   defaultStateStoreFileSystem,
   defaultStateStoreRealpath,
   ERROR_CODE_NOT_FOUND,
@@ -148,7 +155,14 @@ export const VERIFY_CLI_ERROR = {
   CHANGE_INVENTORY_FAILED: "spx verification run could not derive the changeset change inventory",
   INPUT_PERSIST_FAILED: "spx verification run could not persist the recorded run input",
   INPUT_READ_FAILED: "spx verification run could not read the recorded run input",
-  PAYLOAD_REQUIRED: "spx verification run evidence-add commands require --payload <payload-source>",
+  PAYLOAD_REQUIRED:
+    "spx verification run evidence-add commands require exactly one of --payload <payload-source> and --run-payload <name>",
+  TERMINAL_METADATA_SOURCE_CONFLICT:
+    "spx verification run finish accepts at most one of --terminal-metadata <payload-source> and --run-payload <name>",
+  RUN_PAYLOAD_REJECTED: "spx verification run refused the run-relative payload",
+  PAYLOAD_DIRECTORY_FAILED: "spx verification run start could not create the run's payload directory",
+  PAYLOAD_SWEEP_FAILED: "spx verification run start could not remove the payload directory of a sealed run",
+  PAYLOAD_REMOVAL_FAILED: "spx verification run finish could not remove the sealed run's payload directory",
   IDEMPOTENCY_KEY_REQUIRED: "spx verification run evidence-add commands require --idempotency-key <key>",
   PAYLOAD_READ_FAILED: "spx verification run could not read the evidence payload",
   PAYLOAD_INVALID: "spx verification run evidence payload is not valid JSON",
@@ -200,6 +214,7 @@ const VERIFY_START_ROLLBACK_ARTIFACT = {
   CONTEXT_FILE: "verification context file",
   RUN_FILE: "journal run file",
   INPUT_RECORD: "recorded input file",
+  PAYLOAD_DIRECTORY: "payload directory",
 } as const;
 
 export interface VerifyCliDeps {
@@ -215,8 +230,10 @@ export interface VerifyCliDeps {
   readonly readInputSource: (source: string) => Promise<Uint8Array>;
   /** Reads a file a recorded-input replay checks, as the bytes it holds; absent means the file system. */
   readonly readCheckFile?: (path: string) => Promise<Uint8Array>;
-  /** Reads the append payload from its `--payload` source; the append verbs require it. */
+  /** Reads the append payload from its `--payload` source, or the file a `--run-payload` name resolves to; the append verbs require it. */
   readonly readPayloadSource?: (source: string) => Promise<string>;
+  /** Removes a payload directory and everything it holds; absent means the file system. */
+  readonly removePayloadDirectory?: (path: string) => Promise<void>;
   /** The journal streaming binding the descriptor injects; the append verbs and start stream through it. */
   readonly journalBinding?: JournalStreamBinding;
   /** The run's drive mode recorded at start; the caller path defaults to caller-driven, spx execution supplies spx-driven. */
@@ -257,6 +274,7 @@ export const VERIFY_START_REPORT_FIELD = {
   RESOLVED_SCOPE: "resolvedScope",
   INPUT: "input",
   LOCATOR: "locator",
+  PAYLOAD_DIRECTORY: "payloadDirectory",
 } as const;
 
 export interface VerifyStartReport {
@@ -265,12 +283,15 @@ export interface VerifyStartReport {
   readonly resolvedScope: readonly string[];
   readonly input: InputDescriptor;
   readonly locator: RunLocator;
+  /** The canonical path of the payload directory the run owns until it seals. */
+  readonly payloadDirectory: string;
 }
 
-/** The directories a verification run writes: its journal runs directory and its verification-context directory. */
+/** The directories a verification run writes: its journal runs directory, its verification-context directory, and its type's payload root. */
 export const VERIFY_WRITE_DIRECTORY_ROLE = {
   JOURNAL_RUNS: "journal-runs",
   VERIFICATION_CONTEXT: "verification-context",
+  PAYLOADS: "payloads",
 } as const;
 
 export type VerifyWriteDirectoryRole = (typeof VERIFY_WRITE_DIRECTORY_ROLE)[keyof typeof VERIFY_WRITE_DIRECTORY_ROLE];
@@ -323,7 +344,10 @@ export interface VerifyAppendCliOptions {
   readonly scopeType: string;
   readonly scope: string;
   readonly run: string;
-  readonly payload: string;
+  /** The evidence payload source, `stdin` or a file path from the effective invocation directory; exactly one of it and `runPayload`. */
+  readonly payload?: string;
+  /** The name of a file in the run's payload directory holding the evidence payload; exactly one of it and `payload`. */
+  readonly runPayload?: string;
   readonly idempotencyKey: string;
 }
 
@@ -339,6 +363,19 @@ export interface VerifyFinishCliOptions {
   readonly run: string;
   readonly terminalStatus: string;
   readonly terminalMetadata?: string;
+  /** The name of a file in the run's payload directory holding the terminal metadata; at most one of it and `terminalMetadata`. */
+  readonly runPayload?: string;
+}
+
+/** A sealed run's payload directory that `finish` could not remove, and why. */
+export interface VerifyPayloadRemovalFailure {
+  readonly directory: string;
+  readonly reason: string;
+}
+
+/** A `finish` result: the command result, and the payload-removal failure a seal left behind, when one did. */
+export interface VerifyFinishCommandResult extends CliCommandResult {
+  readonly payloadRemovalFailure?: VerifyPayloadRemovalFailure;
 }
 
 export interface VerifyStatusCliOptions {
@@ -771,10 +808,21 @@ async function removeStartedRunArtifact(
 }
 
 async function removeStartedRunArtifacts(
-  artifacts: { readonly contextPath?: string; readonly runFile?: string; readonly inputRecordPath?: string },
+  artifacts: StartedRunArtifacts,
   deps: VerifyCliDeps,
 ): Promise<Result<void>> {
   const rollbackErrors: string[] = [];
+  if (artifacts.payloadDirectory !== undefined) {
+    try {
+      await payloadDirectoryRemover(deps)(artifacts.payloadDirectory);
+    } catch (error) {
+      rollbackErrors.push(
+        `${VERIFY_CLI_ERROR.INPUT_PERSIST_FAILED}: rollback failed for ${VERIFY_START_ROLLBACK_ARTIFACT.PAYLOAD_DIRECTORY}: ${
+          toMessage(error)
+        }`,
+      );
+    }
+  }
   if (artifacts.contextPath !== undefined) {
     const contextRollback = await removeStartedRunArtifact(
       artifacts.contextPath,
@@ -938,11 +986,200 @@ async function recordRunContext(
   return { ok: true, value: undefined };
 }
 
-/** The started-run artifacts a failed start rolls back: the reused-or-created context file, the run file, and the recorded input sidecar. */
+/** The started-run artifacts a failed start rolls back: the reused-or-created context file, the run file, the recorded input sidecar, and the payload directory. */
 interface StartedRunArtifacts {
   readonly contextPath?: string;
   readonly runFile?: string;
   readonly inputRecordPath?: string;
+  readonly payloadDirectory?: string;
+}
+
+/** Remove a directory and everything it holds; the production default of the injected payload-directory removal. */
+async function removeDirectoryTree(path: string): Promise<void> {
+  await nodeRm(path, { recursive: true, force: true });
+}
+
+function payloadDirectoryRemover(deps: VerifyCliDeps): (path: string) => Promise<void> {
+  return deps.removePayloadDirectory ?? removeDirectoryTree;
+}
+
+/** The names of the entries of `path` that are not files; a directory that does not exist lists none. */
+async function listDirectoryNames(fs: StateStoreFileSystem, path: string): Promise<Result<readonly string[]>> {
+  try {
+    const entries = await fs.readdir(path, { withFileTypes: true });
+    return { ok: true, value: entries.filter((entry) => !entry.isFile()).map((entry) => entry.name) };
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND) || hasErrorCode(error, ERROR_CODE_NOT_DIRECTORY)) {
+      return { ok: true, value: [] };
+    }
+    return { ok: false, error: toMessage(error) };
+  }
+}
+
+/**
+ * Whether the run a payload directory belongs to is closed: its journal, found under any branch scope of
+ * the repository-shared store, carries a terminal-completion event or a seal. A run whose journal is absent
+ * or unreadable is not closed, so its payload directory stays.
+ */
+async function isPayloadRunClosed(
+  productDir: string,
+  branchSlugs: readonly string[],
+  type: string,
+  runToken: string,
+  deps: VerifyCliDeps,
+): Promise<boolean> {
+  for (const branchSlug of branchSlugs) {
+    const events = await readRunJournalEvents({ type, runToken, branchSlug }, deps);
+    if (!events.ok) continue;
+    if (findTerminalEvent(events.value) !== undefined) return true;
+    const sealed = await isJournalRunSealed(
+      { productDir, branchSlug, type, runToken },
+      { ...(deps.fs === undefined ? {} : { fs: deps.fs }) },
+    );
+    if (sealed.ok && sealed.value) return true;
+  }
+  return false;
+}
+
+/**
+ * Remove the payload directory of every closed run, under every verification type's payload root of every
+ * branch scope, so no sealed run's payloads remain once a new run starts. A directory whose removal fails
+ * fails the sweep, naming the directory.
+ */
+async function sweepClosedRunPayloadDirectories(productDir: string, deps: VerifyCliDeps): Promise<Result<void>> {
+  const fs = deps.fs ?? defaultStateStoreFileSystem;
+  const sweepFailure = (detail: string): Result<void> => ({
+    ok: false,
+    error: `${VERIFY_CLI_ERROR.PAYLOAD_SWEEP_FAILED}: ${detail}`,
+  });
+  const branchSlugs = await listDirectoryNames(fs, branchScopesDir(productDir));
+  if (!branchSlugs.ok) return sweepFailure(branchSlugs.error);
+  const candidates = await listPayloadDirectories(productDir, branchSlugs.value, fs);
+  if (!candidates.ok) return sweepFailure(candidates.error);
+  for (const candidate of candidates.value) {
+    if (!(await isPayloadRunClosed(productDir, branchSlugs.value, candidate.type, candidate.runToken, deps))) continue;
+    try {
+      await payloadDirectoryRemover(deps)(candidate.directory);
+    } catch (error) {
+      return sweepFailure(`${candidate.directory}: ${toMessage(error)}`);
+    }
+  }
+  return { ok: true, value: undefined };
+}
+
+/** A payload directory found in the store, with the verification type and run token its location names. */
+interface PayloadDirectoryCandidate {
+  readonly directory: string;
+  readonly type: string;
+  readonly runToken: string;
+}
+
+/** Every payload directory under every verification type's payload root of the named branch scopes. */
+async function listPayloadDirectories(
+  productDir: string,
+  branchSlugs: readonly string[],
+  fs: StateStoreFileSystem,
+): Promise<Result<readonly PayloadDirectoryCandidate[]>> {
+  const candidates: PayloadDirectoryCandidate[] = [];
+  for (const branchSlug of branchSlugs) {
+    const types = await listDirectoryNames(fs, join(branchScopesDir(productDir), branchSlug));
+    if (!types.ok) return types;
+    for (const type of types.value) {
+      const found = await listTypePayloadDirectories({ productDir, branchSlug, type }, fs);
+      if (!found.ok) return found;
+      candidates.push(...found.value);
+    }
+  }
+  return { ok: true, value: candidates };
+}
+
+/** The payload directories in one verification type's payload root under one branch scope. */
+async function listTypePayloadDirectories(
+  scope: Omit<VerifyRunScope, "runToken">,
+  fs: StateStoreFileSystem,
+): Promise<Result<readonly PayloadDirectoryCandidate[]>> {
+  const root = verifyPayloadRootDir(scope);
+  if (!root.ok) return { ok: true, value: [] };
+  const names = await listDirectoryNames(fs, root.value);
+  if (!names.ok) return names;
+  return {
+    ok: true,
+    value: names.value.flatMap((name) => {
+      const runToken = runTokenOfPayloadDirectoryName(name);
+      return runToken === undefined ? [] : [{ directory: join(root.value, name), type: scope.type, runToken }];
+    }),
+  };
+}
+
+/**
+ * Sweep the closed runs' payload directories, then create the payload directory the started run owns and
+ * report its canonical path.
+ */
+async function createRunPayloadDirectory(runScope: VerifyRunScope, deps: VerifyCliDeps): Promise<Result<string>> {
+  const directory = verifyPayloadDir(runScope);
+  if (!directory.ok) return directory;
+  const swept = await sweepClosedRunPayloadDirectories(runScope.productDir, deps);
+  if (!swept.ok) return swept;
+  const fs = deps.fs ?? defaultStateStoreFileSystem;
+  try {
+    await fs.mkdir(directory.value, { recursive: true });
+    return { ok: true, value: await (deps.realpath ?? defaultStateStoreRealpath)(directory.value) };
+  } catch (error) {
+    return { ok: false, error: `${VERIFY_CLI_ERROR.PAYLOAD_DIRECTORY_FAILED}: ${toMessage(error)}` };
+  }
+}
+
+/**
+ * Read the file a run-relative payload name selects in the run's payload directory. The name is refused,
+ * before any read, when it is blank or when its path — resolved through symbolic links — lies outside the
+ * payload directory.
+ */
+async function readRunRelativePayload(
+  runScope: VerifyRunScope,
+  name: string,
+  readPayload: (source: string) => Promise<string>,
+  deps: VerifyCliDeps,
+): Promise<Result<string>> {
+  const reject = (reason: string): Result<string> => ({
+    ok: false,
+    error: `${VERIFY_CLI_ERROR.RUN_PAYLOAD_REJECTED}: ${reason}`,
+  });
+  const directory = verifyPayloadDir(runScope);
+  if (!directory.ok) return reject(directory.error);
+  const lexical = runRelativePayloadPath(directory.value, name);
+  if (!lexical.ok) return reject(lexical.error);
+  const realpath = deps.realpath ?? defaultStateStoreRealpath;
+  let canonicalDirectory: string;
+  let canonicalPath: string;
+  try {
+    canonicalDirectory = await realpath(directory.value);
+    canonicalPath = await realpath(lexical.value);
+  } catch (error) {
+    return { ok: false, error: `${VERIFY_CLI_ERROR.PAYLOAD_READ_FAILED}: ${toMessage(error)}` };
+  }
+  if (!isInsidePayloadDirectory(canonicalDirectory, canonicalPath)) {
+    return reject(VERIFY_PAYLOAD_ERROR.OUTSIDE_PAYLOAD_DIRECTORY);
+  }
+  try {
+    return { ok: true, value: await readPayload(canonicalPath) };
+  } catch (error) {
+    return { ok: false, error: `${VERIFY_CLI_ERROR.PAYLOAD_READ_FAILED}: ${toMessage(error)}` };
+  }
+}
+
+/** Remove a sealed run's payload directory, returning the failure that leaves it for the next sweep. */
+async function removeSealedRunPayloadDirectory(
+  runScope: VerifyRunScope,
+  deps: VerifyCliDeps,
+): Promise<VerifyPayloadRemovalFailure | undefined> {
+  const directory = verifyPayloadDir(runScope);
+  if (!directory.ok) return { directory: runScope.runToken, reason: directory.error };
+  try {
+    await payloadDirectoryRemover(deps)(directory.value);
+    return undefined;
+  } catch (error) {
+    return { directory: directory.value, reason: toMessage(error) };
+  }
 }
 
 function startedRunArtifacts(args: CompleteVerifyStartArgs, runFile?: string): StartedRunArtifacts {
@@ -1002,13 +1239,28 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
     return rollbackStartAndError(startedRunArtifacts(args, runFile), persisted.error, deps);
   }
 
+  // The run's payload directory follows its journal: the sweep of closed runs' payload directories runs
+  // first, then the directory is created; on failure the sidecar joins the rollback set.
+  const payloadDirectory = await createRunPayloadDirectory(runScope, deps);
+  if (!payloadDirectory.ok) {
+    return rollbackStartAndError(
+      { ...startedRunArtifacts(args, runFile), inputRecordPath: inputRecordPath.value },
+      payloadDirectory.error,
+      deps,
+    );
+  }
+
   // Record the run context — drive mode and head commit — last: the append streams to the backend, and a rollback cannot
   // un-stream an emitted event, so it runs only after every rollbackable local write (run file,
-  // context, input sidecar) has succeeded. On failure the sidecar joins the rollback set.
+  // context, input sidecar, payload directory) has succeeded. On failure those join the rollback set.
   const runContext = await recordRunContext(runToken, args, deps);
   if (!runContext.ok) {
     return rollbackStartAndError(
-      { ...startedRunArtifacts(args, runFile), inputRecordPath: inputRecordPath.value },
+      {
+        ...startedRunArtifacts(args, runFile),
+        inputRecordPath: inputRecordPath.value,
+        payloadDirectory: payloadDirectory.value,
+      },
       runContext.error,
       deps,
     );
@@ -1032,6 +1284,7 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
     resolvedScope: args.resolvedScope,
     input: { source: options.input, digest: args.inputDigest, contentDigests: args.inputContentDigests },
     locator,
+    payloadDirectory: payloadDirectory.value,
   };
   return okResult(JSON.stringify(report));
 }
@@ -1209,6 +1462,8 @@ export async function verifyPathsCommand(
   if (!runs.ok) return errorResult(runs.error);
   const contexts = verificationContextDir({ productDir, branchSlug });
   if (!contexts.ok) return errorResult(contexts.error);
+  const payloads = verifyPayloadRootDir({ productDir, branchSlug, type: options.verificationType });
+  if (!payloads.ok) return errorResult(payloads.error);
 
   const realpath = deps.realpath ?? defaultStateStoreRealpath;
   const writeDirectories: VerifyWriteDirectory[] = [];
@@ -1216,6 +1471,7 @@ export async function verifyPathsCommand(
     const [role, path] of [
       [VERIFY_WRITE_DIRECTORY_ROLE.JOURNAL_RUNS, runs.value],
       [VERIFY_WRITE_DIRECTORY_ROLE.VERIFICATION_CONTEXT, contexts.value],
+      [VERIFY_WRITE_DIRECTORY_ROLE.PAYLOADS, payloads.value],
     ] as const
   ) {
     const located = await locateWriteDirectory(role, path, realpath);
@@ -1321,6 +1577,7 @@ interface PreparedAppend {
   readonly worktreeRoot: string;
   readonly existingEvents: readonly JournalEvent[];
   readonly selector: VerifyRunSelector;
+  readonly runScope: VerifyRunScope;
 }
 
 /** Read append history and reject terminal runs before mutable sidecar state is consulted. */
@@ -1370,7 +1627,10 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
   if (!isVerifyVerificationType(options.verificationType)) {
     return { ok: false, error: VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE };
   }
-  if (options.payload.trim().length === 0) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_REQUIRED };
+  if ((options.payload === undefined) === (options.runPayload === undefined)) {
+    return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_REQUIRED };
+  }
+  if (options.payload?.trim().length === 0) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_REQUIRED };
   if (options.idempotencyKey.trim().length === 0) {
     return { ok: false, error: VERIFY_CLI_ERROR.IDEMPOTENCY_KEY_REQUIRED };
   }
@@ -1448,8 +1708,25 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
       worktreeRoot: resolved.value.worktreeRoot,
       existingEvents: existingEvents.value,
       selector: selector.value,
+      runScope,
     },
   };
+}
+
+/** Read the evidence payload from its `--payload` source or from the file its `--run-payload` name selects. */
+async function readEvidencePayload(
+  options: VerifyAppendCliOptions,
+  prepared: PreparedAppend,
+  deps: VerifyCliDeps,
+): Promise<Result<string>> {
+  if (options.runPayload !== undefined) {
+    return readRunRelativePayload(prepared.runScope, options.runPayload, prepared.readPayload, deps);
+  }
+  try {
+    return { ok: true, value: await prepared.readPayload(options.payload ?? "") };
+  } catch (error) {
+    return { ok: false, error: `${VERIFY_CLI_ERROR.PAYLOAD_READ_FAILED}: ${toMessage(error)}` };
+  }
 }
 
 /** Report the run-not-found diagnostic for an append whose run the journal store does not hold. */
@@ -1609,7 +1886,7 @@ async function verifyAppend(
 ): Promise<CliCommandResult> {
   const prepared = await prepareAppend(options, deps);
   if (!prepared.ok) return errorResult(prepared.error);
-  const { readPayload, binding, journalScope, existingEvents, selector } = prepared.value;
+  const { binding, journalScope, existingEvents, selector } = prepared.value;
   const eventType = appendEventType(verb);
 
   const existing = findAppendedSequence(existingEvents, options.idempotencyKey, eventType);
@@ -1618,13 +1895,9 @@ async function verifyAppend(
     return okResult(JSON.stringify(report));
   }
 
-  let rawPayload: string;
-  try {
-    rawPayload = await readPayload(options.payload);
-  } catch (error) {
-    return errorResult(`${VERIFY_CLI_ERROR.PAYLOAD_READ_FAILED}: ${toMessage(error)}`);
-  }
-  const parsed = parseAppendPayload(rawPayload);
+  const rawPayload = await readEvidencePayload(options, prepared.value, deps);
+  if (!rawPayload.ok) return errorResult(rawPayload.error);
+  const parsed = parseAppendPayload(rawPayload.value);
   if (parsed === undefined) return errorResult(VERIFY_CLI_ERROR.PAYLOAD_INVALID);
   const evidence = validateAppendEvidence(verb, options.verificationType, parsed, existingEvents, selector);
   if (!evidence.ok) return errorResult(evidence.error);
@@ -1855,15 +2128,33 @@ function finishReadFailure(
   return errorResult(`${VERIFY_CLI_ERROR.FINISH_FAILED}: ${error}`);
 }
 
+/** The run scope an existing run's address names, which addresses its payload directory. */
+function existingRunScope(run: VerifyExistingRunAddress): VerifyRunScope {
+  return {
+    productDir: run.productDir,
+    branchSlug: run.journalScope.branchSlug,
+    type: run.journalScope.type,
+    runToken: run.runToken,
+  };
+}
+
 async function readTerminalMetadata(
   options: VerifyFinishCliOptions,
+  run: VerifyExistingRunAddress,
   deps: VerifyCliDeps,
 ): Promise<Result<JsonValue | undefined>> {
-  if (options.terminalMetadata === undefined) return { ok: true, value: undefined };
+  if (options.terminalMetadata === undefined && options.runPayload === undefined) return { ok: true, value: undefined };
   const readPayload = deps.readPayloadSource;
   if (readPayload === undefined) return { ok: false, error: VERIFY_CLI_ERROR.TERMINAL_METADATA_INVALID };
+  if (options.runPayload !== undefined) {
+    const rawMetadata = await readRunRelativePayload(existingRunScope(run), options.runPayload, readPayload, deps);
+    if (!rawMetadata.ok) return rawMetadata;
+    const parsed = parseAppendPayload(rawMetadata.value);
+    if (parsed === undefined) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_INVALID };
+    return { ok: true, value: parsed };
+  }
   try {
-    const rawMetadata = await readPayload(options.terminalMetadata);
+    const rawMetadata = await readPayload(options.terminalMetadata ?? "");
     const parsed = parseAppendPayload(rawMetadata);
     if (parsed === undefined) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_INVALID };
     return { ok: true, value: parsed };
@@ -1936,6 +2227,16 @@ async function retrySealForTerminalRun(
   return sealExistingRun(run, deps);
 }
 
+/** The reason `finish` options are refused before any run is read, or `undefined` when they are well formed. */
+function finishOptionError(options: VerifyFinishCliOptions): string | undefined {
+  if (options.terminalStatus.trim().length === 0) return VERIFY_CLI_ERROR.TERMINAL_STATUS_REQUIRED;
+  if (!isVerifyTerminalStatus(options.terminalStatus)) return VERIFY_CLI_ERROR.TERMINAL_STATUS_INVALID;
+  if (options.terminalMetadata !== undefined && options.runPayload !== undefined) {
+    return VERIFY_CLI_ERROR.TERMINAL_METADATA_SOURCE_CONFLICT;
+  }
+  return undefined;
+}
+
 /**
  * Record terminal completion for a started run, seal its journal, and report the terminal
  * projection folded from the event history. `finish` validates the terminal status against the
@@ -1946,9 +2247,9 @@ async function retrySealForTerminalRun(
 export async function verifyFinishCommand(
   options: VerifyFinishCliOptions,
   deps: VerifyCliDeps,
-): Promise<CliCommandResult> {
-  if (options.terminalStatus.trim().length === 0) return errorResult(VERIFY_CLI_ERROR.TERMINAL_STATUS_REQUIRED);
-  if (!isVerifyTerminalStatus(options.terminalStatus)) return errorResult(VERIFY_CLI_ERROR.TERMINAL_STATUS_INVALID);
+): Promise<VerifyFinishCommandResult> {
+  const optionError = finishOptionError(options);
+  if (optionError !== undefined) return errorResult(optionError);
   const run = await resolveExistingRunAddress(options, deps);
   if (!run.ok) return errorResult(run.error);
 
@@ -1967,7 +2268,7 @@ export async function verifyFinishCommand(
   if (inputRecord.value === undefined) {
     return errorResult(existingRunNotFound(run.value, options));
   }
-  const rawTerminalMetadata = await readTerminalMetadata(options, deps);
+  const rawTerminalMetadata = await readTerminalMetadata(options, run.value, deps);
   if (!rawTerminalMetadata.ok) return errorResult(rawTerminalMetadata.error);
   const terminalMetadata = validateTerminalMetadata(
     options.verificationType,
@@ -1981,24 +2282,41 @@ export async function verifyFinishCommand(
   const unreconciled = await refuseUnreconciledBoundRun(run.value, before.value, deps);
   if (unreconciled !== undefined) return unreconciled;
 
+  return recordTerminalCompletion(run.value, options.terminalStatus, terminalMetadata.value, deps);
+}
+
+/**
+ * Append the terminal-completion event, seal the run journal, and remove the sealed run's payload
+ * directory, reporting the terminal projection. A removal that fails leaves the run sealed and its
+ * projection unchanged, and the next start's sweep removes the directory; the failure travels in the
+ * result for the descriptor to report.
+ */
+async function recordTerminalCompletion(
+  run: VerifyExistingRunAddress,
+  terminalStatus: string,
+  terminalMetadata: JsonValue | undefined,
+  deps: VerifyCliDeps,
+): Promise<VerifyFinishCommandResult> {
   // Only the append-and-seal path consumes the journal binding.
   const binding = deps.journalBinding;
   if (binding === undefined) return errorResult(VERIFY_CLI_ERROR.FINISH_FAILED);
 
   const event = buildTerminalEvent({
-    runToken: run.value.runToken,
-    terminalStatus: options.terminalStatus,
-    ...(terminalMetadata.value === undefined ? {} : { terminalMetadata: terminalMetadata.value }),
+    runToken: run.runToken,
+    terminalStatus,
+    ...(terminalMetadata === undefined ? {} : { terminalMetadata }),
     at: deps.now?.() ?? new Date(),
   });
-  const appended = await journalAppendCommand(run.value.journalScope, event, binding, forwardDeps(deps));
+  const appended = await journalAppendCommand(run.journalScope, event, binding, forwardDeps(deps));
   if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
     return errorResult(`${VERIFY_CLI_ERROR.FINISH_FAILED}: ${appended.output}`);
   }
-  const sealResult = await sealExistingRun(run.value, deps);
+  const sealResult = await sealExistingRun(run, deps);
   if (sealResult !== undefined) return sealResult;
 
-  return finishProjectionResult(run.value, deps);
+  const payloadRemovalFailure = await removeSealedRunPayloadDirectory(existingRunScope(run), deps);
+  const projection = await finishProjectionResult(run, deps);
+  return payloadRemovalFailure === undefined ? projection : { ...projection, payloadRemovalFailure };
 }
 
 /** Report a started run's resumable status projected from its journal event history. */
