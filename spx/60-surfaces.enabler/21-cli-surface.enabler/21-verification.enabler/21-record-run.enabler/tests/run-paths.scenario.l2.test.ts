@@ -12,7 +12,7 @@ import {
 } from "@/commands/verify/cli";
 import { VERIFY_PAYLOAD_PATH, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
-import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
+import { RUN_PAYLOAD_REPORTING_FIXTURE } from "@testing/fixtures/verify/record-run/run-payload-reporting";
 import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import { observeBuiltRunPathsAgainstStart } from "@testing/harnesses/verify/built-cli";
 import { REPOSITORY_STATE_ENTRY_KIND, type RepositoryStateEntry } from "@testing/harnesses/verify/repository";
@@ -24,8 +24,7 @@ describe("run payload reporting through the built executable", () => {
   it(
     "run-paths-report: writes one JSON document naming the three absent write directories, exits zero, and creates no file or directory",
     async () => {
-      const scenario = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runPayloadReportingScenario());
-      await observeBuiltRunPathsAgainstStart(scenario).then((observation) => {
+      await observeBuiltRunPathsAgainstStart(RUN_PAYLOAD_REPORTING_FIXTURE).then((observation) => {
         expect(pathsOf(REPOSITORY_STATE_ENTRY_KIND.DIRECTORY, observation.stateBeforePaths)).not.toContain(
           join(observation.productDir, STATE_STORE_SCOPE_PATH.SPX_DIR),
         );
@@ -40,7 +39,7 @@ describe("run payload reporting through the built executable", () => {
           ]),
         );
         expect(report.resolvedScope.scopeType).toBe(VERIFY_SCOPE_TYPE.FILE);
-        expect(report.resolvedScope.scopeIdentity).toBe(scenario.filePath);
+        expect(report.resolvedScope.scopeIdentity).toBe(RUN_PAYLOAD_REPORTING_FIXTURE.filePath);
         expect(report.branchSlug).not.toHaveLength(0);
         expect(report.writeDirectories).toHaveLength(3);
         expect(report.writeDirectories.map((directory) => directory.role)).toEqual(
@@ -92,8 +91,7 @@ describe("run payload reporting through the built executable", () => {
   it(
     "start-reports-payload-directory: reports the run's existing payload directory inside the payloads directory paths reported",
     async () => {
-      const scenario = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runPayloadReportingScenario());
-      await observeBuiltRunPathsAgainstStart(scenario).then((observation) => {
+      await observeBuiltRunPathsAgainstStart(RUN_PAYLOAD_REPORTING_FIXTURE).then((observation) => {
         expect(observation.paths.exitCode, observation.paths.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
         expect(observation.start.exitCode, observation.start.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
         const report = JSON.parse(observation.paths.stdout) as VerifyPathsReport;
