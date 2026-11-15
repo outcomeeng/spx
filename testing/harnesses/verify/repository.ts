@@ -157,7 +157,7 @@ export interface RepositoryStateEntry {
  * directory excluded, following symbolic links so an entry below a link appears at its resolved path.
  * Entries are ordered by path.
  */
-async function snapshotRepositoryState(productDir: string): Promise<readonly RepositoryStateEntry[]> {
+export async function snapshotRepositoryState(productDir: string): Promise<readonly RepositoryStateEntry[]> {
   const root = await stat(productDir);
   const entries: RepositoryStateEntry[] = [
     { path: productDir, kind: REPOSITORY_STATE_ENTRY_KIND.DIRECTORY, mtimeMs: root.mtimeMs, digest: undefined },
