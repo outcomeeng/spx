@@ -330,7 +330,7 @@
       },
       "tests/recorded-run-reuse.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b190e7af977fd24e31ebea7a5acf6727881424ad",
+        "commit": "25bfb2e110c15701ed9cd89b5b4ffca1007345ca",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -740,7 +740,7 @@
       },
       "tests/recorded-run-reuse.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b190e7af977fd24e31ebea7a5acf6727881424ad",
+        "commit": "25bfb2e110c15701ed9cd89b5b4ffca1007345ca",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
