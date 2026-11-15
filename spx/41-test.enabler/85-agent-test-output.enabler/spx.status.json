@@ -5,7 +5,7 @@
     "test": {
       "tests/agent-test-output.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b190e7af977fd24e31ebea7a5acf6727881424ad",
+        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/85-agent-test-output.enabler/agent-test-output.md",
@@ -396,7 +396,7 @@
       },
       "tests/agent-test-output.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b190e7af977fd24e31ebea7a5acf6727881424ad",
+        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/85-agent-test-output.enabler/agent-test-output.md",

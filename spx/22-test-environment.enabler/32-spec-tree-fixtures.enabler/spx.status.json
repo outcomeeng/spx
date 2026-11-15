@@ -5,7 +5,7 @@
     "test": {
       "tests/spec-tree-env-lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b190e7af977fd24e31ebea7a5acf6727881424ad",
+        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
@@ -110,7 +110,7 @@
       },
       "tests/spec-tree-env-safety.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b190e7af977fd24e31ebea7a5acf6727881424ad",
+        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
@@ -215,7 +215,7 @@
       },
       "tests/spec-tree-fixture-sources.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b190e7af977fd24e31ebea7a5acf6727881424ad",
+        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
@@ -320,7 +320,7 @@
       },
       "tests/spec-tree-fixtures.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b190e7af977fd24e31ebea7a5acf6727881424ad",
+        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",

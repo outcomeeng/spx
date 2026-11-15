@@ -5,7 +5,7 @@
     "test": {
       "tests/cited-decisions.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b190e7af977fd24e31ebea7a5acf6727881424ad",
+        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-citation-provenance.enabler/citation-provenance.md",
@@ -179,7 +179,7 @@
       },
       "tests/cited-decisions.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b190e7af977fd24e31ebea7a5acf6727881424ad",
+        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-citation-provenance.enabler/citation-provenance.md",
