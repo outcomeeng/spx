@@ -231,8 +231,6 @@ export interface VerifyCliDeps {
   readonly readCheckFile?: (path: string) => Promise<Uint8Array>;
   /** Reads the append payload from its `--payload` source, or the file a `--run-payload` name resolves to; the append verbs require it. */
   readonly readPayloadSource?: (source: string) => Promise<string>;
-  /** Removes a payload directory and everything it holds; absent means a recursive removal through `fs`. */
-  readonly removePayloadDirectory?: (path: string) => Promise<void>;
   /** The journal streaming binding the descriptor injects; the append verbs and start stream through it. */
   readonly journalBinding?: JournalStreamBinding;
   /** The run's drive mode recorded at start; the caller path defaults to caller-driven, spx execution supplies spx-driven. */
@@ -813,7 +811,7 @@ async function removeStartedRunArtifacts(
   const rollbackErrors: string[] = [];
   if (artifacts.payloadDirectory !== undefined) {
     try {
-      await payloadDirectoryRemover(deps)(artifacts.payloadDirectory);
+      await removePayloadDirectory(artifacts.payloadDirectory, deps);
     } catch (error) {
       rollbackErrors.push(
         `${VERIFY_CLI_ERROR.INPUT_PERSIST_FAILED}: rollback failed for ${VERIFY_START_ROLLBACK_ARTIFACT.PAYLOAD_DIRECTORY}: ${
@@ -993,14 +991,10 @@ interface StartedRunArtifacts {
   readonly payloadDirectory?: string;
 }
 
-/**
- * The removal of a payload directory and everything it holds: the injected removal when one is given,
- * otherwise a recursive removal through the injected file system that also lists the payload roots.
- */
-function payloadDirectoryRemover(deps: VerifyCliDeps): (path: string) => Promise<void> {
-  if (deps.removePayloadDirectory !== undefined) return deps.removePayloadDirectory;
+/** Remove a payload directory and everything it holds through the injected file system. */
+async function removePayloadDirectory(path: string, deps: VerifyCliDeps): Promise<void> {
   const fs = deps.fs ?? defaultStateStoreFileSystem;
-  return async (path) => fs.rm(path, { recursive: true, force: true });
+  await fs.rm(path, { recursive: true, force: true });
 }
 
 /** The names of the entries of `path` that are not files; a directory that does not exist lists none. */
@@ -1059,7 +1053,7 @@ async function sweepClosedRunPayloadDirectories(productDir: string, deps: Verify
   for (const candidate of candidates.value) {
     if (!(await isPayloadRunClosed(productDir, branchSlugs.value, candidate.type, candidate.runToken, deps))) continue;
     try {
-      await payloadDirectoryRemover(deps)(candidate.directory);
+      await removePayloadDirectory(candidate.directory, deps);
     } catch (error) {
       return sweepFailure(`${candidate.directory}: ${toMessage(error)}`);
     }
@@ -1187,7 +1181,7 @@ async function removeSealedRunPayloadDirectory(
   const directory = verifyPayloadDir(runScope);
   if (!directory.ok) return { directory: runScope.runToken, reason: directory.error };
   try {
-    await payloadDirectoryRemover(deps)(directory.value);
+    await removePayloadDirectory(directory.value, deps);
     return undefined;
   } catch (error) {
     return { directory: directory.value, reason: toMessage(error) };
