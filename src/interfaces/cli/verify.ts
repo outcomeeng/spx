@@ -288,17 +288,22 @@ export function registerVerifyCommands(
   // event stream goes to stderr under the local backend rather than sharing the result channel.
   const journalBinding = (): JournalStreamBinding =>
     createJournalStreamBinding(invocation.io, stderrStreamSink(invocation.io));
-  // A payload file path is read from the effective invocation directory, so `-C <path>` addresses the
-  // same file a caller names from `<path>`; `stdin` and absolute paths read as written.
-  const deps = () => {
-    const cwd = invocation.resolveEffectiveInvocationDir();
+  const deps = () => ({
+    cwd: invocation.resolveEffectiveInvocationDir(),
+    readInputSource: readCliInputBytes,
+    readCheckFile: (path: string) => readFile(path),
+    readPayloadSource: readCliSource,
+    journalBinding: journalBinding(),
+  });
+  // The evidence verbs read a `--payload` file path from the effective invocation directory, so `-C <path>`
+  // addresses the same file a caller names from `<path>`; `stdin` and absolute paths read as written. Every
+  // other payload source, `--terminal-metadata` among them, reads a relative path from the process directory.
+  const evidenceDeps = () => {
+    const base = deps();
     return {
-      cwd,
-      readInputSource: readCliInputBytes,
-      readCheckFile: (path: string) => readFile(path),
+      ...base,
       readPayloadSource: (source: string) =>
-        readCliSource(source === VERIFY_INPUT_SOURCE.STDIN ? source : resolve(cwd, source)),
-      journalBinding: journalBinding(),
+        readCliSource(source === VERIFY_INPUT_SOURCE.STDIN ? source : resolve(base.cwd, source)),
     };
   };
   const command = program.command(VERIFY_CLI.commandName).description(VERIFY_CLI.description);
@@ -363,7 +368,7 @@ export function registerVerifyCommands(
     .option(VERIFY_CLI.runPayloadOption, VERIFY_CLI.runPayloadOptionDescription)
     .requiredOption(VERIFY_CLI.idempotencyKeyOption, VERIFY_CLI.idempotencyKeyOptionDescription)
     .action(async (options: VerifyAppendActionOptions) => {
-      reportCliResult(await handlers.appendScope(options, deps()), invocation.io);
+      reportCliResult(await handlers.appendScope(options, evidenceDeps()), invocation.io);
     });
 
   const findingCommand = runCommand
@@ -381,7 +386,7 @@ export function registerVerifyCommands(
     .option(VERIFY_CLI.runPayloadOption, VERIFY_CLI.runPayloadOptionDescription)
     .requiredOption(VERIFY_CLI.idempotencyKeyOption, VERIFY_CLI.idempotencyKeyOptionDescription)
     .action(async (options: VerifyAppendActionOptions) => {
-      reportCliResult(await handlers.appendFinding(options, deps()), invocation.io);
+      reportCliResult(await handlers.appendFinding(options, evidenceDeps()), invocation.io);
     });
 
   runCommand
