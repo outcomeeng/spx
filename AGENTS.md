@@ -288,32 +288,13 @@ If the operator instructs you to do something that conflicts with any rule below
 
 ## Critical Rules
 
-- 🛑 **The MOMENT a task is recognized as touching the Product Tree (`spx/**`) or any spec-governed source (`src/**`), invoke `/understand` then `/contextualize <node>` BEFORE any investigation.** Reading source files, running `git`/`gh` archaeology, comparing worktrees, diffing PRs, and drafting clarifying questions are all **work** — not pre-work. The gate fires on **task recognition, not file modification**: "I'm only reading," "I'm just gathering context for questions," and "I haven't changed anything yet" are the exact rationalizations this rule forbids. Context for good questions is precisely what `/contextualize` loads, so it comes first. Skill-before-investigation, always.
-- ⚠️ **NEVER modify OR INVESTIGATE any spec-governed file without invoking the required skills first** — "investigate" includes reading source, grepping, and `git`/`gh` archaeology. If a file touches specs, testing, code, architecture, or any topic covered by a skill (see `<skill_router>` below), invoke the relevant skill BEFORE reading or modifying it. Skills are the authoritative source — not grep results, not existing files, not your training data.
-- ⚠️ **NEVER write code without invoking the `/apply` skill and following its workflow** - See skill table below
-- ⚠️ **ALWAYS invoke `/apply` before implementing any product-tree work item** - Applying is the orchestration skill for product-tree TDD. It requires methodology/context loading, language-specific architecture, test, and implementation steps, plus blocking audit gates before the work can be treated as ready.
-- ⚠️ **NEVER publish or merge product-tree implementation or test changes without the applying audit gates** - For TypeScript work, `/apply` requires `test-evidence-auditor` to compose `/audit-typescript-test` and `implementation-auditor` to compose `/audit-typescript-code` against an exact local checkpoint commit. Green tests and `pnpm run validate` are necessary but not sufficient for code/test changes.
-- ⚠️ **NEVER write tests in `tests/`** - Write in `spx/.../tests/` (co-located with specs)
-- ⚠️ **NEVER manually navigate `spx/` hierarchy** - Use `/contextualize spx/path/to/node` skill
-- ⚠️ **Skills are ALWAYS authoritative over existing files** - When a skill template prescribes a structure (e.g., Architectural Constraints table), follow the skill — not patterns found in existing spec files. Existing files may contain non-standard sections added before skills existed. Never infer framework conventions from existing files; always read the skill.
-- 🛑 **SKILLS DOMINATE. NOTHING BELOW THEM VOTES.** Skills > PDR/ADR > Spec > Test > Code. If a skill's examples are extensionless, imports are extensionless — even if 100% of the existing codebase has `.js` suffixes. Those files are in violation; they do NOT constitute precedent. Existing code is the LOWEST layer of truth and decides NOTHING about convention. Before citing "the existing codebase does X" as justification for anything, STOP. That sentence is never an answer to "why did you write it this way?" — the only valid answers are "the skill says so", "the ADR says so", "the spec says so", or "I was wrong." Grep is a research tool, never an authority.
 - ⚠️ **NEVER maintain backward compatibility** - When rewriting a module, replace it entirely. No legacy aliases, no re-exports of old names, no shims. Update all imports across the codebase to use the new API.
-- ⚠️ **NEVER reference specs or decisions from code** - No `ADR-21`, `PDR-13`, or similar in code comments or docstrings. Specs are the source of truth; code should not duplicate or point to them. The `semgrep` rule enforces this.
 - ⚠️ **NEVER edit `package.json` for dependency changes** - Use `pnpm add`/`pnpm remove` — they update `package.json`, the lockfile, and `node_modules` together
 - ⚠️ **NEVER use Husky for Git hooks** - Lefthook is the only hook runner for this repo. Do not run `husky`, add `husky`, create `.husky/`, or change `core.hooksPath` for Husky. `prepare` must install Lefthook, and `lefthook.yml` is the hook source of truth.
 - ⚠️ **NEVER merge, close, rebase, or schedule a Renovate pull request** - Renovate merges its own pull requests automatically. A Renovate pull request takes no heavy-run slot, no `/merge` run, and no place in any delivery plan.
 - ⚠️ **NEVER manually delete untracked files or empty directories** - Git doesn't track empty dirs; `.DS_Store` and `__pycache__` are gitignored artifacts. Use `pnpm run clean` to remove them
-- ⚠️ **NEVER copy files when moving** - Use `git mv` to move files. This preserves git history. Never `cp` then delete the original.
-- ⚠️ **NEVER let an agent create or modify files outside the scope its skill instructs** - Launch an agent (subagent or background agent) only when an active skill instructs that launch, per the Sub-agent dispatch rules above. A session that a skill instructs to write creates and edits files only when and within the scope that skill instructs. Agents acting outside that scope lack context, create unauthorized files, conflict on shared config, and make unasked-for changes.
-- ⚠️ **NEVER `readFileSync` source files in tests** — if you want to read source files from tests you have understood absolutely nothing. Tests verify behavior — see `/test` and `/author-typescript-test` for methodology.
-- ⚠️ **NEVER preserve, override, supersede, or refer to stale specs** — if you want to preserve, override, supersede or refer to no longer valid specs in any way, you have not understood durable map from `/understand`. Specs declare product truth. When the product changes, the spec is rewritten in place. There is no "superseded by" workflow.
-- ⚠️ **A spec file is a pure declaration — its type opening (`PROVIDES … SO THAT … CAN …` or `WE BELIEVE THAT …`) plus `## Assertions` (typed, each carrying a `[test]`/`[eval]`/`[audit]` marker), and NOTHING else.** Never add prose, commentary, evidence-state notes, lifecycle narration ("while Declared", "applying converts this"), or workflow explanation. Atemporal voice: a spec states product truth, never narrates its own state or the process that will fill it. Such notes belong nowhere in the tree — not even in PLAN.md.
-- ⚠️ **Numeric indices encode dependency order ONLY — lower = provider, higher = consumer, same = independent.** Never infer a "domain band", "foundation band", or any tier/zone from where existing nodes cluster; among dependency-valid indices the operator chooses. Reading a convention out of the current layout is the grep-is-not-authority violation in another guise.
-- ⚠️ **A dependency edge B→A must rest on a recognized ordering-evidence type and be verified from the *consumer's* own spec — never inferred from directory clustering or a provider's `SO THAT X CAN …` prose alone.** The bases `/decompose` recognizes are provider/consumer service flow, logical prerequisite, **vertical-slice value delivery**, shared substrate, feature extension, and ADR/PDR constraint. Vertical-slice value delivery is first-class and load-bearing: a node depends on whatever its value cannot be delivered without — so release sits below every domain, because no capability reaches users unreleased. A verification-coupling check ("can B be verified WITHOUT A") diagnoses substrate/prerequisite edges but is NOT required of every edge; a vertical-slice edge holds even when B verifies fine in isolation. Reach for `/decompose` to settle any edge.
+- ✅ **ALWAYS `git mv` when moving tracked files** - Never `cp` then delete the original. `git mv` preserves history. Use `git mv -f` when the target exists.
 - ⚠️ **spx applied to spx is excluded from the dependency graph.** spx running its own domains on its own source (CI, `publish.yml`, `pnpm validate`/`test`) is self-application/dogfooding, not a product-tree edge — encoding it makes a domain depend on itself through publishing (circular). Distinguish "a domain spx offers" from "spx applied to spx."
-- ⚠️ **`[audit]` vs `[test]` is the verification MECHANISM, not a lifecycle marker.** In a spec file's `## Assertions`, a testable assertion carries `[test]` (its co-located test is written via `/apply`), `[eval]` for LLM-driven behavior with a structurally scoreable verdict, or `[audit]` (legacy spelling `[review]`) for judgment constraints no automated test can verify — never an `[audit]` "placeholder" for something testable. PDR and ADR `## Verification` rules carry a slug and no tag: a new rule stands directly under `## Verification` until `/verify` routes it, and a routed rule stands under the typed heading the decision template prescribes — `### Mapping: {slug}`, `### {Scenario | Conformance | Property | Compliance}: {subject}`, `### Eval: {slug}`, `### Probe`, or `### Audit`.
-- ⚠️ **NEVER discard or displace uncommitted work with `git checkout -- <path>`, `git restore`, `git reset --hard`, `git clean -f`, or `git stash`** — `git checkout -- <path>`, `git restore`, `git reset --hard`, and `git clean -f` discard uncommitted local changes irrecoverably; `git stash` hides them in the stash stack (recoverable, but it conceals in-progress state from concurrent agents). Hand these off to the user; if you need to discard changes, ask the user to do it.
-- ⚠️ **NEVER `git reset` onto a remote-tracking ref (`origin/<base>`) — neither to rewrite your own commits nor to integrate the latest base** — `origin/<base>` moves as concurrent branches in the worktree pool merge, so resetting onto it silently re-bases your branch onto whatever it became; with `--soft` the working tree is left on the old basis while HEAD jumps forward, desyncing the tree (files present in HEAD show as deleted, files the new base changed show as modified, none of it your work). To reword or re-split your own commits, reset to a FIXED ancestor on your own branch — `git reset --soft HEAD~N` where N is the count of your own commits, or the fork-point SHA (`git merge-base HEAD origin/<base>`). To integrate the latest base, use `git rebase origin/<base>` (which updates the working tree), never a reset. After any history rewrite, verify `git diff --stat origin/<base>...HEAD` shows ONLY your intended files and `git status` has no surprise deletions; surprise files mean the base moved under you — STOP, do not commit.
 - ⚠️ **STOP TRIGGER: about to run `pnpm exec tsc --noEmit`, `npx tsc`, or any bare type-check command** — run `pnpm run typecheck` instead. Bare `tsc` misses product-specific config, paths, and exclusions. This applies to every TypeScript check, not just commit-time.
 - ⚠️ **ALWAYS run the documented pnpm validation scripts after code changes** — before audit, before commit, before claiming "done". `pnpm run typecheck` alone is not the quality gate — it runs only TypeScript checking. Run `pnpm run validate` for source validation, plus the relevant tests. Circular dependency detection runs in CI, not as a local gate.
 - 🛑 **STOP TRIGGER — running tests. Every agent-run `spx test` command MUST include `--agent`; NEVER tail logs, probe PIDs, poll, or wrap the command in a retry or wait loop.** `--agent` captures raw runner output and prints one compact final summary. Run each command once in the foreground. The product has ONE test verb, `spx test`; choose by situation:
@@ -321,15 +302,8 @@ If the operator instructs you to do something that conflicts with any rule below
   - **Read status without running** → `spx spec status` (reads recorded evidence; runs nothing).
   - **CI gate** → `tsx src/cli.ts verification test run` with no path operands, then `tsx src/cli.ts spec status --update --check` (an in-memory projection that writes nothing and fails on drift) — CI's job (`.github/workflows/deterministic-verification.yml`), not a local routine.
   - **Status projection of a branch whose change moves any node's projection** → `pnpm run build`, then `tsx src/cli.ts verification test run` with no path operands, then `tsx src/cli.ts spec status --update`, each behind the `/wait-for-load` waiter, on fresh `dist`. Commit what the projector writes: the CI gate writes nothing and fails on any drift from the committed projection.
-  - **Deliberate full local run (rare)** → `pnpm run build`, then `spx test --agent`, with the specific written justification required by `spx/local/merging.md`.
+  - **Deliberate full local run (rare)** → `pnpm run build`, then `spx test --agent`, only as the escalation lane `spx/local/merging.md` declares.
   - **Coverage / watch** → `pnpm run test:coverage` / `pnpm run test:watch` are human-interactive paths. Agents never invoke raw Vitest or `pnpm test`.
-- ⚠️ **NEVER mechanically extract typed literal union values to named constants** — `no-restricted-syntax` warnings on `expect(x).toBe("declared")` where `x: NodeState` are false positives. The type annotation IS the documentation; renaming `"declared"` → `STATE_DECLARED` adds zero information. The lint rule targets magic strings whose meaning is obscure; enum-like union members are already self-documenting. Suppress the warning inline or leave it; never rename. The `typescript:audit-typescript-test` skill's Gate 0 C1/L1 findings for typed protocol values (`"PASS"`, `"FAIL"`, `"APPROVED"`, `"REJECT"`) are the same class of false positive — a Gate 0 REJECT on these strings is not a work blocker when `pnpm run validate` passes and tests pass.
-- ⚠️ **ALWAYS research related codebases before offering architectural options** — before presenting A/B/C choices via `AskUserQuestion`, grep/read related codebases (sibling monorepo paths like `~/Code/CraftFinal/root/`, existing modules under `src/`, etc.) for established patterns. If a pattern already exists there, reference it rather than reinventing. "Read the existing code" beats any combination of options you can invent.
-
-- ✅ **ALWAYS `git mv` when moving tracked files** - Never `cp` then `git add`. `git mv` preserves history. Use `git mv -f` when the target exists.
-- ✅ **When uncertain, ASK STRUCTURED QUESTIONS. Never guess implementation patterns, test methodology or requirements.**
-- ✅ **Use `AskUserQuestion` for structured questions with predefined options.** Do NOT use it for open-ended questions where the user needs to provide free-form context — just ask in plain text instead.
-- ✅ **When interviewing the user, use multi-round structured questions where each round constrains the solution space.** Never present a draft and ask yes/no approval. Each question should surface a genuine design decision with distinct options that lead to materially different outcomes. After 3–4 rounds, the solution space is narrow enough to draft confidently.
 
 ## Product Language
 
@@ -345,42 +319,7 @@ The Change store holds about a thousand records, and most of them will never be 
 
 ---
 
-## Spec Management
-
-The **product-tree** plugin is the active system for managing Product Trees. Core skills:
-
-<skill_router>
-
-| Skill            | Purpose                                                            |
-| ---------------- | ------------------------------------------------------------------ |
-| `/understand`    | Load methodology foundation (node types, ordering, assertions)     |
-| `/contextualize` | Load context for a specific node (walks tree to target)            |
-| `/author`        | Create specs, ADRs, PDRs, enablers, outcomes                       |
-| `/decompose`     | Break nodes into children with proper ordering                     |
-| `/test`          | Write or repair deterministic tests for a spec assertion           |
-| `/apply`         | Orchestrate product-tree implementation and audit gates            |
-| `/refactor`      | Restructure the Product Tree (move, consolidate, extract)          |
-| `/align`         | Review for gaps, contradictions, and consistency                   |
-| `/merge`         | Route PR lifecycle work through opening, managing, and merge gates |
-
-Additional skills ship with the plugin and are invoked by name: `/commit-changes`, `/interview`, `/audit-tests`, `/audit-pdr`, `/audit-adr`, `/audit-specs`, `/manage-change`, `/author-change`, `/refocus`, `/bootstrap`, `/open-pr`, `/manage-pr`, `/merge`, `/sync-base`, `/merging-standards`, `/diagnose`. See the product-tree plugin's `skills/` directory for the full list.
-
-</skill_router>
-
-### Decision records: the ADR/PDR templates
-
-**A decision record takes the shape of the template `/understand` ships, and nothing else.** Read `decisions/decision-name.pdr.md` or `decisions/decision-name.adr.md` beneath the `Template root` the `<PRODUCT_TREE_FOUNDATION>` marker records before writing a decision record or the Declarations of a Change that touches one. The shape is a title, a `DEFINES … AS …` line for each term the decision owns, a keyword opening — `GOVERNS … SO THAT … CAN RELY ON …` for a PDR, `CONSTRAINS … TO … SO THAT …` for an ADR — and `## Verification` with slugged rules. An ADR or PDR that carries a prose decision paragraph, `## Rationale`, `## Product properties`, `## Invariants`, a `### Testing` subsection, a tag on a rule, or the older `## Purpose`, `## Context`, `## Decision`, `## Trade-offs accepted`, `## Compliance`, or `## Product invariants` headings is in a retired shape. It is NOT precedent: do not copy its structure, never cite it to justify a decision record's shape, and leave a record in the template shape whenever a change touches it. When the product-tree reviewer compares a template-shaped file against a sibling in a retired shape, the sibling is the file in violation.
-
-**Decision records carry the detail their reach requires — they are placed so contextualization reads them as a node's governing context.** `/contextualize` loads the product spec plus the ADRs and PDRs along the path to a target node as that node's governing context, and by numeric-index order a decision record reaches its higher-index siblings and their descendants (lower index = provider, read by the higher-index consumers — see the numeric-index dependency-order rule in **Critical Rules** above). A decision record must therefore carry the specific detail the nodes in its reach need to do their work, including mechanism, path, and command detail that, read in isolation, can look like implementation belonging in a node or in code. That detail is governing context, and reach follows index placement: a record is indexed below the nodes that consume it so they read it, so pushing such detail down into a node narrows its reach to that node's own subtree, and removing it starves the dependent nodes' context. Do not flag a decision record's detail as misplaced merely because it names a git command, a file path, or a module; judge whether the nodes in its reach need that detail as context.
-
-- `spx/15-worktree-management.pdr.md` sits at the product root below the domains that resolve a root or address `.spx/` — the state, session, compact, worktree, validation, and release enablers are all indexed above 15 — so its root-resolution detail (which `.spx/` state class resolves to which root, and the `git rev-parse --git-common-dir`, `git rev-parse --show-toplevel`, and `git config --get core.bare` mechanisms behind them) reaches each of them as context.
-- `spx/18-state.enabler/11-state.pdr.md` heads the state enabler below its sibling state nodes, so its `.spx/` storage contract — the `.spx/branch/{branch-slug}/`, `.spx/worktree/`, and `.spx/sessions/{todo,doing,archive}/…` path formats — reaches every state node that reads or writes that store.
-
----
-
 ## Validation Gates
-
-**NEVER commit without passing source validation.**
 
 ### Product Tree Phase Commands
 
@@ -389,40 +328,9 @@ The four Product Tree phases the router names resolve to these product commands:
 - **author** — `pnpm run build` after a change that a CLI level-2 test reaches, because those tests run the built `dist/cli.js`; the build is a compiling build, so it runs behind the `/wait-for-load` waiter; no other artifact is regenerated.
 - **verify** — the validation command `spx/local/merging.md` selects for the changeset (`pnpm run validate`, or `tsx src/cli.ts validation markdown <paths>` for a Markdown-only changeset), then `spx test --agent --changed [--base origin/main]`, or `tsx src/cli.ts test --agent --changed [--base origin/main]` when the branch changes `spx test` itself; the test command runs behind the `/wait-for-load` waiter, and `spx/local/merging.md` scopes and escalates the test command.
 - **gate** — the CI deterministic verification in `.github/workflows/deterministic-verification.yml`; no terminal full deterministic gate runs locally, and a branch whose change moves any node's projection commits the full projection made on fresh `dist` (`pnpm run build`, `tsx src/cli.ts verification test run`, `tsx src/cli.ts spec status --update`).
-- **merge** — the merge command and cleanup sequence `spx/local/merging.md` declares.
-
-```bash
-# Quick verification before committing
-# Source validation for current TypeScript source
-pnpm run validate
-
-# plus the focused tests that cover the touched spec node, source module, or workflow
-
-# Build packaged output for the `spx` executable
-pnpm run build
-```
+- **merge** — the `/merge` default merge command and cleanup sequence; `spx/local/merging.md` declares no override.
 
 `pnpm run validate` and related development scripts execute `tsx src/cli.ts`, so they validate the current source tree even when `dist/` exists. The packaged executable `bin/spx.js` requires `dist/cli.js`; invoke it only after `pnpm run build`.
-
-### Verification Checkpoint Checklist
-
-Before creating a local checkpoint commit for agentic verification:
-
-- [ ] **`/apply` context is loaded and the diff is stabilized**: methodology/context loaded and obvious contradictions resolved before dispatching auditors
-- [ ] **`pnpm run validate`** passes (source CLI aggregate pipeline, circular skipped)
-- [ ] **Focused tests for the touched scope** pass; widen only when `spx/local/merging.md` escalation applies
-
-### Committing Changes
-
-**ALWAYS use the `/commit-changes` skill to commit.** Never run raw git commands for commits.
-
-```bash
-# Correct: invoke the skill
-/commit-changes
-
-# Wrong: manual git commands
-git add . && git commit -m "..."
-```
 
 ### Available Validation Commands
 
@@ -455,10 +363,10 @@ Use the product scripts for formatting. Run `pnpm run format` to apply `dprint f
 
 ```bash
 # Files with literal problems in a subtree
-tsx src/cli.ts validation literal --files-with-problems | grep spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler
+tsx src/cli.ts validation literal --files-with-problems | grep spx/<node-path>
 
 # All literal findings in a subtree (with line numbers)
-tsx src/cli.ts validation literal | grep spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler
+tsx src/cli.ts validation literal | grep spx/<node-path>
 ```
 
 `--files-with-problems` emits one unique file path per line — pipe through `grep <prefix>` to scope to a node.
@@ -519,9 +427,8 @@ Because the global `spx` tracks the `main` worktree's build, feature worktrees u
 
 These recur on feature worktrees and have cost real debugging time and machine stability — internalize them before running CLI tests or pushing.
 
-- **L2 CLI tests exercise the built `dist/`, not source.** An L2 test that exercises the CLI shells out to `node bin/spx.js` → `dist/cli.js`; an L2 test that exercises a product-specific binary on `PATH` (for example `spx/46-agent.enabler/32-search.enabler/tests/locator.scenario.l2.test.ts` against `rg`) depends on that binary and not on `dist/`, so a failure there is a missing or broken binary, never stale `dist/`. Run `pnpm run build` before trusting a CLI L2 result. The Lefthook `rebuild-dist` hook rebuilds only on the **main** worktree — it prints `rebuild-dist: skipped (non-main checkout)` on feature/linked worktrees — so after editing source or rebasing in a feature worktree, `dist/` is stale. A "failing" L2 test (e.g. an assertion seeing old output) is most often just stale `dist/`; rebuild and re-run before treating it as a real failure.
+- **L2 CLI tests exercise the built `dist/`, not source.** An L2 test that exercises the CLI shells out to `node bin/spx.js` → `dist/cli.js`; an L2 test that exercises a product-specific binary on `PATH`, such as `rg`, depends on that binary and not on `dist/`, so a failure there is a missing or broken binary, never stale `dist/`. Run `pnpm run build` before trusting a CLI L2 result. The Lefthook `rebuild-dist` hook rebuilds only on the **main** worktree — it prints `rebuild-dist: skipped (non-main checkout)` on feature/linked worktrees — so after editing source or rebasing in a feature worktree, `dist/` is stale. A "failing" L2 test (e.g. an assertion seeing old output) is most often just stale `dist/`; rebuild and re-run before treating it as a real failure.
 - **`spec status --update` reprojects *every* node from recorded test evidence, so on a stale-`dist` feature worktree it flips sibling `spx.status.json` files `passed`→`failed` for nodes you never touched** — the same stale-`dist` L2 artifact as above, now propagated into committed status files. NEVER restore, discard, or commit such a flip on the assumption it is spurious, and NEVER ask the operator to discard it. Rebuild with `pnpm run build`, re-run the affected nodes' tests through the journaled suite (`tsx src/cli.ts verification test run spx/<node> …`), then re-run `spec status --update`. A fresh-`dist` re-run is the only arbiter: if a node still projects `failed` after it, the failure is real and the change broke it. The CI job `Test + status projection` runs the full suite on fresh `dist`, then `spec status --update --check`, which fails on drift and writes nothing, so a branch whose change moves any node's projection commits the full projection it made on fresh `dist`; locally, treat cross-node status drift as a build-staleness signal to re-run, not a set of files to revert.
-- **`spx.status.json` is a DERIVED artifact — its only writer is `spec status --update` (`src/lib/node-status/update.ts`). NEVER hand-edit its `passed`/`failed`/`not-run` outcome values.** Typing an outcome by hand fabricates the projection — the quality-gate-cheating anti-pattern — and the CI `Test + status projection` job re-derives the projection in memory and fails on any drift from the committed file, so a hand-written value is both dishonest and futile. Producing a status means running the projector, never editing the file. Graduating a node out of `spx/EXCLUDE` is therefore NOT a one-line change: in this product `spx/EXCLUDE` gates markdown validation of the node's own spec file AND the `isExcluded` classification fact, and `spec status --update` writes every outcome as `not-run` for an excluded node (`update.ts` `resolveVerification`) but the node's REAL outcomes once it is unexcluded. Because the CI gate fails on any drift between the committed `spx.status.json` and the fresh projection, graduation is: remove the `spx/EXCLUDE` entry, then REGENERATE the committed status by deriving it on fresh `dist` over the full suite through the current-worktree entry point — never the global `spx` shim, which runs `main`'s stale build and would record status from the wrong source (`pnpm run build` → `tsx src/cli.ts verification test run` → `tsx src/cli.ts spec status --update`; CI's `Test + status projection` runs the same suite, then `spec status --update --check` to fail on drift instead of writing) — and verify the diff touches only the graduated node's `spx.status.json` (`not-run` → `passed`) plus the `spx/EXCLUDE` line. Never hand-write the `passed` values to skip the projector.
 
 <!-- /PRODUCT-TREE:shared root -->
 
