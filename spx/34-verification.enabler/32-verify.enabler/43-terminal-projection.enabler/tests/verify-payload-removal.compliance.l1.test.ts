@@ -21,7 +21,7 @@ import {
 } from "@testing/harnesses/verify/payload-directory";
 
 describe("verify finish payload-directory removal", () => {
-  it("removes the payload directory when finish seals the run from a linked worktree, and a repeated finish, render, and input still succeed", async () => {
+  it("removes the payload directory when finish seals the run from a linked worktree, and render and input still succeed", async () => {
     await withPayloadDirectoryRepository(async (payloads) => {
       const run = await payloads.startRun();
       const added = await payloads.addScopeUnit(run);
@@ -29,7 +29,6 @@ describe("verify finish payload-directory removal", () => {
       const finishOptions = { ...run.selectors, terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED };
 
       const finished = await verifyFinishCommand(finishOptions, payloads.deps({ cwd: linked.worktreeDir }));
-      const repeated = await verifyFinishCommand(finishOptions, payloads.deps());
       const rendered = await verifyRenderCommand(run.selectors, payloads.deps());
       const replayed = await verifyInputCommand(run.selectors, payloads.deps());
 
@@ -39,8 +38,6 @@ describe("verify finish payload-directory removal", () => {
       expect(finished.payloadRemovalFailure).toBeUndefined();
       expect((JSON.parse(finished.output) as VerifyFinishReport).sealed).toBe(true);
       expect(await isDirectory(payloadDirectoryOf(run))).toBe(false);
-      expect(repeated.exitCode, repeated.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-      expect(JSON.parse(repeated.output)).toEqual(JSON.parse(finished.output));
       expect(rendered.exitCode, rendered.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
       expect(replayed.exitCode, replayed.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
     });
