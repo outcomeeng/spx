@@ -3,9 +3,7 @@
 DEFINES payload root AS the directory `.spx/branch/<branch-slug>/<verification-type>/payloads/` that holds the payload directories of one verification type under one branch key
 DEFINES payload directory AS the directory `run-<run-token>/` one run owns inside the payload root of the branch key its journal opened in, holding only the payload sources a caller stages for that run's commands
 
-GOVERNS the repository-shared directories a verification run writes: its journal runs directory, its verification-context directory, and its payload directory
-SO THAT a host that launches a session recording verification, and every caller that continues a run from any worktree
-CAN RELY ON SPX reporting those directories without writing before a run starts, and on each run owning one payload directory from `start` until the run seals
+GOVERNS the repository-shared directories a verification run writes: its journal runs directory, its verification-context directory, and its payload directory SO THAT a host that launches a session recording verification, and every caller that continues a run from any worktree CAN RELY ON SPX reporting those directories without writing before a run starts, and on each run owning one payload directory from `start` until the run seals
 
 ## Verification
 
