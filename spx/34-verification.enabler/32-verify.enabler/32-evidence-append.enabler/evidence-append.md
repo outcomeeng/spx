@@ -8,7 +8,6 @@ CAN record inspected scope, the files and deletions it judged, and typed finding
 
 ### Compliance
 
-- [run-relative-evidence-payload](tests/verify-run-payload.compliance.l1.test.ts): ALWAYS: scope evidence and finding evidence whose payload a run-relative name selects read the file of that name in the run's payload directory, from whichever worktree the run is continued, and reject a name whose path, resolved through symbolic links, lies outside that directory before any read or journal append
 - ALWAYS: scope evidence that names judged deletions in its type-neutral `judgedDeletions` payload field, beside the type-neutral `judgedPaths` field that names its judged files, records each product-relative path, rejects a path the run's recorded change inventory does not list as deleted, and rejects every judged deletion in a run that recorded no change inventory ([test](tests/verify-judged-deletions.compliance.l1.test.ts))
 - ALWAYS: scope evidence and finding evidence validate the evidence payload against the selected verification type and evidence kind before appending a journal event ([test](tests/verify-finding.compliance.l1.test.ts))
 - ALWAYS: a rejected scope or finding evidence payload reports the verification-type validation reason naming the failing payload field path or the unmet structural requirement ([test](tests/verify-finding.compliance.l1.test.ts))
@@ -19,6 +18,10 @@ CAN record inspected scope, the files and deletions it judged, and typed finding
 - ALWAYS: scope evidence and finding evidence reject a run carrying a terminal-completion event ([test](tests/verify-terminal-rejection.compliance.l1.test.ts))
 - ALWAYS: an evidence append rejects when the run's recorded drive mode is spx-driven, so a caller holding the run token cannot add scope or finding evidence to a run spx opens, streams, and seals ([test](tests/verify-drive-mode.compliance.l1.test.ts))
 - ALWAYS: scope evidence that names judged files records each product-relative path, rejects a path the run's head commit does not hold, and rejects every judged path in a run that recorded no head commit ([test](tests/verify-judged-paths.compliance.l1.test.ts))
+
+### Test.Compliance: run-relative payloads
+
+- [run-relative-evidence-payload](tests/verify-run-payload.compliance.l1.test.ts): ALWAYS: scope evidence and finding evidence whose payload a run-relative name selects read the file of that name in the run's payload directory, from whichever worktree the run is continued, and reject a name whose path, resolved through symbolic links, lies outside that directory before any read or journal append
 
 ### Audit: payload directory
 
