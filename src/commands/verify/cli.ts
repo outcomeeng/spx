@@ -2228,14 +2228,34 @@ async function refuseUnreconciledBoundRun(
   return unreconciledResult(reconciliation.value);
 }
 
-async function retrySealForTerminalRun(
+/**
+ * Finish a run that already carries its terminal-completion event. When an earlier finish recorded
+ * terminal completion but failed to persist the seal marker, this finish seals the run and removes its
+ * payload directory as any sealing finish does; otherwise it returns the existing terminal projection.
+ */
+async function finishTerminalRun(
   run: VerifyExistingRunAddress,
   deps: VerifyCliDeps,
-): Promise<CliCommandResult | undefined> {
+): Promise<VerifyFinishCommandResult> {
   const physicallySealed = await isJournalPhysicallySealed(run, deps);
-  if (!physicallySealed.ok) return undefined;
-  if (physicallySealed.value) return undefined;
-  return sealExistingRun(run, deps);
+  if (!physicallySealed.ok || physicallySealed.value) return finishProjectionResult(run, deps);
+  const sealResult = await sealExistingRun(run, deps);
+  if (sealResult !== undefined) return sealResult;
+  return projectSealedRun(run, deps);
+}
+
+/**
+ * Remove a just-sealed run's payload directory and report its terminal projection. A removal that fails
+ * leaves the run sealed and its projection unchanged, and the next start's sweep removes the directory;
+ * the failure travels in the result for the descriptor to report.
+ */
+async function projectSealedRun(
+  run: VerifyExistingRunAddress,
+  deps: VerifyCliDeps,
+): Promise<VerifyFinishCommandResult> {
+  const payloadRemovalFailure = await removeSealedRunPayloadDirectory(existingRunScope(run), deps);
+  const projection = await finishProjectionResult(run, deps);
+  return payloadRemovalFailure === undefined ? projection : { ...projection, payloadRemovalFailure };
 }
 
 /** The reason `finish` options are refused before any run is read, or `undefined` when they are well formed. */
@@ -2270,12 +2290,9 @@ export async function verifyFinishCommand(
   }
   const inputRecord = await readRecordedInputForProjection(run.value, options, before.value, deps);
   if (!inputRecord.ok) return errorResult(inputRecord.error);
-  // A run already carrying its terminal event is finished; retry the physical seal when an earlier
-  // finish recorded terminal completion but failed to persist the seal marker.
-  if (findTerminalEvent(before.value) !== undefined) {
-    const retrySeal = await retrySealForTerminalRun(run.value, deps);
-    return retrySeal ?? finishProjectionResult(run.value, deps);
-  }
+  // A run already carrying its terminal event is finished; the physical seal is retried when an
+  // earlier finish recorded terminal completion but failed to persist the seal marker.
+  if (findTerminalEvent(before.value) !== undefined) return finishTerminalRun(run.value, deps);
   if (inputRecord.value === undefined) {
     return errorResult(existingRunNotFound(run.value, options));
   }
@@ -2298,9 +2315,7 @@ export async function verifyFinishCommand(
 
 /**
  * Append the terminal-completion event, seal the run journal, and remove the sealed run's payload
- * directory, reporting the terminal projection. A removal that fails leaves the run sealed and its
- * projection unchanged, and the next start's sweep removes the directory; the failure travels in the
- * result for the descriptor to report.
+ * directory, reporting the terminal projection.
  */
 async function recordTerminalCompletion(
   run: VerifyExistingRunAddress,
@@ -2324,10 +2339,7 @@ async function recordTerminalCompletion(
   }
   const sealResult = await sealExistingRun(run, deps);
   if (sealResult !== undefined) return sealResult;
-
-  const payloadRemovalFailure = await removeSealedRunPayloadDirectory(existingRunScope(run), deps);
-  const projection = await finishProjectionResult(run, deps);
-  return payloadRemovalFailure === undefined ? projection : { ...projection, payloadRemovalFailure };
+  return projectSealedRun(run, deps);
 }
 
 /** Report a started run's resumable status projected from its journal event history. */
