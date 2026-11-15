@@ -19,3 +19,7 @@ CAN record inspected scope, the files and deletions it judged, and typed finding
 - ALWAYS: scope evidence and finding evidence reject a run carrying a terminal-completion event ([test](tests/verify-terminal-rejection.compliance.l1.test.ts))
 - ALWAYS: an evidence append rejects when the run's recorded drive mode is spx-driven, so a caller holding the run token cannot add scope or finding evidence to a run spx opens, streams, and seals ([test](tests/verify-drive-mode.compliance.l1.test.ts))
 - ALWAYS: scope evidence that names judged files records each product-relative path, rejects a path the run's head commit does not hold, and rejects every judged path in a run that recorded no head commit ([test](tests/verify-judged-paths.compliance.l1.test.ts))
+
+### Audit: payload directory
+
+- payload-directory-addressing: ALWAYS: scope evidence and finding evidence resolve a run-relative payload name against the run's payload directory, which they obtain from the state module's branch scope addressing under the run's opening namespace, and reject a name whose path, resolved through symbolic links by the injected filesystem, lies outside that directory before any read; an evidence operation that composes the payload directory's path itself, or reads before that check, fails.
