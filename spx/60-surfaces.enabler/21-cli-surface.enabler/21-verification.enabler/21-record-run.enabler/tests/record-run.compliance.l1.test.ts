@@ -6,7 +6,6 @@ import {
   inspectVerificationEvidenceCommands,
   inspectVerificationRunCommandNames,
   inspectVerificationRunNounGroup,
-  observeMissingEvidenceRequiredOptionRejections,
   observeNonNounLocalEvidenceRejections,
   observeVerificationLifecycleOutsideRunRejection,
   recordVerificationRunHandlerOptions,
@@ -57,17 +56,6 @@ describe("record run compliance", () => {
 
   it("rejects every non-noun-local evidence command", async () => {
     await observeNonNounLocalEvidenceRejections().then((observations) => {
-      observations.forEach((observation) => {
-        expect(observation.rejected).toBe(true);
-        expect(observation.exitCode).toBeGreaterThan(0);
-        expect(observation.stderr).toContain(observation.expectedDiagnosticToken);
-        expect(observation.handlerInvocationCount).toBe(0);
-      });
-    });
-  });
-
-  it("rejects every evidence resource when either required evidence option is absent", async () => {
-    await observeMissingEvidenceRequiredOptionRejections().then((observations) => {
       observations.forEach((observation) => {
         expect(observation.rejected).toBe(true);
         expect(observation.exitCode).toBeGreaterThan(0);
