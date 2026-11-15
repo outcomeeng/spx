@@ -42,3 +42,7 @@ CAN obtain its write directories before launch, start it for the Change it serve
 - ALWAYS: `spx verification run reconcile` requires `--run <run-token>`, rejects `--input`, and exits zero exactly when the run reconciles ([test](tests/run-reconcile.compliance.l2.test.ts))
 - ALWAYS: `spx verification run start` accepts `--expect-content-sha256 <digest>` and `--content-normalization <none|utf8-universal-newlines>`, and on a rejected expectation exits 1 with its diagnostic on standard error, naming both digests for a difference, and empty standard output ([test](tests/content-identity-start.compliance.l1.test.ts))
 - ALWAYS: `spx verification run input --check-file <file>` writes one JSON result to standard output and exits 0 for `equal`, 1 for `different`, and 2 for `content-identity-unavailable`, `normalization-failed`, or `check-file-unreadable`, while a run it cannot locate writes the run-lookup diagnostic to standard error, nothing to standard output, and exits 2 ([test](tests/content-identity-input-check.compliance.l1.test.ts))
+
+### Test.Compliance: run payload containment
+
+- [run-relative-payload-contained](tests/run-payload.compliance.l2.test.ts): NEVER: `spx verification run scope add`, `finding add`, or `finish` reads a `--run-payload` name whose path, resolved through symbolic links, lies outside the run's payload directory: a name that climbs out of it, an absolute path outside it, and a symbolic link inside it to a file outside it are each rejected before any read.
