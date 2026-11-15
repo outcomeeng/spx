@@ -6,6 +6,8 @@ Run `/hold-position resume` when a session starts, and `/hold-position hand-off`
 
 When a Position needs an answer from the Operator and the orchestration file sets `operator_available = true`, it asks through AskUserQuestion. This holds however many earlier questions the Operator dismissed.
 
+A Position stops working only to hand off, or for an answer it cannot settle itself. Before it stops, it asks the Operator through AskUserQuestion when the orchestration file sets `operator_available = true`, and otherwise mails its overseer.
+
 Until further notice, the SPX Advisor takes the Roles of Auditor and Reviewer: it carries out every Audit and every Review in this repository. Before each Audit or Review, it reads the whole of methodology 4.0.
 
 Work is done only when it is merged into `main` on origin.
