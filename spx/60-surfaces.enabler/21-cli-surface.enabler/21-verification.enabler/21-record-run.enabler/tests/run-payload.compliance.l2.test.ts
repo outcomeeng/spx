@@ -2,7 +2,12 @@ import { dirname } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { VERIFY_CLI_ERROR, VERIFY_CLI_EXIT_CODE, type VerifyFinishReport } from "@/commands/verify/cli";
+import {
+  VERIFY_CLI_ERROR,
+  VERIFY_CLI_EXIT_CODE,
+  type VerifyAppendReport,
+  type VerifyFinishReport,
+} from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFY_INPUT_SOURCE } from "@/domains/verify/verify";
 import { VERIFY_CLI } from "@/interfaces/cli/verify";
@@ -96,9 +101,11 @@ describe("record-run payload sources through the built executable", () => {
         ]);
 
         expect(run.start.exitCode, run.start.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
-        expect(fromRunPayload.exitCode, fromRunPayload.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
-        expect(fromStdin.exitCode, fromStdin.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
-        expect(fromInvocationDirectory.exitCode, fromInvocationDirectory.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        // Each append records new evidence rather than replaying an earlier key, so each read its own source.
+        for (const added of [fromRunPayload, fromStdin, fromInvocationDirectory]) {
+          expect(added.exitCode, added.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
+          expect((JSON.parse(added.stdout) as VerifyAppendReport).idempotent, added.stdout).toBe(false);
+        }
         expect(finishWithBoth.exitCode).not.toBe(VERIFY_CLI_EXIT_CODE.OK);
         expect(finishWithBoth.stderr).toContain(VERIFY_CLI_ERROR.TERMINAL_METADATA_SOURCE_CONFLICT);
       });
@@ -135,8 +142,10 @@ describe("record-run payload sources through the built executable", () => {
         ]);
 
         expect(run.start.exitCode, run.start.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
-        expect(scopeAdded.exitCode, scopeAdded.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
-        expect(findingAdded.exitCode, findingAdded.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        for (const added of [scopeAdded, findingAdded]) {
+          expect(added.exitCode, added.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
+          expect((JSON.parse(added.stdout) as VerifyAppendReport).idempotent, added.stdout).toBe(false);
+        }
         expect(finished.exitCode, finished.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
         const report = JSON.parse(finished.stdout) as VerifyFinishReport;
         expect(report.sealed).toBe(true);
@@ -150,7 +159,7 @@ describe("record-run payload sources through the built executable", () => {
     "writes a diagnostic naming the payload directory to standard error when its removal fails, and the structured result to standard output with the exit it has without the failure",
     async () => {
       await withBuiltPayloadRun(async (run) => {
-        const payloadDirectory = run.report?.payloadDirectory ?? "";
+        const payloadDirectory = run.payloadDirectory();
         const scopeAdded = await run.run(
           [VERIFY_CLI.scopeCommandName, VERIFY_CLI.addCommandName],
           [

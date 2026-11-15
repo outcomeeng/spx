@@ -7,6 +7,8 @@ import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { VERIFY_DRIVE_MODE, VERIFY_PAYLOAD_PATH, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 import {
   isDirectory,
+  payloadDirectoriesIn,
+  payloadDirectoryOf,
   sampleBranchName,
   stageUnjournaledPayloadDirectory,
   withPayloadDirectoryRepository,
@@ -35,6 +37,16 @@ describe("verify start payload directory", () => {
     },
   );
 
+  it("creates no payload directory when the run's journal cannot be opened", async () => {
+    await withPayloadDirectoryRepository(async (payloads) => {
+      const run = await payloads.startRun({ deps: payloads.journalRefusingDeps() });
+
+      expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+      expect(run.report).toBeUndefined();
+      expect(await payloadDirectoriesIn(payloads.repository.productDir)).toEqual([]);
+    });
+  });
+
   it("removes the payload directory of every run whose journal carries a terminal-completion event or a seal, under every verification type and branch scope, and keeps every other one", async () => {
     await withPayloadDirectoryRepository(async (payloads) => {
       // Every run starts before any closes, because each start sweeps the runs already closed.
@@ -58,8 +70,8 @@ describe("verify start payload directory", () => {
         const sealed = await payloads.sealOnly(sealedOnly);
         expect(terminal.exitCode, terminal.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
         expect(sealed.exitCode, sealed.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-        kept.push(open.report?.payloadDirectory ?? "", await stageUnjournaledPayloadDirectory(open));
-        removed.push(terminalOnly.report?.payloadDirectory ?? "", sealedOnly.report?.payloadDirectory ?? "");
+        kept.push(payloadDirectoryOf(open), await stageUnjournaledPayloadDirectory(open));
+        removed.push(payloadDirectoryOf(terminalOnly), payloadDirectoryOf(sealedOnly));
       }
       for (const directory of [...kept, ...removed]) {
         expect(await isDirectory(directory), directory).toBe(true);
@@ -71,7 +83,7 @@ describe("verify start payload directory", () => {
       for (const directory of removed) {
         expect(await isDirectory(directory), directory).toBe(false);
       }
-      for (const directory of [...kept, next.report?.payloadDirectory ?? ""]) {
+      for (const directory of [...kept, payloadDirectoryOf(next)]) {
         expect(await isDirectory(directory), directory).toBe(true);
       }
     });
