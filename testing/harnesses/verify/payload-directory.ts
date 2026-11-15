@@ -35,17 +35,28 @@ const WRITABLE_DIRECTORY_MODE = 0o755;
 
 /** A generated name for a payload file, distinct on each draw. */
 export function samplePayloadFileName(): string {
-  return `${sampleVerifyTestValue(STATE_STORE_TEST_GENERATOR.scopeToken())}${PAYLOAD_FILE_EXTENSION}`;
+  return `${sampleDistinctToken()}${PAYLOAD_FILE_EXTENSION}`;
 }
 
 /** A generated name for a directory, distinct on each draw. */
 export function sampleDirectoryName(): string {
-  return sampleVerifyTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+  return sampleDistinctToken();
 }
 
 /** A generated branch name, distinct on each draw. */
 export function sampleBranchName(): string {
-  return sampleVerifyTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+  return sampleDistinctToken();
+}
+
+let distinctTokenDraws = 0;
+
+/**
+ * A generated scope token suffixed with the draw count, so two draws in one process never collide even
+ * when the generator repeats a value.
+ */
+function sampleDistinctToken(): string {
+  distinctTokenDraws += 1;
+  return `${sampleVerifyTestValue(STATE_STORE_TEST_GENERATOR.scopeToken())}-${distinctTokenDraws.toString()}`;
 }
 
 /**
