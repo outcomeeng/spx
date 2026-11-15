@@ -1,4 +1,4 @@
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, normalize, relative, sep } from "node:path";
 
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import type { Result } from "@/config/types";
@@ -892,7 +892,7 @@ export function runTokenOfPayloadDirectoryName(name: string): string | undefined
  */
 export function runRelativePayloadPath(payloadDirectory: string, name: string): Result<string> {
   if (name.trim().length === 0) return { ok: false, error: VERIFY_PAYLOAD_ERROR.NAME_REQUIRED };
-  const candidate = resolve(payloadDirectory, name);
+  const candidate = isAbsolute(name) ? normalize(name) : join(payloadDirectory, name);
   return isInsidePayloadDirectory(payloadDirectory, candidate)
     ? { ok: true, value: candidate }
     : { ok: false, error: VERIFY_PAYLOAD_ERROR.OUTSIDE_PAYLOAD_DIRECTORY };
