@@ -11,7 +11,7 @@ CAN RELY ON SPX reporting those directories without writing before a run starts,
 
 ### Test.Compliance: write paths
 
-- shared-root: ALWAYS: verification journals, verification contexts, and payload roots resolve under the branch key at the Git common-dir product root, per [`spx/15-worktree-management.pdr.md`](spx/15-worktree-management.pdr.md), as [run write paths](knowledge/run-write-paths.md) records.
+- shared-root: ALWAYS: verification journals, verification contexts, and payload roots resolve under the branch key at the Git common-dir product root, per [`spx/15-worktree-management.pdr.md`](spx/15-worktree-management.pdr.md).
 - report-contents: ALWAYS: for a verification type and a scope, SPX reports the canonical scope identity, the branch key, and each directory a run writes, the journal runs directory, the verification-context directory, and the payload root, with the directory's canonical path, whether it exists, and the missing directories its creation requires.
 
 ### Test.Compliance: payload directory
