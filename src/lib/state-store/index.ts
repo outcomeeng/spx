@@ -105,7 +105,7 @@ export interface StateStoreFileSystem {
   lstat(path: string): Promise<StateStorePathStats>;
   link(existingPath: string, newPath: string): Promise<void>;
   rename(from: string, to: string): Promise<void>;
-  rm(path: string, options?: { readonly force?: boolean }): Promise<void>;
+  rm(path: string, options?: { readonly force?: boolean; readonly recursive?: boolean }): Promise<void>;
 }
 
 export interface ResolveScopeOptions {
