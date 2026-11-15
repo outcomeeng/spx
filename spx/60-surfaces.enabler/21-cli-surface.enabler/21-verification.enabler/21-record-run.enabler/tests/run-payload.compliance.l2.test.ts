@@ -10,6 +10,7 @@ import {
 } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFY_INPUT_SOURCE } from "@/domains/verify/verify";
+import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
 import { VERIFY_CLI } from "@/interfaces/cli/verify";
 import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import { flagOf, withBuiltPayloadRun } from "@testing/harnesses/verify/built-cli";
@@ -108,6 +109,43 @@ describe("record-run payload sources through the built executable", () => {
         }
         expect(finishWithBoth.exitCode).not.toBe(VERIFY_CLI_EXIT_CODE.OK);
         expect(finishWithBoth.stderr).toContain(VERIFY_CLI_ERROR.TERMINAL_METADATA_SOURCE_CONFLICT);
+      });
+    },
+    CLI_TIMEOUTS_MS.E2E_BATCH,
+  );
+
+  it(
+    "under -C reads a relative --payload from the -C directory and a relative --terminal-metadata from the process directory",
+    async () => {
+      await withBuiltPayloadRun(async (run) => {
+        const invocationName = samplePayloadFileName();
+        const invocationDirectory = await run.stageInvocationDirectoryPayload(invocationName);
+        const metadataName = await run.stageCheckoutPayload(run.terminalMetadata);
+        const directoryOption = [SPX_GLOBAL_OPTIONS.directory.short, invocationDirectory];
+
+        const added = await run.run([VERIFY_CLI.scopeCommandName, VERIFY_CLI.addCommandName], [
+          ...directoryOption,
+          ...run.runSelectors,
+          flagOf(VERIFY_CLI.payloadOption),
+          invocationName,
+          ...run.idempotencyOption(),
+        ]);
+        const finished = await run.run([VERIFY_CLI.finishCommandName], [
+          ...directoryOption,
+          ...run.runSelectors,
+          flagOf(VERIFY_CLI.terminalStatusOption),
+          JOURNAL_RUN_STATE_STATUS.REJECTED,
+          flagOf(VERIFY_CLI.terminalMetadataOption),
+          metadataName,
+        ]);
+
+        expect(run.start.exitCode, run.start.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        expect(added.exitCode, added.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        expect((JSON.parse(added.stdout) as VerifyAppendReport).idempotent, added.stdout).toBe(false);
+        expect(finished.exitCode, finished.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        const report = JSON.parse(finished.stdout) as VerifyFinishReport;
+        expect(report.sealed).toBe(true);
+        expect(report.terminalMetadata).toEqual(JSON.parse(run.terminalMetadata));
       });
     },
     CLI_TIMEOUTS_MS.E2E_BATCH,
