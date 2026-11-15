@@ -156,6 +156,46 @@ describe("record-run payload sources through the built executable", () => {
   );
 
   it(
+    "rejects, on scope add, finding add, and finish, a --run-payload name whose path resolves outside the run's payload directory",
+    async () => {
+      await withBuiltPayloadRun(async (run) => {
+        const { outsidePath, linkName } = await run.stageEscapingPayload();
+        const attempts = [];
+        for (const name of [`../${samplePayloadFileName()}`, outsidePath, linkName]) {
+          for (const commandPath of [VERIFY_CLI.scopeCommandName, VERIFY_CLI.findingCommandName]) {
+            attempts.push({
+              label: `${commandPath} ${name}`,
+              result: await run.run([commandPath, VERIFY_CLI.addCommandName], [
+                ...run.runSelectors,
+                flagOf(VERIFY_CLI.runPayloadOption),
+                name,
+                ...run.idempotencyOption(),
+              ]),
+            });
+          }
+          attempts.push({
+            label: `${VERIFY_CLI.finishCommandName} ${name}`,
+            result: await run.run([VERIFY_CLI.finishCommandName], [
+              ...run.runSelectors,
+              flagOf(VERIFY_CLI.terminalStatusOption),
+              JOURNAL_RUN_STATE_STATUS.REJECTED,
+              flagOf(VERIFY_CLI.runPayloadOption),
+              name,
+            ]),
+          });
+        }
+
+        expect(run.start.exitCode, run.start.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        for (const attempt of attempts) {
+          expect(attempt.result.exitCode, attempt.label).not.toBe(VERIFY_CLI_EXIT_CODE.OK);
+          expect(attempt.result.stderr, attempt.label).toContain(VERIFY_CLI_ERROR.RUN_PAYLOAD_REJECTED);
+        }
+      });
+    },
+    CLI_TIMEOUTS_MS.E2E_BATCH,
+  );
+
+  it(
     "writes a diagnostic naming the payload directory to standard error when its removal fails, and the structured result to standard output with the exit it has without the failure",
     async () => {
       await withBuiltPayloadRun(async (run) => {
