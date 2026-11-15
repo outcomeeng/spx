@@ -134,11 +134,9 @@ function journalRefusingFileSystem(): StateStoreFileSystem {
   return {
     ...fs,
     mkdir: async (path, options) => (inRunsDirectory(path) ? refuse(path) : fs.mkdir(path, options)),
-    writeFile: async (path, data, options) =>
-      inRunsDirectory(path) ? refuse(path) : fs.writeFile(path, data, options),
+    writeFile: async (path, data, options) => inRunsDirectory(path) ? refuse(path) : fs.writeFile(path, data, options),
     appendFile: async (path, data) => (inRunsDirectory(path) ? refuse(path) : fs.appendFile(path, data)),
-    link: async (existingPath, newPath) =>
-      inRunsDirectory(newPath) ? refuse(newPath) : fs.link(existingPath, newPath),
+    link: async (existingPath, newPath) => inRunsDirectory(newPath) ? refuse(newPath) : fs.link(existingPath, newPath),
   };
 }
 
