@@ -162,7 +162,6 @@ export const VERIFY_CLI_ERROR = {
   RUN_PAYLOAD_REJECTED: "spx verification run refused the run-relative payload",
   PAYLOAD_DIRECTORY_FAILED: "spx verification run start could not create the run's payload directory",
   PAYLOAD_SWEEP_FAILED: "spx verification run start could not remove the payload directory of a sealed run",
-  PAYLOAD_REMOVAL_FAILED: "spx verification run finish could not remove the sealed run's payload directory",
   IDEMPOTENCY_KEY_REQUIRED: "spx verification run evidence-add commands require --idempotency-key <key>",
   PAYLOAD_READ_FAILED: "spx verification run could not read the evidence payload",
   PAYLOAD_INVALID: "spx verification run evidence payload is not valid JSON",
@@ -1734,8 +1733,16 @@ async function readEvidencePayload(
   if (options.runPayload !== undefined) {
     return readRunRelativePayload(prepared.runScope, options.runPayload, prepared.readPayload, deps);
   }
+  return readPayloadSourceResult(prepared.readPayload, options.payload ?? "");
+}
+
+/** Read a payload from its `--payload` or `--terminal-metadata` source, reporting a read failure as a result. */
+async function readPayloadSourceResult(
+  readPayload: (source: string) => Promise<string>,
+  source: string,
+): Promise<Result<string>> {
   try {
-    return { ok: true, value: await prepared.readPayload(options.payload ?? "") };
+    return { ok: true, value: await readPayload(source) };
   } catch (error) {
     return { ok: false, error: `${VERIFY_CLI_ERROR.PAYLOAD_READ_FAILED}: ${toMessage(error)}` };
   }
@@ -2158,21 +2165,13 @@ async function readTerminalMetadata(
   if (options.terminalMetadata === undefined && options.runPayload === undefined) return { ok: true, value: undefined };
   const readPayload = deps.readPayloadSource;
   if (readPayload === undefined) return { ok: false, error: VERIFY_CLI_ERROR.TERMINAL_METADATA_INVALID };
-  if (options.runPayload !== undefined) {
-    const rawMetadata = await readRunRelativePayload(existingRunScope(run), options.runPayload, readPayload, deps);
-    if (!rawMetadata.ok) return rawMetadata;
-    const parsed = parseAppendPayload(rawMetadata.value);
-    if (parsed === undefined) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_INVALID };
-    return { ok: true, value: parsed };
-  }
-  try {
-    const rawMetadata = await readPayload(options.terminalMetadata ?? "");
-    const parsed = parseAppendPayload(rawMetadata);
-    if (parsed === undefined) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_INVALID };
-    return { ok: true, value: parsed };
-  } catch (error) {
-    return { ok: false, error: `${VERIFY_CLI_ERROR.PAYLOAD_READ_FAILED}: ${toMessage(error)}` };
-  }
+  const rawMetadata = options.runPayload === undefined
+    ? await readPayloadSourceResult(readPayload, options.terminalMetadata ?? "")
+    : await readRunRelativePayload(existingRunScope(run), options.runPayload, readPayload, deps);
+  if (!rawMetadata.ok) return rawMetadata;
+  const parsed = parseAppendPayload(rawMetadata.value);
+  if (parsed === undefined) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_INVALID };
+  return { ok: true, value: parsed };
 }
 
 function validateTerminalMetadata(
