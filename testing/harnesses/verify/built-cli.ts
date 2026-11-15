@@ -957,10 +957,17 @@ export interface BuiltPayloadRun {
   readonly report: VerifyStartReport | undefined;
   readonly runSelectors: readonly string[];
   readonly scopeUnit: string;
+  /** A generated review finding the run accepts as finding evidence. */
+  readonly finding: string;
+  /** Generated review terminal metadata that agrees with a `rejected` seal of a run holding one scope unit. */
+  readonly terminalMetadata: string;
   /** The `--idempotency-key` option with a freshly generated key. */
   idempotencyOption(): readonly string[];
-  /** Write the scope unit as a generated file name in the run's payload directory, and return that run-relative name. */
-  stageRunPayload(): Promise<string>;
+  /**
+   * Write `content`, the scope unit when none is given, as a generated file name in the run's payload
+   * directory, and return that run-relative name.
+   */
+  stageRunPayload(content?: string): Promise<string>;
   /**
    * Write the scope unit as `name` in a new directory of the checkout, and return that directory, so a
    * command run from it names the file by a relative path.
@@ -1009,9 +1016,13 @@ export async function withBuiltPayloadRun<T>(callback: (run: BuiltPayloadRun) =>
       report,
       runSelectors: [...selectors, flagOf(VERIFY_CLI.runOption), report?.runToken ?? ""],
       scopeUnit,
-      stageRunPayload: async () => {
+      finding: JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewFinding())),
+      terminalMetadata: JSON.stringify(
+        sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewChangesRequestedTerminalMetadata()),
+      ),
+      stageRunPayload: async (content = scopeUnit) => {
         const name = samplePayloadFileName();
-        await writeFile(join(report?.payloadDirectory ?? "", name), scopeUnit);
+        await writeFile(join(report?.payloadDirectory ?? "", name), content);
         return name;
       },
       stageInvocationDirectoryPayload: async (name) => {
