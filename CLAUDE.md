@@ -4,6 +4,8 @@ Before any other step, read methodology 4.0 in the main checkout of the methodol
 
 Run `/hold-position resume` when a session starts, and `/hold-position hand-off` before its context is cleared. Use no other installed skill. Where a skill and methodology 4.0 differ, methodology 4.0 holds.
 
+When a Position needs an answer from the Operator and the orchestration file sets `operator_available = true`, it asks through AskUserQuestion. This holds however many earlier questions the Operator dismissed.
+
 Work is done only when it is merged into `main` on origin.
 
 ## Product commands
