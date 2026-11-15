@@ -1,6 +1,6 @@
 # Evidence Append
 
-PROVIDES evidence-payload validation, verification-type scope and finding validation, judged-path validation against the run's head commit, judged-deletion validation against the run's recorded change inventory, and caller-supplied idempotency for verification-run evidence operations
+PROVIDES evidence-payload validation, run-relative payload resolution contained in the run's payload directory, verification-type scope and finding validation, judged-path validation against the run's head commit, judged-deletion validation against the run's recorded change inventory, and caller-supplied idempotency for verification-run evidence operations
 SO THAT a started verification run
 CAN record inspected scope, the files and deletions it judged, and typed findings exactly once per caller intent before terminal projection renders the run
 
@@ -8,6 +8,7 @@ CAN record inspected scope, the files and deletions it judged, and typed finding
 
 ### Compliance
 
+- run-relative-evidence-payload: ALWAYS: scope evidence and finding evidence whose payload a run-relative name selects read the file of that name in the run's payload directory, from whichever worktree the run is continued, and reject a name whose path, resolved through symbolic links, lies outside that directory before any read or journal append ([test](tests/verify-run-payload.compliance.l1.test.ts))
 - ALWAYS: scope evidence that names judged deletions in its type-neutral `judgedDeletions` payload field, beside the type-neutral `judgedPaths` field that names its judged files, records each product-relative path, rejects a path the run's recorded change inventory does not list as deleted, and rejects every judged deletion in a run that recorded no change inventory ([test](tests/verify-judged-deletions.compliance.l1.test.ts))
 - ALWAYS: scope evidence and finding evidence validate the evidence payload against the selected verification type and evidence kind before appending a journal event ([test](tests/verify-finding.compliance.l1.test.ts))
 - ALWAYS: a rejected scope or finding evidence payload reports the verification-type validation reason naming the failing payload field path or the unmet structural requirement ([test](tests/verify-finding.compliance.l1.test.ts))

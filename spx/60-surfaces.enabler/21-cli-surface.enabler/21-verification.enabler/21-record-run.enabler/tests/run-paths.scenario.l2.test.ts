@@ -1,14 +1,16 @@
-import { sep } from "node:path";
+import { basename, dirname, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
   VERIFY_CLI_EXIT_CODE,
   VERIFY_PATHS_REPORT_FIELD,
+  VERIFY_START_REPORT_FIELD,
   VERIFY_WRITE_DIRECTORY_FIELD,
   VERIFY_WRITE_DIRECTORY_ROLE,
   type VerifyPathsReport,
+  type VerifyStartReport,
 } from "@/commands/verify/cli";
-import { VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
+import { VERIFY_PAYLOAD_PATH, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import { observeBuiltRunPathsAgainstStart } from "@testing/harnesses/verify/built-cli";
 import { REPOSITORY_STATE_ENTRY_KIND } from "@testing/harnesses/verify/repository";
@@ -45,15 +47,24 @@ describe("record-run paths through the built executable", () => {
         const filesStartCreated = pathsOf(REPOSITORY_STATE_ENTRY_KIND.FILE, observation.stateAfterStart)
           .filter((path) => !filesBefore.includes(path));
 
+        const { payloadDirectory } = JSON.parse(observation.start.stdout) as VerifyStartReport;
+
         report.writeDirectories.forEach((directory) => {
           expect(Object.keys(directory)).toEqual(
             expect.arrayContaining(Object.values(VERIFY_WRITE_DIRECTORY_FIELD)),
           );
           expect(Array.isArray(directory.missingDirectories)).toBe(true);
           expect(directory.path).toContain(`${sep}${report.branchSlug}${sep}`);
-          // The directory the run started for the same type, scope, and branch writes into.
+          // The directory the run started for the same type, scope, and branch writes into: the journal
+          // runs and context directories receive files, and the payload root receives the run's payload
+          // directory.
           expect(directoriesAfterStart).toContain(directory.path);
-          expect(filesStartCreated.some((file) => file.startsWith(`${directory.path}${sep}`))).toBe(true);
+          if (directory.role === VERIFY_WRITE_DIRECTORY_ROLE.PAYLOADS) {
+            expect(dirname(payloadDirectory)).toBe(directory.path);
+            expect(directoriesAfterStart).toContain(payloadDirectory);
+          } else {
+            expect(filesStartCreated.some((file) => file.startsWith(`${directory.path}${sep}`))).toBe(true);
+          }
           // Existence and the missing directories are what the filesystem held before the run started.
           expect(directory.exists).toBe(directoriesBefore.includes(directory.path));
           const createdOnTheWay = directoriesStartCreated
@@ -61,6 +72,25 @@ describe("record-run paths through the built executable", () => {
             .sort((left, right) => left.length - right.length);
           expect(directory.missingDirectories).toEqual(createdOnTheWay);
         });
+      });
+    },
+    CLI_TIMEOUTS_MS.E2E_BATCH,
+  );
+
+  it(
+    "reports payloadDirectory beside runToken, contextDigest, resolvedScope, input, and locator when a run starts",
+    async () => {
+      await observeBuiltRunPathsAgainstStart().then((observation) => {
+        expect(observation.start.exitCode, observation.start.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        const started = JSON.parse(observation.start.stdout) as VerifyStartReport;
+        expect(Object.keys(started)).toEqual(expect.arrayContaining(Object.values(VERIFY_START_REPORT_FIELD)));
+        expect(basename(started.payloadDirectory)).toBe(
+          `${VERIFY_PAYLOAD_PATH.RUN_DIRECTORY_PREFIX}${started.runToken}`,
+        );
+        const directories = observation.stateAfterStart
+          .filter((entry) => entry.kind === REPOSITORY_STATE_ENTRY_KIND.DIRECTORY)
+          .map((entry) => entry.path);
+        expect(directories).toContain(started.payloadDirectory);
       });
     },
     CLI_TIMEOUTS_MS.E2E_BATCH,
