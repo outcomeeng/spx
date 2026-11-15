@@ -6,7 +6,7 @@
  * @module testing/harnesses/verify/built-cli
  */
 
-import { access, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
 import { execa } from "execa";
@@ -982,6 +982,12 @@ export interface BuiltPayloadRun {
    * command run from it names the file by a relative path.
    */
   stageInvocationDirectoryPayload(name: string): Promise<string>;
+  /**
+   * Write the scope unit to a generated file of the checkout outside the run's payload directory, plus a
+   * symbolic link to it inside the payload directory, and return the outside file's absolute path and the
+   * link's run-relative name.
+   */
+  stageEscapingPayload(): Promise<{ readonly outsidePath: string; readonly linkName: string }>;
   /** Run a command path of the run from `cwd`, the checkout when none is named, piping `input` to stdin. */
   run(
     commandPath: readonly string[],
@@ -1037,6 +1043,13 @@ export async function withBuiltPayloadRun<T>(callback: (run: BuiltPayloadRun) =>
         const name = samplePayloadFileName();
         await writeFile(join(payloadDirectory(), name), content);
         return name;
+      },
+      stageEscapingPayload: async () => {
+        const outsidePath = join(repository.productDir, samplePayloadFileName());
+        await writeFile(outsidePath, scopeUnit);
+        const linkName = samplePayloadFileName();
+        await symlink(outsidePath, join(payloadDirectory(), linkName));
+        return { outsidePath, linkName };
       },
       stageInvocationDirectoryPayload: async (name) => {
         const directory = join(repository.productDir, sampleDirectoryName());
