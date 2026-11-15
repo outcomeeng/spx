@@ -46,6 +46,29 @@ describe("verify finish payload-directory removal", () => {
     });
   });
 
+  it("removes the payload directory when a finish seals a run whose terminal-completion event was recorded without its seal", async () => {
+    await withPayloadDirectoryRepository(async (payloads) => {
+      const run = await payloads.startRun();
+      const terminal = await payloads.recordTerminalEventOnly(run);
+      const directoryBeforeFinish = await isDirectory(payloadDirectoryOf(run));
+
+      const finished = await verifyFinishCommand(
+        { ...run.selectors, terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED },
+        payloads.deps(),
+      );
+      // An append to a sealed journal fails, so this append shows the finish sealed the journal.
+      const appendedAfterFinish = await payloads.recordTerminalEventOnly(run);
+
+      expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+      expect(terminal.exitCode, terminal.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+      expect(directoryBeforeFinish).toBe(true);
+      expect(finished.exitCode, finished.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+      expect(finished.payloadRemovalFailure).toBeUndefined();
+      expect(await isDirectory(payloadDirectoryOf(run))).toBe(false);
+      expect(appendedAfterFinish.exitCode, appendedAfterFinish.output).not.toBe(VERIFY_CLI_EXIT_CODE.OK);
+    });
+  });
+
   it("removes nothing when finish records no terminal completion", async () => {
     await withPayloadDirectoryRepository(async (payloads) => {
       const run = await payloads.startRun();
