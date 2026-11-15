@@ -42,6 +42,7 @@ import {
 import {
   initializeVerifyRepository,
   type RepositoryStateEntry,
+  snapshotRepositoryState,
   withVerifyHeadCommitRepository,
 } from "@testing/harnesses/verify/repository";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -52,6 +53,7 @@ const BUILT_CLI_MISSING_EXIT_CODE = 1;
 const HEADLESS_RUN_TEMP_PREFIX = "verify-built-headless-run-";
 const HEADLESS_RUN_PRODUCT_DIRECTORY = "product";
 const EXPECTATIONS_FILE_NAME = "expectations.json";
+const RUN_PATHS_TEMP_PREFIX = "verify-built-run-paths-";
 
 /** Captured streams and exit code of one built-executable run. */
 export interface BuiltVerificationCliRun {
@@ -563,14 +565,24 @@ export async function observeBuiltRunPaths(
 }
 
 /**
- * The built `paths` run for a file scope, then the built `start` for the same verification type,
- * scope, and branch in the same repository: the file scope and verification type both ran with, the
- * built runs' outputs, and the checkout's files and directories before `paths`, after `paths`, and
- * after `start`, so a test compares the reported directories with the ones `start` actually creates.
+ * The repository and invocations a `paths`-against-`start` observation runs: the product-relative
+ * file the repository's HEAD commit holds and both runs scope, the verification type both runs name,
+ * and the run input `start` reads from standard input.
  */
-export interface BuiltRunPathsAgainstStartObservation {
+export interface BuiltRunPathsAgainstStartScenario {
   readonly filePath: string;
   readonly verificationType: string;
+  readonly input: string;
+}
+
+/**
+ * The built `paths` run for a file scope, then the built `start` for the same verification type,
+ * scope, and branch in the same repository: the repository's canonical root, the built runs'
+ * outputs, and the checkout's files and directories before `paths`, after `paths`, and after
+ * `start`, so a test compares the reported directories with the ones `start` actually creates.
+ */
+export interface BuiltRunPathsAgainstStartObservation {
+  readonly productDir: string;
   readonly paths: BuiltVerificationCliRun;
   readonly start: BuiltVerificationCliRun;
   readonly stateBeforePaths: readonly RepositoryStateEntry[];
@@ -579,42 +591,38 @@ export interface BuiltRunPathsAgainstStartObservation {
 }
 
 /**
- * In a real Git repository with a base and a head commit, run the built `spx verification run paths`
- * for a file scope of a drawn verification type, then the built `spx verification run start` for the
- * same type and scope with generated input on stdin, capturing the checkout's state before `paths`,
- * after `paths`, and after `start`.
+ * In a fresh Git repository whose HEAD commit adds the scenario's file and whose root holds no
+ * state store, run the built `spx verification run paths` for that file scope and the scenario's
+ * verification type, then the built `spx verification run start` for the same type and scope with
+ * the scenario's input on stdin, capturing the checkout's state before `paths`, after `paths`, and
+ * after `start`. The repository and every run recorded under its `.spx/` store are removed when the
+ * observation returns.
  */
-export async function observeBuiltRunPathsAgainstStart(): Promise<BuiltRunPathsAgainstStartObservation> {
-  const verificationType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.verificationType());
-  return withVerifyHeadCommitRepository(async (repository) => {
+export async function observeBuiltRunPathsAgainstStart(
+  scenario: BuiltRunPathsAgainstStartScenario,
+): Promise<BuiltRunPathsAgainstStartObservation> {
+  return withTempDir(RUN_PATHS_TEMP_PREFIX, async (tempDir) => {
+    const productDir = await realpath(tempDir);
+    await initializeVerifyRepository(productDir, scenario.filePath);
     const selectors = [
       flagOf(VERIFY_CLI.verificationTypeOption),
-      verificationType,
+      scenario.verificationType,
       flagOf(VERIFY_CLI.scopeTypeOption),
       VERIFY_SCOPE_TYPE.FILE,
       flagOf(VERIFY_CLI.scopeOption),
-      repository.filePath,
+      scenario.filePath,
     ];
-    const input = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload()));
-    const stateBeforePaths = await repository.snapshotState();
-    const paths = await runBuiltVerificationRun(repository.productDir, [VERIFY_CLI.pathsCommandName], selectors);
-    const stateAfterPaths = await repository.snapshotState();
+    const stateBeforePaths = await snapshotRepositoryState(productDir);
+    const paths = await runBuiltVerificationRun(productDir, [VERIFY_CLI.pathsCommandName], selectors);
+    const stateAfterPaths = await snapshotRepositoryState(productDir);
     const start = await runBuiltVerificationRun(
-      repository.productDir,
+      productDir,
       [VERIFY_CLI.startCommandName],
       [...selectors, flagOf(VERIFY_CLI.inputOption), VERIFY_INPUT_SOURCE.STDIN],
-      input,
+      scenario.input,
     );
-    const stateAfterStart = await repository.snapshotState();
-    return {
-      filePath: repository.filePath,
-      verificationType,
-      paths,
-      start,
-      stateBeforePaths,
-      stateAfterPaths,
-      stateAfterStart,
-    };
+    const stateAfterStart = await snapshotRepositoryState(productDir);
+    return { productDir, paths, start, stateBeforePaths, stateAfterPaths, stateAfterStart };
   });
 }
 

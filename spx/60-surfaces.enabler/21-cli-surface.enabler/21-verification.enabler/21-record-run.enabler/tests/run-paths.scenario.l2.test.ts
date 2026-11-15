@@ -1,4 +1,4 @@
-import { basename, dirname, sep } from "node:path";
+import { basename, dirname, join, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -11,15 +11,24 @@ import {
   type VerifyStartReport,
 } from "@/commands/verify/cli";
 import { VERIFY_PAYLOAD_PATH, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
+import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
+import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import { observeBuiltRunPathsAgainstStart } from "@testing/harnesses/verify/built-cli";
-import { REPOSITORY_STATE_ENTRY_KIND } from "@testing/harnesses/verify/repository";
+import { REPOSITORY_STATE_ENTRY_KIND, type RepositoryStateEntry } from "@testing/harnesses/verify/repository";
 
-describe("record-run paths through the built executable", () => {
+const pathsOf = (kind: string, state: readonly RepositoryStateEntry[]): string[] =>
+  state.filter((entry) => entry.kind === kind).map((entry) => entry.path);
+
+describe("run payload reporting through the built executable", () => {
   it(
-    "writes the write-path report as one JSON document on standard output, exits zero, and creates no file or directory",
+    "run-paths-report: writes one JSON document naming the three absent write directories, exits zero, and creates no file or directory",
     async () => {
-      await observeBuiltRunPathsAgainstStart().then((observation) => {
+      const scenario = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runPayloadReportingScenario());
+      await observeBuiltRunPathsAgainstStart(scenario).then((observation) => {
+        expect(pathsOf(REPOSITORY_STATE_ENTRY_KIND.DIRECTORY, observation.stateBeforePaths)).not.toContain(
+          join(observation.productDir, STATE_STORE_SCOPE_PATH.SPX_DIR),
+        );
         expect(observation.paths.exitCode, observation.paths.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
         expect(observation.start.exitCode, observation.start.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
         const report = JSON.parse(observation.paths.stdout) as VerifyPathsReport;
@@ -31,15 +40,18 @@ describe("record-run paths through the built executable", () => {
           ]),
         );
         expect(report.resolvedScope.scopeType).toBe(VERIFY_SCOPE_TYPE.FILE);
-        expect(report.resolvedScope.scopeIdentity).toBe(observation.filePath);
+        expect(report.resolvedScope.scopeIdentity).toBe(scenario.filePath);
         expect(report.branchSlug).not.toHaveLength(0);
-        const roles = Object.values(VERIFY_WRITE_DIRECTORY_ROLE);
-        expect(report.writeDirectories).toHaveLength(roles.length);
-        expect(report.writeDirectories.map((directory) => directory.role)).toEqual(expect.arrayContaining(roles));
+        expect(report.writeDirectories).toHaveLength(3);
+        expect(report.writeDirectories.map((directory) => directory.role)).toEqual(
+          expect.arrayContaining([
+            VERIFY_WRITE_DIRECTORY_ROLE.JOURNAL_RUNS,
+            VERIFY_WRITE_DIRECTORY_ROLE.VERIFICATION_CONTEXT,
+            VERIFY_WRITE_DIRECTORY_ROLE.PAYLOADS,
+          ]),
+        );
         expect(observation.stateAfterPaths).toEqual(observation.stateBeforePaths);
 
-        const pathsOf = (kind: string, state: typeof observation.stateAfterStart): string[] =>
-          state.filter((entry) => entry.kind === kind).map((entry) => entry.path);
         const directoriesBefore = pathsOf(REPOSITORY_STATE_ENTRY_KIND.DIRECTORY, observation.stateBeforePaths);
         const directoriesAfterStart = pathsOf(REPOSITORY_STATE_ENTRY_KIND.DIRECTORY, observation.stateAfterStart);
         const filesBefore = pathsOf(REPOSITORY_STATE_ENTRY_KIND.FILE, observation.stateBeforePaths);
@@ -53,6 +65,7 @@ describe("record-run paths through the built executable", () => {
           expect(Object.keys(directory)).toEqual(
             expect.arrayContaining(Object.values(VERIFY_WRITE_DIRECTORY_FIELD)),
           );
+          expect(directory.exists).toBe(false);
           expect(Array.isArray(directory.missingDirectories)).toBe(true);
           expect(directory.path).toContain(`${sep}${report.branchSlug}${sep}`);
           // The directory the run started for the same type, scope, and branch writes into: the journal
@@ -65,8 +78,7 @@ describe("record-run paths through the built executable", () => {
           } else {
             expect(filesStartCreated.some((file) => file.startsWith(`${directory.path}${sep}`))).toBe(true);
           }
-          // Existence and the missing directories are what the filesystem held before the run started.
-          expect(directory.exists).toBe(directoriesBefore.includes(directory.path));
+          // The missing directories are the ones the run's start created on the way to the directory.
           const createdOnTheWay = directoriesStartCreated
             .filter((created) => directory.path === created || directory.path.startsWith(`${created}${sep}`))
             .sort((left, right) => left.length - right.length);
@@ -78,19 +90,26 @@ describe("record-run paths through the built executable", () => {
   );
 
   it(
-    "reports payloadDirectory beside runToken, contextDigest, resolvedScope, input, and locator when a run starts",
+    "start-reports-payload-directory: reports the run's existing payload directory inside the payloads directory paths reported",
     async () => {
-      await observeBuiltRunPathsAgainstStart().then((observation) => {
+      const scenario = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runPayloadReportingScenario());
+      await observeBuiltRunPathsAgainstStart(scenario).then((observation) => {
+        expect(observation.paths.exitCode, observation.paths.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
         expect(observation.start.exitCode, observation.start.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        const report = JSON.parse(observation.paths.stdout) as VerifyPathsReport;
         const started = JSON.parse(observation.start.stdout) as VerifyStartReport;
         expect(Object.keys(started)).toEqual(expect.arrayContaining(Object.values(VERIFY_START_REPORT_FIELD)));
+        const payloadRoots = report.writeDirectories
+          .filter((directory) => directory.role === VERIFY_WRITE_DIRECTORY_ROLE.PAYLOADS)
+          .map((directory) => directory.path);
+        expect(payloadRoots).toHaveLength(1);
         expect(basename(started.payloadDirectory)).toBe(
           `${VERIFY_PAYLOAD_PATH.RUN_DIRECTORY_PREFIX}${started.runToken}`,
         );
-        const directories = observation.stateAfterStart
-          .filter((entry) => entry.kind === REPOSITORY_STATE_ENTRY_KIND.DIRECTORY)
-          .map((entry) => entry.path);
-        expect(directories).toContain(started.payloadDirectory);
+        expect(dirname(started.payloadDirectory)).toBe(payloadRoots[0]);
+        expect(pathsOf(REPOSITORY_STATE_ENTRY_KIND.DIRECTORY, observation.stateAfterStart)).toContain(
+          started.payloadDirectory,
+        );
       });
     },
     CLI_TIMEOUTS_MS.E2E_BATCH,
