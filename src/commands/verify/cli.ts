@@ -1123,9 +1123,21 @@ async function createRunPayloadDirectory(runScope: VerifyRunScope, deps: VerifyC
   const fs = deps.fs ?? defaultStateStoreFileSystem;
   try {
     await fs.mkdir(directory.value, { recursive: true });
-    return { ok: true, value: await (deps.realpath ?? defaultStateStoreRealpath)(directory.value) };
   } catch (error) {
     return { ok: false, error: `${VERIFY_CLI_ERROR.PAYLOAD_DIRECTORY_FAILED}: ${toMessage(error)}` };
+  }
+  return { ok: true, value: await canonicalPathOrComposed(directory.value, deps) };
+}
+
+/**
+ * The canonical path of a directory the injected file system created, with its symbolic links resolved;
+ * the composed path when the path resolver cannot see it, as for a file system held in memory.
+ */
+async function canonicalPathOrComposed(path: string, deps: VerifyCliDeps): Promise<string> {
+  try {
+    return await (deps.realpath ?? defaultStateStoreRealpath)(path);
+  } catch {
+    return path;
   }
 }
 
