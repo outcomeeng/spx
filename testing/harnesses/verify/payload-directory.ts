@@ -1,10 +1,11 @@
-import { chmod, mkdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { chmod, mkdir, readdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
+import { dirname, join, sep } from "node:path";
 
 import { journalAppendCommand, journalSealCommand } from "@/commands/journal/cli";
 import type { JournalStreamSink } from "@/commands/journal/runtime";
 import {
   VERIFY_CLI_ENV,
+  VERIFY_CLI_EXIT_CODE,
   verifyAppendScopeCommand,
   type VerifyCliDeps,
   verifyStartCommand,
@@ -20,7 +21,13 @@ import {
   VERIFY_VERIFICATION_TYPE,
   type VerifyVerificationType,
 } from "@/domains/verify/verify";
-import { defaultStateStoreFileSystem, STATE_STORE_TEXT_ENCODING } from "@/lib/state-store";
+import {
+  defaultStateStoreFileSystem,
+  STATE_STORE_PATH,
+  STATE_STORE_SCOPE_PATH,
+  STATE_STORE_TEXT_ENCODING,
+  type StateStoreFileSystem,
+} from "@/lib/state-store";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
@@ -48,15 +55,91 @@ export function sampleBranchName(): string {
   return sampleDistinctToken();
 }
 
-let distinctTokenDraws = 0;
+/**
+ * A generated idempotency key, distinct on each draw, so two evidence appends of one run never replay
+ * each other through the idempotency check that precedes the payload read.
+ */
+export function sampleIdempotencyKey(): string {
+  return distinctDraw(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()));
+}
+
+let distinctDraws = 0;
 
 /**
- * A generated scope token suffixed with the draw count, so two draws in one process never collide even
- * when the generator repeats a value.
+ * A generated value suffixed with the draw count, so two draws in one process never collide even when
+ * the pinned-seed sampler repeats a value.
  */
+function distinctDraw(value: string): string {
+  distinctDraws += 1;
+  return `${value}-${distinctDraws.toString()}`;
+}
+
 function sampleDistinctToken(): string {
-  distinctTokenDraws += 1;
-  return `${sampleVerifyTestValue(STATE_STORE_TEST_GENERATOR.scopeToken())}-${distinctTokenDraws.toString()}`;
+  return distinctDraw(sampleVerifyTestValue(STATE_STORE_TEST_GENERATOR.scopeToken()));
+}
+
+/**
+ * The payload directory `start` reported for `run`. A run whose `start` reported none fails here as a
+ * setup error carrying the `start` output, so no staging step writes outside a payload directory.
+ */
+export function payloadDirectoryOf(run: PayloadRun): string {
+  if (run.report === undefined) {
+    throw new Error(`start reported no payload directory: ${run.started.output}`);
+  }
+  return run.report.payloadDirectory;
+}
+
+/**
+ * Every run payload directory the repository-shared store at `productDir` holds, under every branch
+ * scope and verification type.
+ */
+export async function payloadDirectoriesIn(productDir: string): Promise<readonly string[]> {
+  const branchScopes = join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.BRANCH_SCOPE);
+  const directories: string[] = [];
+  for (const branch of await directoryNames(branchScopes)) {
+    for (const type of await directoryNames(join(branchScopes, branch))) {
+      const root = join(branchScopes, branch, type, VERIFY_PAYLOAD_PATH.ROOT);
+      directories.push(
+        ...(await directoryNames(root))
+          .filter((name) => name.startsWith(VERIFY_PAYLOAD_PATH.RUN_DIRECTORY_PREFIX))
+          .map((name) => join(root, name)),
+      );
+    }
+  }
+  return directories;
+}
+
+async function directoryNames(path: string): Promise<readonly string[]> {
+  try {
+    return (await readdir(path, { withFileTypes: true })).filter((entry) => entry.isDirectory()).map((entry) =>
+      entry.name
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The production file system, except that every write into a journal runs directory refuses, so a run's
+ * journal cannot open while every other store write proceeds.
+ */
+function journalRefusingFileSystem(): StateStoreFileSystem {
+  const runsSegment = `${sep}${STATE_STORE_PATH.RUNS_DIR}`;
+  const inRunsDirectory = (path: string): boolean =>
+    path.endsWith(runsSegment) || path.includes(`${runsSegment}${sep}`);
+  const refuse = async (path: string): Promise<never> => {
+    throw new Error(`journal write refused: ${path}`);
+  };
+  const fs = defaultStateStoreFileSystem;
+  return {
+    ...fs,
+    mkdir: async (path, options) => (inRunsDirectory(path) ? refuse(path) : fs.mkdir(path, options)),
+    writeFile: async (path, data, options) =>
+      inRunsDirectory(path) ? refuse(path) : fs.writeFile(path, data, options),
+    appendFile: async (path, data) => (inRunsDirectory(path) ? refuse(path) : fs.appendFile(path, data)),
+    link: async (existingPath, newPath) =>
+      inRunsDirectory(newPath) ? refuse(newPath) : fs.link(existingPath, newPath),
+  };
 }
 
 /**
@@ -89,7 +172,7 @@ export async function isDirectory(path: string): Promise<boolean> {
 /** Create an empty payload directory named for a run no journal names, inside the payload root of `run`, and return its path. */
 export async function stageUnjournaledPayloadDirectory(run: PayloadRun): Promise<string> {
   const directory = join(
-    dirname(run.report?.payloadDirectory ?? ""),
+    dirname(payloadDirectoryOf(run)),
     `${VERIFY_PAYLOAD_PATH.RUN_DIRECTORY_PREFIX}${sampleDirectoryName()}`,
   );
   await mkdir(directory);
@@ -99,7 +182,7 @@ export async function stageUnjournaledPayloadDirectory(run: PayloadRun): Promise
 /** Write `content` as a generated file name in `run`'s payload directory, and return that run-relative name. */
 export async function stageRunPayload(run: PayloadRun, content: string): Promise<string> {
   const name = samplePayloadFileName();
-  await writeFile(join(run.report?.payloadDirectory ?? "", name), content);
+  await writeFile(join(payloadDirectoryOf(run), name), content);
   return name;
 }
 
@@ -116,7 +199,7 @@ export async function stageEscapingPayload(
   const outsidePath = join(productDir, samplePayloadFileName());
   await writeFile(outsidePath, content);
   const linkName = samplePayloadFileName();
-  await symlink(outsidePath, join(run.report?.payloadDirectory ?? "", linkName));
+  await symlink(outsidePath, join(payloadDirectoryOf(run), linkName));
   return { outsidePath, linkName };
 }
 
@@ -165,6 +248,8 @@ export interface PayloadDirectoryRepository {
   deps(overrides?: Partial<VerifyCliDeps>): VerifyCliDeps;
   /** Lifecycle dependencies whose payload-directory removal refuses with a generated reason. */
   refusingRemovalDeps(): VerifyCliDeps;
+  /** Lifecycle dependencies whose file system refuses every write into a journal runs directory. */
+  journalRefusingDeps(): VerifyCliDeps;
   /** Start a file-scoped run of the repository's file, a review run unless another type is named. */
   startRun(start?: PayloadRunStart): Promise<PayloadRun>;
   /** Record one generated scope unit on `run` through the production `scope add` with an inline `--payload`. */
@@ -209,6 +294,7 @@ export async function withPayloadDirectoryRepository<T>(
             throw new Error(sampleVerifyTestValue(STATE_STORE_TEST_GENERATOR.scopeToken()));
           },
         }),
+      journalRefusingDeps: () => deps({ fs: journalRefusingFileSystem() }),
       startRun: async ({ verificationType = VERIFY_VERIFICATION_TYPE.REVIEW, branch, deps: overrides } = {}) => {
         const started = await verifyStartCommand(
           {
@@ -219,7 +305,9 @@ export async function withPayloadDirectoryRepository<T>(
           },
           branchDeps(branch, overrides),
         );
-        const report = started.exitCode === 0 ? (JSON.parse(started.output) as VerifyStartReport) : undefined;
+        const report = started.exitCode === VERIFY_CLI_EXIT_CODE.OK
+          ? (JSON.parse(started.output) as VerifyStartReport)
+          : undefined;
         return {
           started,
           report,
@@ -244,7 +332,7 @@ export async function withPayloadDirectoryRepository<T>(
                 ),
               ),
             ),
-            idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+            idempotencyKey: sampleIdempotencyKey(),
           },
           branchDeps(run.branch, { readPayloadSource: async (source) => source }),
         ),
