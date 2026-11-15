@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { readFile, rm as nodeRm } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import {
@@ -231,7 +231,7 @@ export interface VerifyCliDeps {
   readonly readCheckFile?: (path: string) => Promise<Uint8Array>;
   /** Reads the append payload from its `--payload` source, or the file a `--run-payload` name resolves to; the append verbs require it. */
   readonly readPayloadSource?: (source: string) => Promise<string>;
-  /** Removes a payload directory and everything it holds; absent means the file system. */
+  /** Removes a payload directory and everything it holds; absent means a recursive removal through `fs`. */
   readonly removePayloadDirectory?: (path: string) => Promise<void>;
   /** The journal streaming binding the descriptor injects; the append verbs and start stream through it. */
   readonly journalBinding?: JournalStreamBinding;
@@ -993,13 +993,14 @@ interface StartedRunArtifacts {
   readonly payloadDirectory?: string;
 }
 
-/** Remove a directory and everything it holds; the production default of the injected payload-directory removal. */
-async function removeDirectoryTree(path: string): Promise<void> {
-  await nodeRm(path, { recursive: true, force: true });
-}
-
+/**
+ * The removal of a payload directory and everything it holds: the injected removal when one is given,
+ * otherwise a recursive removal through the injected file system that also lists the payload roots.
+ */
 function payloadDirectoryRemover(deps: VerifyCliDeps): (path: string) => Promise<void> {
-  return deps.removePayloadDirectory ?? removeDirectoryTree;
+  if (deps.removePayloadDirectory !== undefined) return deps.removePayloadDirectory;
+  const fs = deps.fs ?? defaultStateStoreFileSystem;
+  return async (path) => fs.rm(path, { recursive: true, force: true });
 }
 
 /** The names of the entries of `path` that are not files; a directory that does not exist lists none. */
