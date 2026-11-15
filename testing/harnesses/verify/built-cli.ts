@@ -34,7 +34,11 @@ import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generator
 import { CLI_PATH, NODE_EXECUTABLE, PRODUCT_ROOT } from "@testing/harnesses/constants";
 import { buildGitTestEnvironment, GIT_TEST_ENVIRONMENT_KEYS } from "@testing/harnesses/git-test-constants";
 import { type StartedChangeRun, withChangeRunsRepository } from "@testing/harnesses/verify/change-runs";
-import { sampleDirectoryName, samplePayloadFileName } from "@testing/harnesses/verify/payload-directory";
+import {
+  sampleDirectoryName,
+  sampleIdempotencyKey,
+  samplePayloadFileName,
+} from "@testing/harnesses/verify/payload-directory";
 import {
   initializeVerifyRepository,
   type RepositoryStateEntry,
@@ -961,8 +965,13 @@ export interface BuiltPayloadRun {
   readonly finding: string;
   /** Generated review terminal metadata that agrees with a `rejected` seal of a run holding one scope unit. */
   readonly terminalMetadata: string;
-  /** The `--idempotency-key` option with a freshly generated key. */
+  /** The `--idempotency-key` option with a generated key distinct from every earlier one. */
   idempotencyOption(): readonly string[];
+  /**
+   * The payload directory `start` reported. A run whose `start` reported none fails here as a setup error
+   * carrying the `start` standard error, so no step stages or locks a directory outside the store.
+   */
+  payloadDirectory(): string;
   /**
    * Write `content`, the scope unit when none is given, as a generated file name in the run's payload
    * directory, and return that run-relative name.
@@ -1010,6 +1019,10 @@ export async function withBuiltPayloadRun<T>(callback: (run: BuiltPayloadRun) =>
     const scopeUnit = JSON.stringify(
       sampleVerifyTestValue(VERIFY_TEST_GENERATOR.unjudgedScopeUnit(verificationType, repository.filePath)),
     );
+    const payloadDirectory = (): string => {
+      if (report === undefined) throw new Error(`start reported no payload directory: ${start.stderr}`);
+      return report.payloadDirectory;
+    };
     return callback({
       productDir: repository.productDir,
       start,
@@ -1022,7 +1035,7 @@ export async function withBuiltPayloadRun<T>(callback: (run: BuiltPayloadRun) =>
       ),
       stageRunPayload: async (content = scopeUnit) => {
         const name = samplePayloadFileName();
-        await writeFile(join(report?.payloadDirectory ?? "", name), content);
+        await writeFile(join(payloadDirectory(), name), content);
         return name;
       },
       stageInvocationDirectoryPayload: async (name) => {
@@ -1031,10 +1044,8 @@ export async function withBuiltPayloadRun<T>(callback: (run: BuiltPayloadRun) =>
         await writeFile(join(directory, name), scopeUnit);
         return directory;
       },
-      idempotencyOption: () => [
-        flagOf(VERIFY_CLI.idempotencyKeyOption),
-        sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
-      ],
+      idempotencyOption: () => [flagOf(VERIFY_CLI.idempotencyKeyOption), sampleIdempotencyKey()],
+      payloadDirectory,
       run: async (commandPath, options, input, cwd = repository.productDir) =>
         runBuiltVerificationRun(cwd, commandPath, options, input),
     });

@@ -13,6 +13,7 @@ import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
   isDirectory,
+  payloadDirectoryOf,
   samplePayloadFileName,
   stageEscapingPayload,
   stageRunPayload,
@@ -37,7 +38,7 @@ describe("verify finish payload-directory removal", () => {
       expect(finished.exitCode, finished.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
       expect(finished.payloadRemovalFailure).toBeUndefined();
       expect((JSON.parse(finished.output) as VerifyFinishReport).sealed).toBe(true);
-      expect(await isDirectory(run.report?.payloadDirectory ?? "")).toBe(false);
+      expect(await isDirectory(payloadDirectoryOf(run))).toBe(false);
       expect(repeated.exitCode, repeated.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
       expect(JSON.parse(repeated.output)).toEqual(JSON.parse(finished.output));
       expect(rendered.exitCode, rendered.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
@@ -65,7 +66,7 @@ describe("verify finish payload-directory removal", () => {
       expect(finished.exitCode, finished.output).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
       expect(status.exitCode, status.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
       expect((JSON.parse(status.output) as VerifyStatusReport).sealed).toBe(false);
-      expect(await isDirectory(run.report?.payloadDirectory ?? "")).toBe(true);
+      expect(await isDirectory(payloadDirectoryOf(run))).toBe(true);
     });
   });
 
@@ -78,20 +79,20 @@ describe("verify finish payload-directory removal", () => {
       const finished = await verifyFinishCommand(finishOptions, payloads.refusingRemovalDeps());
       const status = await payloads.status(run);
       const repeated = await verifyFinishCommand(finishOptions, payloads.deps());
-      const leftBehind = await isDirectory(run.report?.payloadDirectory ?? "");
+      const leftBehind = await isDirectory(payloadDirectoryOf(run));
       const next = await payloads.startRun();
 
       expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
       expect(added.exitCode, added.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
       expect(finished.exitCode, finished.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
       expect(finished.payloadRemovalFailure?.reason).not.toHaveLength(0);
-      expect(finished.payloadRemovalFailure?.directory).toBe(run.report?.payloadDirectory);
+      expect(finished.payloadRemovalFailure?.directory).toBe(payloadDirectoryOf(run));
       expect(status.exitCode, status.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
       expect((JSON.parse(status.output) as VerifyStatusReport).sealed).toBe(true);
       expect(JSON.parse(finished.output)).toEqual(JSON.parse(repeated.output));
       expect(leftBehind).toBe(true);
       expect(next.started.exitCode, next.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-      expect(await isDirectory(run.report?.payloadDirectory ?? "")).toBe(false);
+      expect(await isDirectory(payloadDirectoryOf(run))).toBe(false);
     });
   });
 
