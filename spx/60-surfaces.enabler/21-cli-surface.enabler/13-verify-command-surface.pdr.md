@@ -3,9 +3,7 @@
 DEFINES existing-run command path AS `input`, `scope add`, `finding add`, `reconcile`, `finish`, `status`, `render`, or `compare` of `spx verification run`
 DEFINES run-inspection command path AS `status`, `render`, `list`, or `compare` of `spx verification run`
 
-GOVERNS the noun-grouped `spx verification` command family that exposes every verification activity
-SO THAT agents, CI jobs, launchers, and operators recording, executing, or inspecting a verification run
-CAN RELY ON `spx verification run` for a run its caller drives and for reading back any run, `spx verification <type> run` for a run SPX executes, and `spx verification input` for inspecting a verification input before any run exists
+GOVERNS the noun-grouped `spx verification` command family that exposes every verification activity SO THAT agents, CI jobs, launchers, and operators recording, executing, or inspecting a verification run CAN RELY ON `spx verification run` for a run its caller drives and for reading back any run, `spx verification <type> run` for a run SPX executes, and `spx verification input` for inspecting a verification input before any run exists
 
 ## Verification
 
