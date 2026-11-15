@@ -16,11 +16,21 @@ import {
   withVerifyHeadCommitRepository,
 } from "@testing/harnesses/verify/repository";
 
-const compareText = (left: string, right: string): number => left.localeCompare(right);
+const compareText = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
+
+const reportedPath = (report: VerifyPathsReport, role: string): string | undefined =>
+  report.writeDirectories.find((directory) => directory.role === role)?.path;
+
+const fileWritingDirectories = (report: VerifyPathsReport): readonly string[] =>
+  report.writeDirectories
+    .filter((directory) => directory.role !== VERIFY_WRITE_DIRECTORY_ROLE.PAYLOADS)
+    .map((directory) => directory.path);
 
 // A run of one verification type, scope, and branch key writes its journal into one runs directory
-// and its verification context into one contexts directory. The write-path report names those
-// directories before any run starts; the files a started run then creates are the oracle for them.
+// and its verification context into one contexts directory, and owns one payload directory inside
+// its type's payload root. The write-path report names those directories before any run starts; the
+// files a started run then creates are the oracle for the first two, and the payload directory the
+// started run reports is the oracle for the payload root that holds it.
 describe("verify write-path report directories", () => {
   describe.each(Object.values(VERIFY_VERIFICATION_TYPE))(VERIFICATION_TYPE_CASE_TITLE, (verificationType) => {
     it.each(Object.values(VERIFY_SCOPE_TYPE))(
@@ -36,23 +46,22 @@ describe("verify write-path report directories", () => {
           expect(reported.exitCode, reported.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
           const report = JSON.parse(reported.output) as VerifyPathsReport;
           expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-          const { locator } = JSON.parse(run.started.output) as VerifyStartReport;
+          const { locator, payloadDirectory } = JSON.parse(run.started.output) as VerifyStartReport;
           const branchScope = join(branchScopesDir(repository.productDir), report.branchSlug);
 
           expect(report.resolvedScope).toEqual({ scopeType, scopeIdentity: locator.scopeIdentity });
           expect(report.writeDirectories.map((directory) => directory.role).sort(compareText)).toEqual(
             Object.values(VERIFY_WRITE_DIRECTORY_ROLE).sort(compareText),
           );
-          expect(report.writeDirectories.map((directory) => directory.path).sort(compareText)).toEqual(
+          expect([...fileWritingDirectories(report)].sort(compareText)).toEqual(
             [...new Set(writtenDirectories)].sort(compareText),
           );
-          expect(
-            report.writeDirectories.find((directory) => directory.role === VERIFY_WRITE_DIRECTORY_ROLE.JOURNAL_RUNS)
-              ?.path,
-          ).toBe(locator.storageNamespace);
+          expect(reportedPath(report, VERIFY_WRITE_DIRECTORY_ROLE.JOURNAL_RUNS)).toBe(locator.storageNamespace);
+          expect(reportedPath(report, VERIFY_WRITE_DIRECTORY_ROLE.PAYLOADS)).toBe(dirname(payloadDirectory));
           expect(writtenDirectories.map((directory) => directory.startsWith(branchScope + sep))).toEqual(
             writtenDirectories.map(() => true),
           );
+          expect(payloadDirectory.startsWith(branchScope + sep)).toBe(true);
         });
       },
     );
@@ -201,9 +210,11 @@ describe("verify write-path report in a linked worktree", () => {
           );
           expect(report.writeDirectories.map((directory) => directory.path.startsWith(linked.worktreeDir + sep)))
             .toEqual(report.writeDirectories.map(() => false));
-          expect(report.writeDirectories.map((directory) => directory.path).sort(compareText)).toEqual(
+          expect([...fileWritingDirectories(report)].sort(compareText)).toEqual(
             [...new Set(writtenDirectories)].sort(compareText),
           );
+          const { payloadDirectory } = JSON.parse(run.started.output) as VerifyStartReport;
+          expect(reportedPath(report, VERIFY_WRITE_DIRECTORY_ROLE.PAYLOADS)).toBe(dirname(payloadDirectory));
         });
       },
     );
