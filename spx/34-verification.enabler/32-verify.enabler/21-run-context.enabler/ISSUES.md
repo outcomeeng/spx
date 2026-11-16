@@ -22,16 +22,6 @@ Except where an entry names another source, the entries below come from test-evi
 
 **Settlement condition:** the spx-driven case opens its run through the executor's recorder operations in `src/commands/verification-exec/recorder-operations.ts` and observes the recorded drive mode on that run, and a test-evidence audit of this node accepts the evidence.
 
-## The scope mapping hand-lists the supported scope types
-
-`tests/verify-scope.mapping.l1.test.ts`, line 7, iterates `verifyScopeMappingCases()`. That function, `testing/generators/verify/verify.ts` lines 791 onward, returns two hand-written cases, one for `changeset` and one for `file`. It does not enumerate the scope types from the closed resolver registry that [`spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`](spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md) makes source-owned.
-
-**Class:** mapping case provenance. The cases are not derived from the source-owned finite domain. The auditor gave a class, not a rule id.
-
-**Impact:** a scope type added to the resolver registry gets no mapping case, and the mapping still passes. The assertion covers "supported scope types", but the evidence covers only the two types the generator names.
-
-**Settlement condition:** the mapping cases are keyed by the source-owned scope-type registry, so a registry entry with no mapping case fails the mapping, and a test-evidence audit of this node accepts the evidence.
-
 ## The run-not-found diagnostic case checks only the namespace label
 
 `tests/verify-input.compliance.l1.test.ts`, lines 53–71, supports the assertion that a run-not-found diagnostic names the storage namespace among its other selector fields. Line 63 checks only that the output contains the `VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.NAMESPACE` label (`namespace=`). It does not check the namespace value that follows the label.
