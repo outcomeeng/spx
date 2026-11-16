@@ -4,6 +4,7 @@ import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 
+import type { NodeStatusAuditFinding } from "./audit-file";
 import {
   NODE_STATUS_CLAIM_FIELD,
   NODE_STATUS_CLAIM_SECTION,
@@ -32,10 +33,12 @@ export interface NodeAttribution {
   readonly run: string;
 }
 
-/** A result an Agentic or Attested run produced, with the paths it read. */
+/** A result an Agentic or Attested run produced, with the paths it read, and the subject commit and findings of its run. */
 export interface NodeAttributedResult extends NodeAttribution {
   readonly verdict: NodeStatusEvidenceOutcome;
   readonly read: readonly string[];
+  readonly commit?: string;
+  readonly findings?: readonly NodeStatusAuditFinding[];
 }
 
 /** What the audit and evidence results a node's claim requires are asked for, and what recorded runs answer. */

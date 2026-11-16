@@ -54,3 +54,8 @@ The write set is git-tracked membership, not the broader git-visible scope `spx/
 - NEVER: declare the four lifecycle string literals anywhere outside `SPEC_TREE_NODE_STATE` ([audit])
 - NEVER: read EXCLUDE membership through file-inclusion scope resolution — lifecycle EXCLUDE membership belongs to node-status, while file-inclusion governs walked file scope ([audit])
 - NEVER: the node-status library composes a language-specific test runner — outcomes arrive through the injected resolver ([audit])
+
+### Audit: Audit File vocabulary
+
+- audit-file-vocabulary-owner: ALWAYS: one module of `src/lib/node-status/` owns the Audit File vocabulary, the keys of an Audit File and the keys of each of its findings, composes the path of an Audit File from the Audit File directory and file names the spec-tree filename grammar declares, and `index.ts` exports it; every other module, test infrastructure included, imports it from there.
+- attributed-result-fields: ALWAYS: `NodeAttributedResult`, which the node-status library declares and `index.ts` exports, carries a result's subject `commit` and its `findings`, each finding under the finding keys of the Audit File vocabulary, as optional fields beside its verdict, read set, actor, and run.

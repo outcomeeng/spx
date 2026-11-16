@@ -242,6 +242,40 @@ const UNACCEPTED_ARTIFACTS_BY_GRAMMAR_FIELD: {
         ),
     ),
   ],
+  AUDIT: [
+    unacceptedDirectory(
+      "audit-directory",
+      ({ node }) => joinArtifactPath(node, SPEC_TREE_GRAMMAR.AUDIT.DIRECTORY_NAME),
+    ),
+    unacceptedFile(
+      "audit-file",
+      ({ node, slug }) =>
+        joinArtifactPath(
+          node,
+          SPEC_TREE_GRAMMAR.AUDIT.DIRECTORY_NAME,
+          `${slug}${SPEC_TREE_GRAMMAR.AUDIT.FILE_EXTENSION}`,
+        ),
+    ),
+    unacceptedDirectory(
+      "audit-evidence-directory",
+      ({ node }) =>
+        joinArtifactPath(node, SPEC_TREE_GRAMMAR.AUDIT.DIRECTORY_NAME, SPEC_TREE_GRAMMAR.AUDIT.EVIDENCE.DIRECTORY_NAME),
+    ),
+    ...[SPEC_TREE_GRAMMAR.AUDIT.EVIDENCE.TEST_FILENAME, SPEC_TREE_GRAMMAR.AUDIT.EVIDENCE.EVAL_FILENAME].map((
+      filename,
+    ) =>
+      unacceptedFile(
+        `audit-evidence-${filename}`,
+        ({ node }) =>
+          joinArtifactPath(
+            node,
+            SPEC_TREE_GRAMMAR.AUDIT.DIRECTORY_NAME,
+            SPEC_TREE_GRAMMAR.AUDIT.EVIDENCE.DIRECTORY_NAME,
+            filename,
+          ),
+      )
+    ),
+  ],
 };
 
 /**

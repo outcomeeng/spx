@@ -44,3 +44,22 @@ CAN read a node's last-recorded verification projection, each result's verdict, 
 - ALWAYS: the git-tracked boundary is the node directory — `spx spec status --update` records a git-tracked node directory's evidence in full, including an evidence file under it that is not yet individually tracked ([test](tests/node-status.compliance.l1.test.ts))
 - NEVER: `spx.status.json` is hand-authored or offered as `spx.status.yaml`/`spx.status.toml` — it is a machine-written JSON artifact ([audit])
 - NEVER: the status path composes a language-specific test runner — outcomes arrive through the injected resolver over recorded verification evidence ([audit])
+
+### Test.Mapping: [audit-file-path](tests/audit-file-path.mapping.l1.test.ts)
+
+The Audit File vocabulary gives the path of an Audit File, relative to the directory of its node, by the claim section and the key of the entry it records.
+
+| Case          | Path                                                                   |
+| ------------- | ---------------------------------------------------------------------- |
+| audit-entry   | `audits/<slug>.json`, for the `audit` entry keyed by the slug `<slug>` |
+| evidence-test | `audits/evidence/test.json`, for the `evidence` entry keyed by `test`  |
+| evidence-eval | `audits/evidence/eval.json`, for the `evidence` entry keyed by `eval`  |
+
+### Test.Compliance: Audit File keys
+
+- [audit-file-keys-exported](tests/audit-file-keys.compliance.l1.test.ts): ALWAYS: the Audit File vocabulary `src/lib/node-status/index.ts` exports names the Audit File keys `key`, `run`, `verdict`, `actor`, `commit`, `read` and `findings`, and the finding keys `artifact`, `location`, `rule`, `verdict`, `message`, `observed` and `expected`
+
+### Audit: Audit File vocabulary
+
+- single-vocabulary-owner: NEVER: a module of `src/` or `testing/` other than the node-status vocabulary module declares an Audit File key or finding key as a literal, or a module other than the spec-tree grammar registry declares an Audit File directory or file name as a literal
+- attributed-result-carries-commit-and-findings: ALWAYS: `NodeAttributedResult` carries optional `commit` and `findings` fields, each finding typed by the finding keys of the Audit File vocabulary

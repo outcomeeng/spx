@@ -50,6 +50,7 @@ import {
 import { createSpecTreeLinkGrammar, type SpecTreeLinkGrammar } from "./link-grammar";
 import { compareSpecTreeOrder } from "./order";
 export {
+  acceptsAuditEntry,
   acceptsEvalLaneEntry,
   acceptsKnowledgeRoot,
   acceptsNodeLocalNote,

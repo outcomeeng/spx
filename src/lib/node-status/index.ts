@@ -1,4 +1,14 @@
 export {
+  NODE_STATUS_AUDIT_FILE_KEY,
+  NODE_STATUS_AUDIT_FINDING_KEY,
+  type NodeStatusAuditFileEntry,
+  type NodeStatusAuditFileEvidenceKind,
+  type NodeStatusAuditFileKey,
+  nodeStatusAuditFilePath,
+  type NodeStatusAuditFinding,
+  type NodeStatusAuditFindingKey,
+} from "./audit-file";
+export {
   NODE_STATUS_ACTOR_KIND,
   NODE_STATUS_ATTRIBUTED_SECTIONS,
   NODE_STATUS_CLAIM_FIELD,

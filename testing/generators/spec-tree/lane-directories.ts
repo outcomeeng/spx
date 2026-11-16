@@ -190,7 +190,8 @@ function arbitraryWord(): fc.Arbitrary<string> {
   return fc.stringMatching(WORD_SHAPE);
 }
 
-function arbitrarySlug(): fc.Arbitrary<string> {
+/** A slug of the grammar's form: one or more words joined by the word separator. */
+export function arbitrarySlug(): fc.Arbitrary<string> {
   return fc.array(arbitraryWord(), { minLength: 1, maxLength: SLUG_WORD_MAX_COUNT }).map((words) =>
     words.join(WORD_SEPARATOR)
   );
