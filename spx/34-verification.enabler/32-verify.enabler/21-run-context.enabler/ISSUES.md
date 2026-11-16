@@ -2,16 +2,6 @@
 
 Except where an entry names another source, the entries below come from test-evidence audit run 1 of this node at `65e35d2b15b8ca92dd8afdc0ee5f4b95bf67d272`. That run returned `REJECTED` with 8 REJECT findings and 1 WARNING. Every cited line lies outside the `origin/main..HEAD` diff of the changeset under audit. The Change-identity assertions and their evidence drew no finding. The harness-owned predicate findings against `testing/harnesses/verify/harness.ts`, and the WARNING that repeats that class, are recorded under "Shared verification harness owns test predicates and unclassified Git doubles" in [`spx/34-verification.enabler/32-verify.enabler/ISSUES.md`](spx/34-verification.enabler/32-verify.enabler/ISSUES.md).
 
-## The run-not-found diagnostic case checks only the namespace label
-
-`tests/verify-input.compliance.l1.test.ts`, lines 53–71, supports the assertion that a run-not-found diagnostic names the storage namespace among its other selector fields. Line 63 checks only that the output contains the `VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.NAMESPACE` label (`namespace=`). It does not check the namespace value that follows the label.
-
-**Class:** a partial predicate. The check falsifies only the label and not the field the assertion names. The auditor gave a class, not a rule id.
-
-**Impact:** a diagnostic that prints `namespace=` with an empty or wrong storage namespace still passes. The assertion's requirement to name the storage namespace is unproven.
-
-**Settlement condition:** the case checks the expected storage-namespace value after its label, taken from a source independent of the diagnostic renderer, and a test-evidence audit of this node accepts the evidence.
-
 ## The Change-identity assertion states a looser grammar than the pattern enforces
 
 **Source:** the local review of head `a442b6ecc5c73055ed14a344b1879e0adfcc1aa1`, category consistency, label DEBT, accepted as debt for the merge.
