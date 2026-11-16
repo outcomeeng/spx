@@ -1,6 +1,6 @@
 import { Command, CommanderError, Option } from "commander";
 import { spawnSync } from "node:child_process";
-import type { Stats } from "node:fs";
+import { constants as fsConstants, type Stats } from "node:fs";
 import * as fs from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { Readable } from "node:stream";
@@ -20,11 +20,17 @@ import {
 } from "@/lib/change-drafts/contract";
 import { withoutGitEnvironment } from "@/lib/git/environment";
 import { escapeCliArgument } from "@/lib/sanitize-cli-argument";
-import { STATE_STORE_SCOPE_PATH, worktreeScopeDir } from "@/lib/state-store";
+import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { PROPERTY_LEVEL, PROPERTY_TIMEOUTS_MS } from "@testing/harnesses/property/property";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const DRAFT_TEMP_PREFIX = "spx-change-draft-";
+/**
+ * The draft location 21-draft-storage.pdr.md declares, written out here rather than composed
+ * from the production scope and directory constants, so a wrong constant moves the drafts away
+ * from this path.
+ */
+const DECLARED_DRAFT_LAYOUT = ".spx/worktree/change-drafts";
 const TEMP_GIT_ENV = {
   ...withoutGitEnvironment(process.env),
   GIT_CONFIG_GLOBAL: "/dev/null",
@@ -103,7 +109,7 @@ export async function withChangeDraftEnv<T>(callback: (env: ChangeDraftEnv) => P
     git(productDir, ["init", "--quiet"]);
     const ignorePath = join(productDir, ".gitignore");
     await fs.writeFile(ignorePath, `${STATE_STORE_SCOPE_PATH.SPX_DIR}/\n`);
-    const draftDir = join(worktreeScopeDir(productDir), CHANGE_DRAFT.directory);
+    const draftDir = join(productDir, ...DECLARED_DRAFT_LAYOUT.split("/"));
     const store = await createChangeDraftStore({ cwd: productDir });
     const env: ChangeDraftEnv = {
       productDir,
@@ -116,7 +122,7 @@ export async function withChangeDraftEnv<T>(callback: (env: ChangeDraftEnv) => P
       retainedNames: () => fs.readdir(draftDir),
       listPath: (path) => fs.readdir(path),
       setDraftDirectoryMode: async (mode) => {
-        await fs.mkdir(draftDir, { recursive: true, mode: CHANGE_DRAFT.directoryMode });
+        await fs.mkdir(draftDir, { recursive: true, mode: fsConstants.S_IRWXU });
         await fs.chmod(draftDir, mode);
       },
       makeVisibleToGit: () =>
@@ -150,7 +156,7 @@ export async function withChangeDraftEnv<T>(callback: (env: ChangeDraftEnv) => P
       symlinkDraft: async (draftId, text) => {
         const target = join(productDir, "outside.md");
         const path = join(draftDir, `${draftId}${CHANGE_DRAFT.extension}`);
-        await fs.mkdir(draftDir, { recursive: true, mode: CHANGE_DRAFT.directoryMode });
+        await fs.mkdir(draftDir, { recursive: true, mode: fsConstants.S_IRWXU });
         await fs.writeFile(target, text);
         await fs.symlink(target, path);
         return { path, target };

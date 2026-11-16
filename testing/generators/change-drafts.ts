@@ -1,7 +1,7 @@
 import fc from "fast-check";
+import { constants as fsConstants } from "node:fs";
 
 import { CHANGE_COMMAND } from "@/commands/change/contract";
-import { CHANGE_DRAFT } from "@/lib/change-drafts/contract";
 
 export function arbitraryDraftText(): fc.Arbitrary<string> {
   return fc.oneof(
@@ -18,8 +18,8 @@ export function arbitraryNonemptyDraftText(): fc.Arbitrary<string> {
 export function arbitraryUnsafeDraftDirectory(): fc.Arbitrary<{ text: string; mode: number }> {
   return fc.record({
     text: arbitraryDraftText(),
-    mode: fc.integer({ min: 1, max: CHANGE_DRAFT.permissionMask ^ CHANGE_DRAFT.directoryMode })
-      .map((permissions) => CHANGE_DRAFT.directoryMode | permissions),
+    mode: fc.integer({ min: 1, max: fsConstants.S_IRWXG | fsConstants.S_IRWXO })
+      .map((groupOrOtherPermissions) => fsConstants.S_IRWXU | groupOrOtherPermissions),
   });
 }
 
