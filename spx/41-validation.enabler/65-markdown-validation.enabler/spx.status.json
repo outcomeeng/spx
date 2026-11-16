@@ -5,7 +5,7 @@
     "test": {
       "tests/markdown-validation-command.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -398,7 +398,7 @@
       },
       "tests/markdown-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -550,7 +550,7 @@
       },
       "tests/markdown-validation.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -655,7 +655,7 @@
       },
       "tests/markdown-validation.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -754,7 +754,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9aead6c795aedfb0c5e837ec8b074d298a714044",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
@@ -899,7 +899,6 @@
           "spx/22-test-environment.enabler/32-property-harness.enabler/21-property-runner.adr.md",
           "spx/22-test-environment.enabler/32-property-harness.enabler/ISSUES.md",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
-          "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/ISSUES.md",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
           "spx/22-test-environment.enabler/32-worktree-layout.enabler/worktree-layout.md",
           "spx/22-test-environment.enabler/ISSUES.md",
@@ -978,7 +977,6 @@
           "spx/29-verification-path-scope.pdr.md",
           "spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md",
           "spx/31-spec-domain.enabler/21-node-status.enabler/21-node-status-architecture.adr.md",
-          "spx/31-spec-domain.enabler/21-node-status.enabler/32-node-status-test-support.enabler/ISSUES.md",
           "spx/31-spec-domain.enabler/21-node-status.enabler/32-node-status-test-support.enabler/node-status-test-support.md",
           "spx/31-spec-domain.enabler/21-node-status.enabler/ISSUES.md",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",

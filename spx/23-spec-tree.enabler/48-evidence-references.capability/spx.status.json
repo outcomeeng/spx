@@ -5,7 +5,7 @@
     "test": {
       "tests/evidence-references.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/48-evidence-references.capability/evidence-references.spec.md",
@@ -113,7 +113,7 @@
       },
       "tests/evidence-references.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/48-evidence-references.capability/evidence-references.spec.md",
@@ -221,7 +221,7 @@
       },
       "tests/evidence-references.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/48-evidence-references.capability/evidence-references.spec.md",
@@ -330,7 +330,7 @@
       },
       "tests/evidence-references.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/48-evidence-references.capability/evidence-references.spec.md",

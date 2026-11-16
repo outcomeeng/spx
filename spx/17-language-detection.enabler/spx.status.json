@@ -5,7 +5,7 @@
     "test": {
       "tests/language-detection.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-language-detection.enabler/language-detection.md",
@@ -97,7 +97,7 @@
       },
       "tests/language-detection.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-language-detection.enabler/language-detection.md",
@@ -189,7 +189,7 @@
       },
       "tests/language-detection.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-language-detection.enabler/language-detection.md",

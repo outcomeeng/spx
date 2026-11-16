@@ -5,7 +5,7 @@
     "test": {
       "tests/session-identity.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/32-session-identity.enabler/session-identity.md",
@@ -28,7 +28,7 @@
       },
       "tests/session-identity.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/32-session-identity.enabler/session-identity.md",
@@ -52,7 +52,7 @@
       },
       "tests/session-identity.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/32-session-identity.enabler/session-identity.md",

@@ -5,7 +5,7 @@
     "test": {
       "tests/domain-path-filters.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/domain-path-filters.md",
