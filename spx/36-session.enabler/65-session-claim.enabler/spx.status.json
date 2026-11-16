@@ -5,7 +5,7 @@
     "test": {
       "tests/session-claim.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "ce0ae7b000b39b75e08e30e349ca76b6616b69ca",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/65-session-claim.enabler/session-claim.md",
@@ -45,7 +45,7 @@
       },
       "tests/session-claim.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "ce0ae7b000b39b75e08e30e349ca76b6616b69ca",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/65-session-claim.enabler/session-claim.md",
