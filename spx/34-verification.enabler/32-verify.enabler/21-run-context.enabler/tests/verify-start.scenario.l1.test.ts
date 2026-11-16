@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { VERIFY_INPUT_SOURCE, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
+import { TEST_DIGEST_NAME } from "@testing/harnesses/crypto/digest-names";
 import {
   observeLinkedWorktreeStart,
   observeNestedDirectoryStart,
@@ -19,12 +20,15 @@ const canonicalJson = (value: unknown): string =>
   JSON.stringify(
     value,
     (_key, member: unknown) =>
-      typeof member === "object" && member !== null && !Array.isArray(member)
+      member instanceof Object && !Array.isArray(member)
         ? Object.fromEntries(Object.entries(member).sort(([left], [right]) => compareCodeUnits(left, right)))
         : member,
   );
 
-const sha256Hex = (text: string): string => createHash("sha256").update(text, "utf8").digest("hex");
+const sha256Hex = (text: string): string =>
+  createHash(TEST_DIGEST_NAME.SHA256_ALGORITHM)
+    .update(text, TEST_DIGEST_NAME.UTF8_ENCODING)
+    .digest(TEST_DIGEST_NAME.HEX_ENCODING);
 
 describe("verify start run context", () => {
   it("creates a context, opens a run journal, and reports the run token, digest, changed scope, input, and locator", async () => {
