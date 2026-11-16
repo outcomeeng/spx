@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { VERIFY_START_REPORT_FIELD } from "@/commands/verify/cli";
-import { VERIFY_CLI } from "@/interfaces/cli/verify";
+import { SCOPE_GRAMMAR_MAPPING } from "@testing/fixtures/verify/record-run/scope-grammar";
 import {
   inspectVerificationStartScopeGrammar,
   observeVerificationScopeOptionMappings,
 } from "@testing/harnesses/verify/harness";
+
+const compareCodeUnits = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
+
+const flagOf = (optionExpression: string | undefined): string | undefined => optionExpression?.split(" ")[0];
 
 describe("record-run scope option mapping", () => {
   it("passes every supported selector through the caller-driven command path", async () => {
@@ -29,19 +32,31 @@ describe("record-run scope option mapping", () => {
           }]);
           expect(subject).toStrictEqual(expectedSubject);
           expect(resolvedScope).toStrictEqual(expectedResolvedScope);
-          expect(reportFields).toStrictEqual(Object.values(VERIFY_START_REPORT_FIELD));
+          expect(reportFields).toContain(SCOPE_GRAMMAR_MAPPING.resolvedScopeField);
         },
       );
+      // Every public form is observed, and no scope type carries a report field of its own: the
+      // result of every selector has the same fields.
+      expect(observations.map(({ scopeType }) => scopeType)).toEqual(
+        expect.arrayContaining(SCOPE_GRAMMAR_MAPPING.forms.map((form) => form.scopeType)),
+      );
+      const fieldSets = observations.map(({ reportFields }) => [...reportFields].sort(compareCodeUnits));
+      fieldSets.forEach((fields) => {
+        expect(fields).toEqual(fieldSets[0]);
+      });
     });
   });
 
+  // Help that misstated the grammar would mislead a caller choosing a selector: the scope-type option
+  // names every public scope type, and the scope option names the scope-identity term of every form.
   it("describes both public scope grammar forms", () => {
-    expect(inspectVerificationStartScopeGrammar()).toStrictEqual({
-      startDescription: VERIFY_CLI.startCommandDescription,
-      scopeTypeFlags: VERIFY_CLI.scopeTypeOption,
-      scopeFlags: VERIFY_CLI.scopeOption,
-      scopeTypeDescription: VERIFY_CLI.scopeTypeOptionDescription,
-      scopeDescription: VERIFY_CLI.scopeOptionDescription,
-    });
+    const grammar = inspectVerificationStartScopeGrammar();
+
+    expect(flagOf(grammar.scopeTypeFlags)).toBe(SCOPE_GRAMMAR_MAPPING.scopeTypeFlag);
+    expect(flagOf(grammar.scopeFlags)).toBe(SCOPE_GRAMMAR_MAPPING.scopeFlag);
+    for (const form of SCOPE_GRAMMAR_MAPPING.forms) {
+      expect(grammar.scopeTypeDescription).toContain(form.scopeType);
+      expect(grammar.scopeDescription).toContain(form.scopeTerm);
+    }
   });
 });
