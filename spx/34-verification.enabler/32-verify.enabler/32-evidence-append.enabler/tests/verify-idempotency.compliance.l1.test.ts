@@ -11,8 +11,8 @@ import { REVIEW_SCOPE_COVERAGE_STATE, VERIFY_APPEND_EVENT_TYPE } from "@/domains
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
-  type AttemptedAppendRun,
   attemptAppendRun,
+  type AttemptedAppendRun,
   eventsOfType,
   reviewRunScenario,
   runEvents,
