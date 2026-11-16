@@ -1,3 +1,4 @@
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -131,11 +132,8 @@ describe("assertProperty runs a property under harness-owned policy", () => {
     }
     expect(captured).toBeInstanceOf(PropertyFailureError);
     expect((captured as PropertyFailureError).cause).toBeInstanceOf(PromiseReturningSyncPredicateError);
-    expect(
-      ((captured as PropertyFailureError).cause as PromiseReturningSyncPredicateError).message,
-    ).toContain(
-      ((captured as PropertyFailureError).cause as PromiseReturningSyncPredicateError)
-        .requiredDeclaration,
+    expect(((captured as PropertyFailureError).cause as PromiseReturningSyncPredicateError).message).toContain(
+      `\`${ts.tokenToString(ts.SyntaxKind.AsyncKeyword)}\``,
     );
   });
 
