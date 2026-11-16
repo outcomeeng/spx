@@ -3,6 +3,7 @@ import { join, posix } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { GIT_NULL_DELIMITED_FLAG, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { defaultGitDependencies, detectWorktreeProductRoot } from "@/lib/git/root";
 import {
   NODE_STATUS_EVIDENCE_OUTCOME,
@@ -20,9 +21,11 @@ import {
 import { compareAsciiStrings } from "@/lib/state-store";
 import { TEST_RUN_STATE_STATUS } from "@/test/run-state";
 import { NODE_STATUS_READABLE_SLUGS, NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
+import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import {
   CLASSIFICATION_FIXTURE_PATHS,
   readVersion1NodeStatus,
+  runFixtureGit,
   withClassificationTree,
   withStatusWriterTree,
 } from "@testing/harnesses/node-status/node-status";
@@ -77,17 +80,38 @@ describe("node-status test support", () => {
           }
 
           const excludedNodeIds = fixture.nodes.filter((node) => node.facts.isExcluded).map((node) => node.dirName);
+          const excludeFilePath = [SPEC_TREE_CONFIG.ROOT_DIRECTORY, SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME]
+            .join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
           if (excludedNodeIds.length > 0) {
-            const excludeFile = await env.readFile(
-              [SPEC_TREE_CONFIG.ROOT_DIRECTORY, SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME].join(
-                SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
-              ),
-            );
+            const excludeFile = await env.readFile(excludeFilePath);
             expect(
               excludeFile.split(NODE_STATUS_EXCLUDE_LINE_GRAMMAR.ENTRY_SEPARATOR).filter((line) => line.length > 0)
                 .sort((left, right) => left.localeCompare(right)),
             ).toEqual(excludedNodeIds.sort((left, right) => left.localeCompare(right)));
           }
+
+          const trackedSpecTreePaths = (
+            await runFixtureGit(env.productDir, [GIT_TEST_SUBCOMMANDS.LS_FILES, GIT_NULL_DELIMITED_FLAG], {
+              stripFinalNewline: false,
+            })
+          )
+            .split(GIT_NULL_RECORD_SEPARATOR)
+            .filter((path) => path.startsWith(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`));
+          const materializedPaths = [
+            ...fixture.nodes.flatMap((node) => [
+              [SPEC_TREE_CONFIG.ROOT_DIRECTORY, node.dirName, `${node.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`]
+                .join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+              ...(node.evidenceReference === undefined
+                ? []
+                : [[SPEC_TREE_CONFIG.ROOT_DIRECTORY, node.dirName, node.evidenceReference].join(
+                  SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+                )]),
+            ]),
+            ...(excludedNodeIds.length > 0 ? [excludeFilePath] : []),
+          ];
+          expect([...trackedSpecTreePaths].sort(compareAsciiStrings)).toEqual(
+            materializedPaths.sort(compareAsciiStrings),
+          );
 
           const { resolveOutcome, runs } = await recordOutcomeEvidence();
           expect(runs.map((run) => run.nodeId).sort((left, right) => left.localeCompare(right))).toEqual(

@@ -130,8 +130,8 @@ export type ClassificationTreeEnv = {
   /** The production resolver over whatever testing evidence is recorded so far; it records none itself. */
   recordedOutcomeResolver(): NodeOutcomeResolver;
   /**
-   * Track the spec tree in a fresh repository, record the outcome evidence, write the projection `--update`
-   * produces from it, commit that projection, and return the resolver over the recorded evidence.
+   * Record the outcome evidence over the tracked spec tree, write the projection `--update` produces from it,
+   * commit that projection, and return the resolver over the recorded evidence.
    */
   commitProjection(): Promise<NodeOutcomeResolver>;
   /** Replace the committed status file of `node` with a version-1 claim of every linked reference as `outcome`, and commit it. */
@@ -153,8 +153,10 @@ export type ClassificationTreeEnv = {
 // Materialize a generated classification tree into a temp product directory:
 // each node becomes a directory with a spec file, optional co-located tests, and
 // optional spx/EXCLUDE membership, exactly as the classification facts dictate.
-// The temp directory is provisioned from the minimal spec-tree config, so the
-// harness never reads the real repository's configuration.
+// The product directory is then a git repository whose index holds the whole
+// materialized spec tree, so every node spec and linked evidence file is tracked
+// before the callback runs. The temp directory is provisioned from the minimal
+// spec-tree config, so the harness never reads the real repository's configuration.
 export async function withClassificationTree(
   fixture: ClassificationTreeFixture,
   callback: (tree: ClassificationTreeEnv) => Promise<void>,
@@ -174,6 +176,7 @@ export async function withClassificationTree(
       })),
       { spec: specContent, test: testContent },
     );
+    await trackSpecTree(env.productDir);
     const expectations: ClassificationTreeNodeExpectation[] = fixture.nodes.map((node, index) => ({
       nodeId: node.dirName,
       slug: node.slug,
@@ -226,7 +229,6 @@ export async function withClassificationTree(
         createNodeOutcomeResolver({ productDir: env.productDir, registry: testingRegistry }),
       recordOutcomeEvidence,
       commitProjection: async () => {
-        await trackSpecTree(env.productDir);
         const { resolveOutcome } = await recordOutcomeEvidence();
         await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
         await commitSpecTree(env.productDir);

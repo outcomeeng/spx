@@ -11,12 +11,14 @@ import {
   projectSpecTree,
   readSpecTree,
   SPEC_TREE_CONFIG,
+  SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_GRAMMAR,
   type SpecTreeProjection,
   type SpecTreeRegistry,
   type SpecTreeSnapshot,
   type SpecTreeSource,
 } from "@/lib/spec-tree";
+import { evidenceFileNameFor, evidenceSubject } from "@testing/generators/spec-tree/evidence-file-name";
 import {
   buildRepresentativeFixture,
   createSource,
@@ -28,6 +30,9 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 export { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/domains/spec/fixture-writer-methods";
 
 export type { Config } from "@/config/types";
+
+/** The message a materialization or read rejects with when its path resolves outside the temp product directory. */
+export const SPEC_TREE_ENV_PATH_ESCAPE_MESSAGE = "Path escapes product directory";
 
 const TEMP_PREFIX = "spx-test-env-";
 const RESIDUAL_PLACEHOLDER_FILE = "placeholder.md";
@@ -213,6 +218,32 @@ async function materializeSpecTreeFixture(
     decisionPath(registry, fixture.decision, fixture.root),
     statementContent(decisionTitle(fixture.decision)),
   );
+  for (const evidence of [fixture.childEvidence, fixture.peerEvidence]) {
+    await env.writeRaw(evidencePath(registry, fixture, evidence), EVIDENCE_FILE_CONTENT);
+  }
+}
+
+const EVIDENCE_FILE_CONTENT = "";
+
+/** The co-located evidence file of `evidence`: a test file in its parent node's evidence directory, named from the entry's id. */
+function evidencePath(
+  registry: SpecTreeRegistry,
+  fixture: RepresentativeSpecTreeFixture,
+  evidence: RepresentativeSpecTreeFixture["childEvidence"],
+): string {
+  const parent = [fixture.root, fixture.child, fixture.peer].find((node) => node.id === evidence.parentId);
+  if (parent === undefined) throw new Error(`Evidence ${evidence.id} names no fixture node as its parent`);
+  const grandparent = [fixture.root, fixture.peer].find((node) => node.id === parent.parentId);
+  return joinSpecTreeFixturePath(
+    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+    grandparent === undefined ? "" : nodeDirectoryName(registry, grandparent),
+    nodeDirectoryName(registry, parent),
+    SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
+    evidenceFileNameFor(
+      [evidenceSubject(evidence.id), SPEC_TREE_EVIDENCE_FILE.MODES[0], SPEC_TREE_EVIDENCE_FILE.LEVELS[0]],
+      SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT,
+    ),
+  );
 }
 
 /** The opening keyword the registry declares for the node's kind, so the fixture's Digest projects; none when the kind declares none. */
@@ -289,7 +320,7 @@ function resolvePath(productDir: string, relativePath: string): string {
   const root = resolve(productDir);
   const absolute = resolve(root, relativePath);
   if (absolute !== root && !absolute.startsWith(root + sep)) {
-    throw new Error(`Path escapes product directory: ${relativePath}`);
+    throw new Error(`${SPEC_TREE_ENV_PATH_ESCAPE_MESSAGE}: ${relativePath}`);
   }
   return absolute;
 }
