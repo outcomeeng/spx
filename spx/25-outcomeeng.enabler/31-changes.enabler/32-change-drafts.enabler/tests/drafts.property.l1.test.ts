@@ -1,4 +1,5 @@
-import { isAbsolute, resolve } from "node:path";
+import { constants as fsConstants } from "node:fs";
+import { isAbsolute, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { CHANGE_DRAFT } from "@/lib/change-drafts/contract";
@@ -20,9 +21,14 @@ describe("local draft lifecycle", () => {
         expect(isAbsolute(first.path)).toBe(true);
         expect(isAbsolute(first.relativePath)).toBe(false);
         expect(resolve(env.productDir, first.relativePath)).toBe(first.path);
+        expect(first.relativePath).toBe(relative(env.productDir, first.path));
         expect(draftParentDirectory(first)).toBe(env.draftDir);
-        expect((await env.inspect(first.path)).mode & CHANGE_DRAFT.permissionMask).toBe(CHANGE_DRAFT.fileMode);
-        expect((await env.inspect(env.draftDir)).mode & CHANGE_DRAFT.permissionMask).toBe(CHANGE_DRAFT.directoryMode);
+        const fileMode = (await env.inspect(first.path)).mode;
+        const directoryMode = (await env.inspect(env.draftDir)).mode;
+        expect(fileMode & (fsConstants.S_IRWXG | fsConstants.S_IRWXO)).toBe(0);
+        expect(directoryMode & (fsConstants.S_IRWXG | fsConstants.S_IRWXO)).toBe(0);
+        expect(fileMode & (fsConstants.S_IRUSR | fsConstants.S_IWUSR)).toBe(fsConstants.S_IRUSR | fsConstants.S_IWUSR);
+        expect(directoryMode & fsConstants.S_IRWXU).toBe(fsConstants.S_IRWXU);
       });
     }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });
   });
