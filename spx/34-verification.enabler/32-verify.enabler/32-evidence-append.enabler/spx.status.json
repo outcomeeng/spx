@@ -5,7 +5,7 @@
     "test": {
       "tests/verify-drive-mode.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "760abf5317e4cc8d608322a3a2287c9b9dbfda14",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -396,12 +396,13 @@
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
+          "testing/harnesses/verify/evidence-append-observations.ts",
           "testing/harnesses/verify/harness.ts"
         ]
       },
       "tests/verify-finding.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "760abf5317e4cc8d608322a3a2287c9b9dbfda14",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -792,12 +793,13 @@
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
+          "testing/harnesses/verify/evidence-append-observations.ts",
           "testing/harnesses/verify/harness.ts"
         ]
       },
       "tests/verify-idempotency.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "a31af58bb379d82b176863028b0eb5885ad23d00",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -1188,12 +1190,13 @@
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
+          "testing/harnesses/verify/evidence-append-observations.ts",
           "testing/harnesses/verify/harness.ts"
         ]
       },
       "tests/verify-judged-deletions.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "760abf5317e4cc8d608322a3a2287c9b9dbfda14",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -1593,7 +1596,7 @@
       },
       "tests/verify-judged-paths.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "760abf5317e4cc8d608322a3a2287c9b9dbfda14",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -1993,7 +1996,7 @@
       },
       "tests/verify-payload.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "760abf5317e4cc8d608322a3a2287c9b9dbfda14",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -2384,12 +2387,13 @@
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
+          "testing/harnesses/verify/evidence-append-observations.ts",
           "testing/harnesses/verify/harness.ts"
         ]
       },
       "tests/verify-run-payload.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "760abf5317e4cc8d608322a3a2287c9b9dbfda14",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -2790,7 +2794,7 @@
       },
       "tests/verify-terminal-rejection.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "760abf5317e4cc8d608322a3a2287c9b9dbfda14",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -3181,6 +3185,7 @@
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
+          "testing/harnesses/verify/evidence-append-observations.ts",
           "testing/harnesses/verify/harness.ts"
         ]
       }

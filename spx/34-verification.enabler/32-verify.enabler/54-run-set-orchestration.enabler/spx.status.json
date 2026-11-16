@@ -5,7 +5,7 @@
     "test": {
       "tests/finding-identity.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "760abf5317e4cc8d608322a3a2287c9b9dbfda14",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/run-set-orchestration.md",
@@ -171,7 +171,7 @@
       },
       "tests/run-set-boundary.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "760abf5317e4cc8d608322a3a2287c9b9dbfda14",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/run-set-orchestration.md",
@@ -337,7 +337,7 @@
       },
       "tests/run-set-projection.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "760abf5317e4cc8d608322a3a2287c9b9dbfda14",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/run-set-orchestration.md",
@@ -502,7 +502,7 @@
       },
       "tests/run-set-selector.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "760abf5317e4cc8d608322a3a2287c9b9dbfda14",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/run-set-orchestration.md",

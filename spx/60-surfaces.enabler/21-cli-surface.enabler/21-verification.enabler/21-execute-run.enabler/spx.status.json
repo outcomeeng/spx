@@ -5,7 +5,7 @@
     "test": {
       "tests/execute-run.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "9a231ad904d0989ec07ee4a628581faf328e9414",
+        "commit": "760abf5317e4cc8d608322a3a2287c9b9dbfda14",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-execute-run.enabler/execute-run.md",
