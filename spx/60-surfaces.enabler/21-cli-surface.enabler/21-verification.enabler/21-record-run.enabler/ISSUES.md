@@ -26,26 +26,24 @@ The subtree-wide form of the class, covering the same module, is recorded in
 [`spx/34-verification.enabler/32-verify.enabler/ISSUES.md`](spx/34-verification.enabler/32-verify.enabler/ISSUES.md)
 under "Shared verification harness owns test predicates and unclassified Git
 doubles". The facts above are the record-run instance: the token-supplying
-observations and the test cases that consume them.
+observations and the test cases that consumed them.
 
-The assertion that takes the oracle from the harness is
-`expect(observation.stderr).toContain(observation.expectedDiagnosticToken)` in
-the case "rejects a caller-driven lifecycle verb outside the verification run
-noun group" of `tests/record-run.compliance.l1.test.ts`. `observeVerificationLifecycleOutsideRunRejection` returns
-`expectedDiagnosticToken` with the observation, so the expected value comes from
-the shared harness and not from the test.
+The rejection cases of `tests/record-run.compliance.l1.test.ts` no longer
+consume those observations. Each builds its own invocation, parses it through
+`observeVerificationInvocation` in `testing/harnesses/verify/rejected-invocation.ts`,
+which returns no expected value, and derives the token its `stderr` must name
+from the command name it wrote. The token-supplying observations stay in
+`testing/harnesses/verify/harness.ts`, consumed by no test of this node, and the
+module still imports `expect`.
 
-**Impact:** a rejection case passes whenever `stderr` contains whatever token
-the harness chose, so the test file does not show which diagnostic the command
-path owes its caller, and a harness change to the token changes the evidence
-without touching the test. This node's test-evidence audit rejects while either
-pattern holds.
+**Impact:** while the shared module keeps its `expect` import and its
+token-supplying observations, any test that imports it reaches assertion code
+in test infrastructure, and this node's test-evidence audit can raise the
+assertion-code finding against the five importing test files.
 
-**Settlement condition:** each rejection case of
-`tests/record-run.compliance.l1.test.ts` derives its expected diagnostic token
-in the test from source-owned vocabulary, the observations no longer return an
-expected value, `testing/harnesses/verify/harness.ts` imports no `expect`, and a
-test-evidence audit of this node raises neither finding.
+**Settlement condition:** `testing/harnesses/verify/harness.ts` no longer
+declares observations that return an expected value and imports no `expect`,
+and a test-evidence audit of this node raises neither finding.
 
 ## The verification-run descriptor carries test-only vocabulary
 
@@ -70,42 +68,3 @@ can catch a forbidden command path that the descriptor's own list omits.
 
 **Settlement condition:** the parent entry settles, and a test-evidence audit
 of this node raises no source-ownership finding on the descriptor.
-
-## The scope-mapping generator orders its expected resolved scope by host locale
-
-**Evidence:** test-evidence audit run 1 of this node at
-`65e35d2b15b8ca92dd8afdc0ee5f4b95bf67d272`, `WARNING`, host-locale sort, on lines
-outside the `origin/main..HEAD` diff of that head.
-`testing/generators/verify/verify.ts` line 1112 builds the changeset scenario's
-`resolvedPaths` with `localeCompare`; `verifyScopeMappingCases` (line 791) turns
-it into `expectedResolvedScope`, which `tests/file-scope.mapping.l1.test.ts`
-compares with `toStrictEqual`. The same module's generator that pairs two changed-path lists (line 1163)
-also orders through `localeCompare`. The product-wide class is recorded in
-[`spx/ISSUES.md`](spx/ISSUES.md) under "Locale-dependent ordering remains in
-projection and listing paths", whose site list names neither line.
-
-**Impact:** the expected order follows the host's collation, so the mapping
-case can pass on one host and fail on another wherever locale collation and
-code-unit order disagree for the generated paths.
-
-**Settlement condition:** the generator orders `resolvedPaths` by code unit, and
-a test-evidence audit of this node raises no host-locale sort warning.
-
-## A scope-grammar test compares help strings to the constants that produce them
-
-**Evidence:** test-evidence audit run 1 of this node at
-`65e35d2b15b8ca92dd8afdc0ee5f4b95bf67d272`, `WARNING`, help-string test, on lines
-outside the `origin/main..HEAD` diff of that head. The case "describes both
-public scope grammar forms" in `tests/file-scope.mapping.l1.test.ts`, lines
-38–46, asserts that the registered `start` command and scope options carry
-`VERIFY_CLI.startCommandDescription`, `scopeTypeOptionDescription`, and
-`scopeOptionDescription` — the source constants the descriptor registers. It is
-the only case of this node whose subject is help text alone.
-
-**Impact:** the case restates the descriptor's wiring and passes for any
-description text, so it cannot detect help that misstates the `changeset` and
-`file` scope grammar the mapping assertion declares.
-
-**Settlement condition:** the case asserts a help property the scope-grammar
-mapping requires, or is removed from the mapping evidence, and a test-evidence
-audit of this node raises no help-string warning.
