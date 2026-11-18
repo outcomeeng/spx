@@ -4,6 +4,8 @@ Before any other step, read methodology 4.0 in the main checkout of the methodol
 
 Run `/hold-position resume` when a session starts, and `/hold-position hand-off` before its context is cleared. Use no other installed skill, except the skills that carry a Change, `product-tree:author-change`, `product-tree:manage-change`, `product-tree:apply-change` and `product-tree:merge`, with every skill they invoke, and the pane skills an overseer uses to read, prompt, clear and resume the panes of the Positions it oversees: `coding-agents:operate-prowl` and `coding-agents:operate-herdr`. Where a skill and methodology 4.0 differ, methodology 4.0 holds.
 
+Until https://github.com/outcomeeng/changes/issues/944 closes Applied, spx writes no Audit File, so CI keeps each Audit entry that has no Audit File on its pin. From 944's close on, the gate fails each Audit entry without an Audit File, as methodology 4.0 states.
+
 When a Position needs an answer from the Operator and the orchestration file sets `operator_available = true`, it asks through AskUserQuestion. This holds however many earlier questions the Operator dismissed.
 
 A Position stops working only to hand off, or for an answer it cannot settle itself. Before it stops, it asks the Operator through AskUserQuestion when the orchestration file sets `operator_available = true`, and otherwise mails its overseer.
