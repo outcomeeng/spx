@@ -2,7 +2,7 @@
 
 Before any other step, read methodology 4.0 in the main checkout of the methodology repository, `/Users/shz/Code/outcomeeng/methodology/methodology/versions/4.0/methodology/`, starting at `index.md`. Pull that checkout before you read it. Methodology 4.0 governs all work in this repository.
 
-Run `/hold-position resume` when a session starts, and `/hold-position hand-off` before its context is cleared. Use no other installed skill, except the pane skills an overseer uses to read, prompt, clear and resume the panes of the Positions it oversees: `coding-agents:operate-prowl` and `coding-agents:operate-herdr`. Where a skill and methodology 4.0 differ, methodology 4.0 holds.
+Run `/hold-position resume` when a session starts, and `/hold-position hand-off` before its context is cleared. Use no other installed skill, except the skills that carry a Change, `product-tree:author-change`, `product-tree:manage-change`, `product-tree:apply-change` and `product-tree:merge`, with every skill they invoke, and the pane skills an overseer uses to read, prompt, clear and resume the panes of the Positions it oversees: `coding-agents:operate-prowl` and `coding-agents:operate-herdr`. Where a skill and methodology 4.0 differ, methodology 4.0 holds.
 
 When a Position needs an answer from the Operator and the orchestration file sets `operator_available = true`, it asks through AskUserQuestion. This holds however many earlier questions the Operator dismissed.
 
