@@ -662,7 +662,7 @@ export type PinnedNodeRepository = {
   readonly evalPaths: readonly string[];
   /** Product-relative paths of the probes the spec links. */
   readonly probePaths: readonly string[];
-  /** The kinds of evidence the spec links, by link text, in ascending order. */
+  /** The kinds of audited evidence the spec links, by link text, in ascending order; a probe is attested, never audited. */
   readonly evidenceKinds: readonly string[];
   /** The malleability the spec's front matter declares; the implementation layer when it declares none. */
   readonly declaredMalleability: NodeStatusMalleability;
@@ -833,7 +833,10 @@ export async function withPinnedNodeRepository(
       testPaths,
       evalPaths,
       probePaths,
-      evidenceKinds: [...new Set(links.map((link) => link.text))].sort(compareAsciiStrings),
+      evidenceKinds: [
+        ...new Set(links.map((link) => link.text).filter((text) => text !== SPEC_TREE_EVIDENCE_LINK_TEXT.PROBE)),
+      ]
+        .sort(compareAsciiStrings),
       declaredMalleability,
       testKeys,
       testKey: (path) => posix.relative(nodePath, path),

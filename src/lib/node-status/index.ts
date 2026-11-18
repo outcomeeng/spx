@@ -72,6 +72,7 @@ export {
   type NodeAttributedResults,
   type NodeReadPathResolver,
 } from "./fold";
+export { LOCKFILE_NAMES, withoutLockfile } from "./lockfile";
 export { createNodeStatusProvider } from "./provider";
 export { NODE_STATUS_FILENAME, type NodeStatusRead, parseNodeStatusFile, readNodeStatus } from "./read";
 export {
