@@ -31,3 +31,13 @@ Wiring `createNodeStatusProvider` into `spx spec status` adds one synchronous `r
 **Impact:** a change that drops an `externalValue` mark from a composed report, or routes the relayed `show` document through the composed-text write, passes every test in this node; the first lets an escape byte (`0x1b`) or a forged line feed reach the terminal, and the second corrupts the document the caller asked to see.
 
 **Settlement condition:** this node declares a compliance assertion, with co-located evidence, that a control-byte-bearing value renders escaped in a composed `spx spec` report and survives byte-for-byte in relayed `show` output.
+
+## The status fold reads only the runs stored under the checkout's own branch key
+
+`spx spec status --update` resolves recorded test and audit runs from the state-store directory of the checkout's own branch key (`.spx/branch/<branch-key>/`). A run recorded from a detached checkout of a commit is stored under `detached-<commit>-<suffix>`, so a fold on a branch that points at the same commit does not see it. Folding a run from a detached checkout of that commit sees only the runs under that key, and writes every test entry no run there covers as `not-run`.
+
+**Evidence:** on 2026-11-16 the SPX Advisor's Evidence Audit runs for Change 993 sat under `detached-75e6deef6f50-07ebff8d`. A fold on `work/change-993` at the same commit left each `evidence` entry `not-run`. A fold from a detached checkout of that commit read the audit runs and wrote every `test` entry `not-run`, until a full test run under that key came first.
+
+**Impact:** an Evidence Audit or a Review recorded from a detached checkout folds only after a full test run from a detached checkout of the same commit. A plain fold on the branch silently omits it.
+
+**Settlement condition:** a fold reads every sealed run whose recorded subject commit is the checkout's `HEAD`, whatever branch key stores it, shown by evidence that a run recorded from a detached checkout folds on a branch that points at the same commit.
