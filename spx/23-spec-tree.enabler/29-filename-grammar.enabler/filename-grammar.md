@@ -6,6 +6,17 @@ CAN classify and render filenames against one authoritative grammar, without re-
 
 ## Assertions
 
+### Test.Mapping: [audit-directory](tests/audit-directory.mapping.l1.test.ts)
+
+The 4.0 naming-schema version accepts, under an output node's `audits/` directory, the Audit File names the grammar registry declares beside the `tests/`, `evals/` and `probes/` names, and the 3.x version accepts no `audits/` directory.
+
+| Case           | Path under the node                                      | 4.0 version | 3.x version |
+| -------------- | -------------------------------------------------------- | ----------- | ----------- |
+| audit-file     | `audits/<slug>.json`, for any slug                       | accepts     | rejects     |
+| evidence-test  | `audits/evidence/test.json`                              | accepts     | rejects     |
+| evidence-eval  | `audits/evidence/eval.json`                              | accepts     | rejects     |
+| evidence-other | `audits/evidence/<slug>.json`, for a slug not test, eval | rejects     | rejects     |
+
 ### Scenarios
 
 - Given the spec-tree descriptor is registered with the config module, when `resolveConfig(productDir)` runs with no yaml, then the resolved spec-tree section carries no `kinds` field ([test](tests/spec-tree-config.scenario.l1.test.ts))

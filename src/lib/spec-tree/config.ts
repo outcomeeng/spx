@@ -254,6 +254,16 @@ export const SPEC_TREE_GRAMMAR = {
     PROTOCOL_FILENAME: "probe.md",
     RUNS_DIRECTORY_NAME: "runs",
   },
+  /** The Audit File names: an Audit Assertion's file `{slug}.json` directly under `audits/`, and each `evidence` file. */
+  AUDIT: {
+    DIRECTORY_NAME: "audits",
+    FILE_EXTENSION: ".json",
+    EVIDENCE: {
+      DIRECTORY_NAME: "evidence",
+      TEST_FILENAME: "test.json",
+      EVAL_FILENAME: "eval.json",
+    },
+  },
   SPEC_FILE: {
     CANONICAL_SUFFIX: ".spec.md",
     PRIOR_SUFFIX: ".md",
@@ -306,6 +316,8 @@ export type NamingSchemaVersion = {
   readonly knowledge?: typeof SPEC_TREE_GRAMMAR.KNOWLEDGE;
   /** The probe lane a node may hold; absent for a version that reserves no such directory. */
   readonly probe?: typeof SPEC_TREE_GRAMMAR.PROBE;
+  /** The Audit File directory a node may hold; absent for a version that reserves no such directory. */
+  readonly audit?: typeof SPEC_TREE_GRAMMAR.AUDIT;
   readonly specFileSuffix: string;
   /** The kind a root spec file declares in its front matter; absent when the root is a `productSuffix` file with no declared kind. */
   readonly rootSpecKind?: string;
@@ -373,6 +385,7 @@ export const SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION: NamingSchemaVersion = {
   coordinationNotes: [SPEC_TREE_COORDINATION_NOTE.ISSUES],
   knowledge: SPEC_TREE_GRAMMAR.KNOWLEDGE,
   probe: SPEC_TREE_GRAMMAR.PROBE,
+  audit: SPEC_TREE_GRAMMAR.AUDIT,
   rootSpecKind: SPEC_TREE_CONFIG.PRODUCT.KIND,
 };
 
@@ -485,6 +498,38 @@ export function acceptsProbeEntry(
   return artifact.length === PROBE_ARTIFACT_NAME_SEGMENT_COUNT
     && isGrammarSlug(artifactSlug, version.evidence)
     && version.evidence.WORD_PATTERN.test(extension);
+}
+
+/** The segments of an Audit File directory path that name the directory alone, an entry in it, or an entry in its `evidence` directory. */
+const AUDIT_DIRECTORY_PATH_SEGMENT_COUNT = 1;
+const AUDIT_ENTRY_PATH_SEGMENT_COUNT = 2;
+const AUDIT_EVIDENCE_ENTRY_PATH_SEGMENT_COUNT = 3;
+
+/**
+ * Whether a version accepts the entry at `pathFromNode`, a path relative to a node directory joined
+ * by the version's path separator, as Audit File content: the `audits` directory, an Audit File
+ * `{slug}.json` directly beneath it, its `evidence` directory, and in that directory the `test.json`
+ * and `eval.json` Audit Files. A version that reserves no Audit File directory accepts nothing.
+ */
+export function acceptsAuditEntry(
+  version: NamingSchemaVersion,
+  pathFromNode: string,
+  entryKind: SpecTreeEvalEntryKind,
+): boolean {
+  if (version.audit === undefined) return false;
+  const segments = pathFromNode.split(version.pathSeparator);
+  const [directory, name = "", evidenceName = ""] = segments;
+  if (directory !== version.audit.DIRECTORY_NAME) return false;
+  const isDirectory = entryKind === SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY;
+  if (segments.length === AUDIT_DIRECTORY_PATH_SEGMENT_COUNT) return isDirectory;
+  if (segments.length === AUDIT_ENTRY_PATH_SEGMENT_COUNT) {
+    if (isDirectory) return name === version.audit.EVIDENCE.DIRECTORY_NAME;
+    return name.endsWith(version.audit.FILE_EXTENSION)
+      && isGrammarSlug(name.slice(0, -version.audit.FILE_EXTENSION.length), version.evidence);
+  }
+  if (segments.length !== AUDIT_EVIDENCE_ENTRY_PATH_SEGMENT_COUNT || isDirectory) return false;
+  return name === version.audit.EVIDENCE.DIRECTORY_NAME
+    && (evidenceName === version.audit.EVIDENCE.TEST_FILENAME || evidenceName === version.audit.EVIDENCE.EVAL_FILENAME);
 }
 
 const VERSION_COMPONENT_SEPARATOR = ".";
