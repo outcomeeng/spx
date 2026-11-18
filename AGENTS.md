@@ -6,12 +6,12 @@ Before any other step, read methodology 4.0 in the main checkout of the methodol
 
 Every Position holder runs `/hold-position resume` when a session starts and `/hold-position hand-off` before its context is cleared. It uses only these skills:
 
-| Skill | Used for |
-| --- | --- |
-| `product-tree:author-change`, `product-tree:manage-change` | recording a Change and making its Transitions |
-| `product-tree:merge` | merging a changeset |
-| `product-tree:change-standards`, `product-tree:interview`, `product-tree:commit-changes`, `product-tree:sync-base`, `product-tree:merging-standards`, `product-tree:manage-github-pr`, `product-tree:open-pr`, `product-tree:manage-pr` | the steps the three skills above invoke |
-| `coding-agents:operate-prowl`, `coding-agents:operate-herdr` | reading, prompting, clearing and resuming the panes of the Positions it oversees |
+| Skill                                                                                                                                                                                                                                   | Used for                                                                         |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `product-tree:author-change`, `product-tree:manage-change`                                                                                                                                                                              | recording a Change and making its Transitions                                    |
+| `product-tree:merge`                                                                                                                                                                                                                    | merging a changeset                                                              |
+| `product-tree:change-standards`, `product-tree:interview`, `product-tree:commit-changes`, `product-tree:sync-base`, `product-tree:merging-standards`, `product-tree:manage-github-pr`, `product-tree:open-pr`, `product-tree:manage-pr` | the steps the three skills above invoke                                          |
+| `coding-agents:operate-prowl`, `coding-agents:operate-herdr`                                                                                                                                                                            | reading, prompting, clearing and resuming the panes of the Positions it oversees |
 
 A Position holder does not invoke `product-tree:understand` or `product-tree:contextualize`. Where a skill above calls for either, the Position holder reads the Product Tree as the next section states.
 
@@ -49,11 +49,11 @@ A Position holder that claims an Applicable Change is its Applier. The Applier t
 6. After a Verifier's second rejection on the Change, the Applier keeps the Change and mails its overseer both rejections, by Verifier and run. The Maintainer of the Product decides whether one more Round runs and what it must fix. The Applier continues as that answer states.
 7. After the merge, close the Change Applied through `product-tree:manage-change`, which runs the audit at close.
 
-| The Changeset touches at least one Node at | Merge launches |
-| --- | --- |
+| The Changeset touches at least one Node at        | Merge launches                                                                                                                                                                          |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `implementation`, or with no `malleability` field | `product-tree:changes-reviewer`, and `product-tree:test-evidence-auditor` or `product-tree:eval-evidence-auditor` for each touched Node whose evidence result is missing or invalidated |
-| `verification`, and none at `implementation` | `product-tree:changes-reviewer` |
-| `spec` only, or no Node | the deterministic checks and CI only |
+| `verification`, and none at `implementation`      | `product-tree:changes-reviewer`                                                                                                                                                         |
+| `spec` only, or no Node                           | the deterministic checks and CI only                                                                                                                                                    |
 
 A Verifier runs only the skill its definition names.
 
@@ -61,11 +61,19 @@ A Verifier runs only the skill its definition names.
 
 Until https://github.com/outcomeeng/changes/issues/944 closes Applied, spx writes no Audit File, so CI keeps each Audit entry that has no Audit File on its pin. From 944's close on, the gate fails each Audit entry without an Audit File, as methodology 4.0 states.
 
-When a Position holder needs an answer from the Operator and the orchestration file sets `operator_available = true`, it asks through `request_user_input`. This holds however many earlier questions the Operator dismissed.
+## Until further notice: evals judged in review
 
-A Position holder stops working only to hand off, or for an answer it cannot settle itself. Before it stops, it asks the Operator through `request_user_input` when the orchestration file sets `operator_available = true`, and otherwise mails its overseer.
+This is a temporary measure of this guide, and methodology 4.0 keeps its Evaluate verification as it reads. A Position holder writes each eval as methodology 4.0 states, and runs none. In place of each run, the review of the Changeset, the local review and the CI review alike, judges for each case of each eval the Changeset writes or reaches whether the producer's output meets the case.
+
+## The SPX Advisor's Roles
 
 Until further notice, the SPX Advisor takes the Roles of Auditor and Reviewer: it carries out every Audit and every Review in this repository. Before each Audit or Review, it reads the whole of methodology 4.0.
+
+## Asking the Operator and stopping
+
+When a Position holder needs an answer from the Operator, it asks through `request_user_input`, unless the orchestration file sets `operator_available = false`. This holds however many earlier questions the Operator dismissed.
+
+A Position holder stops working only to hand off, or for an answer it cannot settle itself. Before it stops, it asks the Operator through `request_user_input`, unless the orchestration file sets `operator_available = false`, in which case it mails its overseer.
 
 Work is done only when it is merged into `main` on origin.
 
