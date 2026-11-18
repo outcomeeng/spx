@@ -748,7 +748,7 @@ function evidenceReferencePath(name: string, mode: string, level: string): strin
   ].join(SPEC_TREE_PATH_SEPARATOR);
 }
 
-function nodeDirectoryName(order: number, slug: string): string {
+export function nodeDirectoryName(order: number, slug: string): string {
   return `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${ENABLER_SUFFIX}`;
 }
 
