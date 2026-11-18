@@ -1,5 +1,5 @@
 {
-  "state": "failing",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -62,7 +62,26 @@
     },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "f0c8a650ed725c5375d1d25d12ccb4304f9aa00f",
+        "read": [
+          "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
+          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.mapping.l1.test.ts",
+          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.property.l1.test.ts",
+          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/sampler.conformance.l1.test.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/property/property.ts",
+          "testing/generators/sample.ts",
+          "testing/harnesses/property/property.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-18_10-10-42-494-fa95e88b00c7"
       }
     }
   }
