@@ -5,7 +5,7 @@
     "test": {
       "tests/changed-set-planning.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/95-changed-set-planning.enabler/changed-set-planning.md",
@@ -69,6 +69,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/spec-tree/config.ts",
           "src/lib/spec-tree/context-manifest.ts",
@@ -127,7 +128,7 @@
       },
       "tests/changed-set-planning.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/95-changed-set-planning.enabler/changed-set-planning.md",
@@ -191,6 +192,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/spec-tree/config.ts",
           "src/lib/spec-tree/context-manifest.ts",
@@ -248,7 +250,7 @@
       },
       "tests/changed-set-planning.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/95-changed-set-planning.enabler/changed-set-planning.md",
@@ -323,6 +325,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/process-lifecycle/exit-codes.ts",
           "src/lib/process-lifecycle/foreground-handoff.ts",
           "src/lib/process-lifecycle/guarded-supervision.ts",

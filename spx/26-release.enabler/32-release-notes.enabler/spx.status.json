@@ -5,7 +5,7 @@
     "test": {
       "tests/release-notes.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -92,6 +92,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -166,7 +167,7 @@
       },
       "tests/release-notes.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -239,6 +240,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/spec-tree/config.ts",
           "src/lib/spec-tree/context-manifest.ts",
@@ -294,7 +296,7 @@
       },
       "tests/release-notes.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -367,6 +369,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/spec-tree/config.ts",
           "src/lib/spec-tree/context-manifest.ts",
@@ -423,7 +426,7 @@
       },
       "tests/release-notes.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -510,6 +513,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -582,7 +586,7 @@
       },
       "tests/release-notes.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -655,6 +659,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/spec-tree/config.ts",
           "src/lib/spec-tree/context-manifest.ts",

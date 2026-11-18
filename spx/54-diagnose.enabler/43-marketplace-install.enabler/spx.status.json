@@ -5,7 +5,7 @@
     "test": {
       "tests/marketplace-install.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/43-marketplace-install.enabler/marketplace-install.md",

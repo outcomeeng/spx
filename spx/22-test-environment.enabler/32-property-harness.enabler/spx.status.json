@@ -1,11 +1,11 @@
 {
-  "state": "passing",
+  "state": "failing",
   "malleability": "implementation",
   "verification": {
     "test": {
       "tests/property-harness.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -18,7 +18,7 @@
       },
       "tests/property-harness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -32,7 +32,7 @@
       },
       "tests/property-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -47,7 +47,7 @@
       },
       "tests/sampler.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -62,27 +62,7 @@
     },
     "evidence": {
       "test": {
-        "verdict": "passed",
-        "commit": "75e6deef6f50afd2ee5a09f7f233928ab9ac12cb",
-        "read": [
-          "pnpm-lock.yaml",
-          "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
-          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.mapping.l1.test.ts",
-          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.property.l1.test.ts",
-          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.scenario.l1.test.ts",
-          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/sampler.conformance.l1.test.ts",
-          "src/test/languages/read-recorder-install.ts",
-          "src/test/languages/read-recorder-setup.ts",
-          "src/test/languages/read-recorder.ts",
-          "testing/generators/property/property.ts",
-          "testing/generators/sample.ts",
-          "testing/harnesses/property/property.ts"
-        ],
-        "actor": {
-          "kind": "agent",
-          "id": "spx-advisor"
-        },
-        "run": "2026-11-16_01-40-03-535-f009a70020e3"
+        "verdict": "not-run"
       }
     }
   }

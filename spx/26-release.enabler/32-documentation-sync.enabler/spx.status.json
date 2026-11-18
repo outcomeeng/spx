@@ -5,7 +5,7 @@
     "test": {
       "tests/documentation-sync.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-documentation-sync.enabler/documentation-sync.md",
@@ -85,6 +85,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/release-publication/github-release-publisher.ts",
           "src/lib/release-publication/npm-package-publisher.ts",
           "src/lib/release-publication/runner.ts",
@@ -141,7 +142,7 @@
       },
       "tests/documentation-sync.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-documentation-sync.enabler/documentation-sync.md",
@@ -221,6 +222,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/release-publication/github-release-publisher.ts",
           "src/lib/release-publication/npm-package-publisher.ts",
           "src/lib/release-publication/runner.ts",
@@ -278,7 +280,7 @@
       },
       "tests/documentation-sync.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-documentation-sync.enabler/documentation-sync.md",
@@ -372,6 +374,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -444,7 +447,7 @@
       },
       "tests/documentation-sync.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-documentation-sync.enabler/documentation-sync.md",
@@ -524,6 +527,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/release-publication/github-release-publisher.ts",
           "src/lib/release-publication/npm-package-publisher.ts",
           "src/lib/release-publication/runner.ts",

@@ -5,7 +5,7 @@
     "test": {
       "tests/publish-dispatch.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           ".github/workflows/publish.yml",
           "pnpm-lock.yaml",
@@ -86,6 +86,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/process-lifecycle/exit-codes.ts",
           "src/lib/process-lifecycle/foreground-handoff.ts",
           "src/lib/process-lifecycle/guarded-supervision.ts",
@@ -157,7 +158,7 @@
       },
       "tests/publish-dispatch.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/43-publish-dispatch.enabler/publish-dispatch.md",
@@ -237,6 +238,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/release-publication/github-release-publisher.ts",
           "src/lib/release-publication/npm-package-publisher.ts",
           "src/lib/release-publication/runner.ts",
