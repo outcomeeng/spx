@@ -1,11 +1,11 @@
 {
-  "state": "specified",
+  "state": "failing",
   "malleability": "implementation",
   "verification": {
     "test": {
       "tests/run-compare-arguments.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare-arguments.compliance.l1.test.ts",
@@ -402,7 +402,7 @@
       },
       "tests/run-compare-lookup.conformance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare-lookup.conformance.l2.test.ts",
@@ -800,13 +800,14 @@
           "testing/harnesses/verify/built-cli.ts",
           "testing/harnesses/verify/change-runs.ts",
           "testing/harnesses/verify/harness.ts",
+          "testing/harnesses/verify/payload-directory.ts",
           "testing/harnesses/verify/repository.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/run-compare.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare.compliance.l2.test.ts",
@@ -1204,13 +1205,14 @@
           "testing/harnesses/verify/built-cli.ts",
           "testing/harnesses/verify/change-runs.ts",
           "testing/harnesses/verify/harness.ts",
+          "testing/harnesses/verify/payload-directory.ts",
           "testing/harnesses/verify/repository.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/run-compare.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare.scenario.l2.test.ts",
@@ -1608,13 +1610,14 @@
           "testing/harnesses/verify/built-cli.ts",
           "testing/harnesses/verify/change-runs.ts",
           "testing/harnesses/verify/harness.ts",
+          "testing/harnesses/verify/payload-directory.ts",
           "testing/harnesses/verify/repository.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/run-list.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-list.compliance.l2.test.ts",
@@ -2012,13 +2015,14 @@
           "testing/harnesses/verify/built-cli.ts",
           "testing/harnesses/verify/change-runs.ts",
           "testing/harnesses/verify/harness.ts",
+          "testing/harnesses/verify/payload-directory.ts",
           "testing/harnesses/verify/repository.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/run-list.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-list.scenario.l2.test.ts",
@@ -2416,13 +2420,14 @@
           "testing/harnesses/verify/built-cli.ts",
           "testing/harnesses/verify/change-runs.ts",
           "testing/harnesses/verify/harness.ts",
+          "testing/harnesses/verify/payload-directory.ts",
           "testing/harnesses/verify/repository.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/verification.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/verification.compliance.l1.test.ts",

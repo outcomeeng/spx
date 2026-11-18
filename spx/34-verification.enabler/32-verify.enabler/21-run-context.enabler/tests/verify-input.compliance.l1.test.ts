@@ -1,3 +1,5 @@
+import { dirname } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_ERROR, VERIFY_CLI_EXIT_CODE, VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD } from "@/commands/verify/cli";
@@ -60,7 +62,9 @@ describe("verify input compliance", () => {
       expect(command.output).toContain(
         `${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.BACKEND}${JOURNAL_BACKEND.LOCAL}`,
       );
-      expect(command.output).toContain(VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.NAMESPACE);
+      expect(command.output.split(/\s+/)).toContain(
+        `${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.NAMESPACE}${dirname(inputRecordPath)}`,
+      );
       expect(command.output).toContain(VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.TARGET);
       expect(command.output).toContain(inputRecordPath);
       expect(command.output).toContain(

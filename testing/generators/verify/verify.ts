@@ -49,7 +49,7 @@ import {
   type VerifyScopeType,
   type VerifyVerificationType,
 } from "@/domains/verify/verify";
-import { VERIFICATION_RUN_CLI_SURFACE, VERIFY_CLI } from "@/interfaces/cli/verify";
+import { VERIFICATION_RUN_CLI_SURFACE } from "@/interfaces/cli/verify";
 import type { JsonValue } from "@/lib/agent-run-journal";
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
@@ -708,6 +708,19 @@ export function arbitraryArgvSafeToken(): fc.Arbitrary<string> {
   return STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !value.startsWith(ARGV_OPTION_PREFIX));
 }
 
+/**
+ * An option by which a caller might try to select the drive mode of a run it starts. The caller
+ * command surface declares no drive-mode option, so `start` must reject each as an unknown option.
+ */
+export function arbitraryDriveModeOverrideOption(): fc.Arbitrary<string> {
+  return fc.constantFrom("--drive-mode", "--driveMode", "--drive");
+}
+
+/** Code-unit order, independent of the host's locale collation. */
+function compareCodeUnits(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 function idempotencyKeyPair(
   key: fc.Arbitrary<string>,
 ): fc.Arbitrary<{ readonly first: string; readonly second: string }> {
@@ -767,13 +780,6 @@ export type VerifyScopeMappingCase =
 
 export interface VerifyNonNounLocalEvidenceCase {
   readonly rejectedCommandName: (typeof VERIFICATION_RUN_CLI_SURFACE.forbiddenRunCommandNames)[number];
-}
-
-export interface VerifyEvidenceRequiredOptionCase {
-  readonly resourceCommandName:
-    | typeof VERIFICATION_RUN_CLI_SURFACE.scopeResourceCommandName
-    | typeof VERIFICATION_RUN_CLI_SURFACE.findingResourceCommandName;
-  readonly omittedOption: typeof VERIFY_CLI.payloadOption | typeof VERIFY_CLI.idempotencyKeyOption;
 }
 
 export function arbitrarySafeFileScopeIdentity(): fc.Arbitrary<string> {
@@ -876,18 +882,6 @@ export function verifyNonNounLocalEvidenceCases(): readonly VerifyNonNounLocalEv
   return VERIFICATION_RUN_CLI_SURFACE.forbiddenRunCommandNames.map((rejectedCommandName) => ({
     rejectedCommandName,
   }));
-}
-
-export function verifyEvidenceRequiredOptionCases(): readonly VerifyEvidenceRequiredOptionCase[] {
-  return [
-    VERIFICATION_RUN_CLI_SURFACE.scopeResourceCommandName,
-    VERIFICATION_RUN_CLI_SURFACE.findingResourceCommandName,
-  ].flatMap((resourceCommandName) =>
-    [VERIFY_CLI.payloadOption, VERIFY_CLI.idempotencyKeyOption].map((omittedOption) => ({
-      resourceCommandName,
-      omittedOption,
-    }))
-  );
 }
 
 export function arbitraryUnsafeFileScopeIdentity(): fc.Arbitrary<string> {
@@ -1468,7 +1462,7 @@ export const VERIFY_TEST_GENERATOR = {
     }).map(({ range, changedPaths }) => ({
       range,
       changedPaths,
-      resolvedPaths: [...changedPaths].sort((left, right) => left.localeCompare(right)),
+      resolvedPaths: [...changedPaths].sort(compareCodeUnits),
     })),
   distinctChangesetRanges: (): fc.Arbitrary<{
     readonly first: { readonly base: string; readonly head: string };
@@ -1519,7 +1513,7 @@ export const VERIFY_TEST_GENERATOR = {
         fc.uniqueArray(arbitrarySourceFilePath(), { minLength: CHANGED_PATH_MIN, maxLength: CHANGED_PATH_MAX }),
       )
       .filter(([first, second]) =>
-        [...first].sort((a, b) => a.localeCompare(b)).join() !== [...second].sort((a, b) => a.localeCompare(b)).join()
+        [...first].sort(compareCodeUnits).join() !== [...second].sort(compareCodeUnits).join()
       )
       .map(([first, second]) => ({ first, second })),
   changesetChangedPathsPair: (): fc.Arbitrary<{

@@ -1,4 +1,4 @@
-import { join, relative, sep } from "node:path";
+import { isAbsolute, join, normalize, relative, sep } from "node:path";
 
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import type { Result } from "@/config/types";
@@ -15,7 +15,7 @@ import {
 } from "@/domains/verify/evidence-rejection";
 import type { JournalEvent, JournalEventInput, JsonValue } from "@/lib/agent-run-journal";
 import { RUNTIME_EVENT_NAMESPACE_DEFAULT } from "@/lib/agent-run-journal/config";
-import { branchScopeDir, compareAsciiStrings, runsDir, validateScopeToken } from "@/lib/state-store";
+import { branchScopeDir, compareAsciiStrings, composeScopeDir, runsDir, validateScopeToken } from "@/lib/state-store";
 import {
   type AvailableContentDigests,
   CONTENT_NORMALIZATION,
@@ -842,6 +842,66 @@ export function verifyInputRecordPath(scope: VerifyRunScope): Result<string> {
       `${VERIFY_INPUT_RECORD.PREFIX}${token.value}${VERIFY_INPUT_RECORD.SUFFIX}`,
     ),
   };
+}
+
+/** The path tokens of a run's payload directory beneath its verification type's branch scope. */
+export const VERIFY_PAYLOAD_PATH = {
+  ROOT: "payloads",
+  RUN_DIRECTORY_PREFIX: "run-",
+} as const;
+
+/** The reasons a run-relative payload name is refused. */
+export const VERIFY_PAYLOAD_ERROR = {
+  NAME_REQUIRED: "a run-relative payload name must name a file in the run's payload directory",
+  OUTSIDE_PAYLOAD_DIRECTORY: "the run-relative payload name resolves outside the run's payload directory",
+} as const;
+
+/**
+ * The payload root of one verification type under one branch key —
+ * `.spx/branch/<branch-slug>/<type>/payloads` — which holds the payload directories of that type's runs.
+ */
+export function verifyPayloadRootDir(scope: Omit<VerifyRunScope, "runToken">): Result<string> {
+  const branchScope = branchScopeDir(scope.productDir, scope.branchSlug);
+  if (!branchScope.ok) return branchScope;
+  return composeScopeDir(branchScope.value, scope.type, VERIFY_PAYLOAD_PATH.ROOT);
+}
+
+/**
+ * The payload directory one run owns, `run-<run-token>` inside its type's payload root. The run token is
+ * validated for path safety, so a caller-supplied token cannot escape the payload root.
+ */
+export function verifyPayloadDir(scope: VerifyRunScope): Result<string> {
+  const root = verifyPayloadRootDir(scope);
+  if (!root.ok) return root;
+  const token = validateScopeToken(scope.runToken);
+  if (!token.ok) return token;
+  return { ok: true, value: join(root.value, `${VERIFY_PAYLOAD_PATH.RUN_DIRECTORY_PREFIX}${token.value}`) };
+}
+
+/** The run token a payload directory's name carries, or `undefined` for a name that names no run. */
+export function runTokenOfPayloadDirectoryName(name: string): string | undefined {
+  if (!name.startsWith(VERIFY_PAYLOAD_PATH.RUN_DIRECTORY_PREFIX)) return undefined;
+  const token = name.slice(VERIFY_PAYLOAD_PATH.RUN_DIRECTORY_PREFIX.length);
+  return validateScopeToken(token).ok ? token : undefined;
+}
+
+/**
+ * The path a run-relative payload name addresses inside a payload directory, refused when the name is
+ * blank or climbs outside the directory lexically. Symbolic links are resolved by the caller, which
+ * applies {@link isInsidePayloadDirectory} to the resolved path.
+ */
+export function runRelativePayloadPath(payloadDirectory: string, name: string): Result<string> {
+  if (name.trim().length === 0) return { ok: false, error: VERIFY_PAYLOAD_ERROR.NAME_REQUIRED };
+  const candidate = isAbsolute(name) ? normalize(name) : join(payloadDirectory, name);
+  return isInsidePayloadDirectory(payloadDirectory, candidate)
+    ? { ok: true, value: candidate }
+    : { ok: false, error: VERIFY_PAYLOAD_ERROR.OUTSIDE_PAYLOAD_DIRECTORY };
+}
+
+/** Whether `candidate` lies strictly inside `payloadDirectory`, both read as the same kind of path. */
+export function isInsidePayloadDirectory(payloadDirectory: string, candidate: string): boolean {
+  const path = relative(payloadDirectory, candidate);
+  return path.length > 0 && !isAbsolute(path) && path.split(sep)[0] !== "..";
 }
 
 /** The CloudEvents `attempt` an append event carries; verify records one attempt per idempotent append. */

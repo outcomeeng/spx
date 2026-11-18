@@ -2,15 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import { VERIFICATION_RUN_CLI_SURFACE, VERIFY_CLI } from "@/interfaces/cli/verify";
+import { verifyNonNounLocalEvidenceCases } from "@testing/generators/verify/verify";
 import {
   inspectVerificationEvidenceCommands,
   inspectVerificationRunCommandNames,
   inspectVerificationRunNounGroup,
-  observeMissingEvidenceRequiredOptionRejections,
-  observeNonNounLocalEvidenceRejections,
-  observeVerificationLifecycleOutsideRunRejection,
   recordVerificationRunHandlerOptions,
 } from "@testing/harnesses/verify/harness";
+import { observeVerificationInvocation } from "@testing/harnesses/verify/rejected-invocation";
 
 describe("record run compliance", () => {
   it("exposes the caller-driven verification-run lifecycle under the verification run noun group", () => {
@@ -20,13 +19,18 @@ describe("record run compliance", () => {
     });
   });
 
+  // The lifecycle verb written directly below `spx verification`, outside the `run` noun group, is a
+  // command the family does not declare; the diagnostic names the verb the caller wrote.
   it("rejects a caller-driven lifecycle verb outside the verification run noun group", async () => {
-    await observeVerificationLifecycleOutsideRunRejection().then((observation) => {
-      expect(observation.rejected).toBe(true);
-      expect(observation.exitCode).toBeGreaterThan(0);
-      expect(observation.stderr).toContain(observation.expectedDiagnosticToken);
-      expect(observation.handlerInvocationCount).toBe(0);
-    });
+    const observation = await observeVerificationInvocation([
+      VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+      VERIFY_CLI.startCommandName,
+    ]);
+
+    expect(observation.rejected).toBe(true);
+    expect(observation.exitCode).toBeGreaterThan(0);
+    expect(observation.stderr).toContain(VERIFY_CLI.startCommandName);
+    expect(observation.handlerInvocationCount).toBe(0);
   });
 
   it("keeps scope and finding evidence additions noun-local", () => {
@@ -55,27 +59,24 @@ describe("record run compliance", () => {
     });
   });
 
-  it("rejects every non-noun-local evidence command", async () => {
-    await observeNonNounLocalEvidenceRejections().then((observations) => {
-      observations.forEach((observation) => {
-        expect(observation.rejected).toBe(true);
-        expect(observation.exitCode).toBeGreaterThan(0);
-        expect(observation.stderr).toContain(observation.expectedDiagnosticToken);
-        expect(observation.handlerInvocationCount).toBe(0);
-      });
-    });
-  });
+  // Each evidence command written directly below `spx verification run`, outside its noun-local
+  // resource, is a command the run group does not declare; the diagnostic names the command the
+  // caller wrote.
+  it.each(verifyNonNounLocalEvidenceCases())(
+    "rejects the non-noun-local evidence command $rejectedCommandName",
+    async ({ rejectedCommandName }) => {
+      const observation = await observeVerificationInvocation([
+        VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+        VERIFICATION_RUN_CLI_SURFACE.runCommandName,
+        rejectedCommandName,
+      ]);
 
-  it("rejects every evidence resource when either required evidence option is absent", async () => {
-    await observeMissingEvidenceRequiredOptionRejections().then((observations) => {
-      observations.forEach((observation) => {
-        expect(observation.rejected).toBe(true);
-        expect(observation.exitCode).toBeGreaterThan(0);
-        expect(observation.stderr).toContain(observation.expectedDiagnosticToken);
-        expect(observation.handlerInvocationCount).toBe(0);
-      });
-    });
-  });
+      expect(observation.rejected).toBe(true);
+      expect(observation.exitCode).toBeGreaterThan(0);
+      expect(observation.stderr).toContain(rejectedCommandName);
+      expect(observation.handlerInvocationCount).toBe(0);
+    },
+  );
 
   it("passes parsed verification-run selector options to lifecycle handlers", async () => {
     await recordVerificationRunHandlerOptions().then((observation) => {

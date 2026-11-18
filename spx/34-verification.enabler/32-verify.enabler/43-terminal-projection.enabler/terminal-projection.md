@@ -1,6 +1,6 @@
 # Terminal Projection
 
-PROVIDES terminal completion, type-specific terminal validation, resumable status, finding-count projection, and rendered journal projection for typed verification runs
+PROVIDES terminal completion, removal of the sealed run's payload directory, type-specific terminal validation, resumable status, finding-count projection, and rendered journal projection for typed verification runs
 SO THAT agents, CI jobs, and launchers
 CAN close a scoped verification run with a terminal status and optional terminal metadata and inspect the run's durable state from its journal history
 
@@ -29,3 +29,14 @@ CAN close a scoped verification run with a terminal status and optional terminal
 - ALWAYS: `finish`, `status`, and `render` report the run token and, from the journal projection of every sealed run, audit and review alike, the finding count per disposition — `blocking`, `debt`, `filed`, `stale` — with the authoritative total beside them ([test](tests/verify-status.compliance.l1.test.ts))
 - ALWAYS: `render` projects an unsealed run read-only — reporting `sealed: false` with no terminal status, appending no journal event, and sealing no run ([test](tests/verify-render.compliance.l1.test.ts))
 - ALWAYS: status and render next actions filter by the recorded drive mode, so an unsealed spx-driven run advertises no caller evidence-append action such as `scope add` or `finding add` ([test](tests/verify-drive-mode.compliance.l1.test.ts))
+
+### Test.Compliance: payload directory
+
+- [payload-removed-at-seal](tests/verify-payload-removal.compliance.l1.test.ts): ALWAYS: `finish` that seals a run removes the run's payload directory, from whichever worktree it runs, a `finish` that records no terminal completion removes nothing, and `render` and `input` for that run succeed
+- [payload-removal-failure](tests/verify-payload-removal.compliance.l1.test.ts): ALWAYS: when removing the payload directory of a sealed run fails, `finish` leaves the run sealed, reports the terminal projection as it would without the failure, and returns a removal failure naming the directory in its result, and a later `start` removes the directory
+- [run-relative-terminal-metadata](tests/verify-payload-removal.compliance.l1.test.ts): ALWAYS: `finish` whose terminal metadata a run-relative name selects reads the file of that name in the run's payload directory, and rejects a name whose path, resolved through symbolic links, lies outside that directory before recording terminal completion
+
+### Audit: payload directory
+
+- seal-removes-payload-directory: ALWAYS: `finish` removes the run's payload directory through the injected filesystem after it seals the run journal, removes nothing when it records no terminal completion, and returns a failed removal, naming the directory, in its result; a `finish` that removes the directory before the seal, or through any other filesystem access, fails.
+- payload-directory-addressing: ALWAYS: `finish` resolves a run-relative terminal-metadata name against the run's payload directory, which it obtains from the state module's branch scope addressing under the run's opening namespace, and rejects a name whose path, resolved through symbolic links by the injected filesystem, lies outside that directory before any read; a `finish` that composes the payload directory's path itself, or reads before that check, fails.

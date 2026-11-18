@@ -5,7 +5,7 @@
     "test": {
       "tests/testing-descriptor.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/43-domain-execution-descriptors.enabler/domain-execution-descriptors.md",
@@ -114,7 +114,7 @@
       },
       "tests/testing-descriptor.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "f842708fe64adf410a116820da32717f9b058a10",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/43-domain-execution-descriptors.enabler/domain-execution-descriptors.md",
