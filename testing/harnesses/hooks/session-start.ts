@@ -1,3 +1,4 @@
+import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
 import { mkdir, open, readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
@@ -251,15 +252,15 @@ export async function withUnsafePayloadSessionStartIdentityEvidence(
   );
 }
 
-export async function withClaudePrecedenceSessionStartIdentityEvidence(
+export async function withSeveralIdentitiesSessionStartIdentityEvidence(
   callback: (evidence: SessionStartIdentityEvidence) => void | Promise<void>,
 ): Promise<void> {
   const [claudeSessionId, codexSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
   await withDirectIdentityEvidence(
     {
       envOverlay: {
-        [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: claudeSessionId,
-        [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: codexSessionId,
+        [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: claudeSessionId,
+        [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: codexSessionId,
       },
       evidence: { claudeSessionId, codexSessionId },
     },

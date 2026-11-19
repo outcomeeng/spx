@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import { HOOK_ENV_FILE, HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 import { normalizeAgentSessionToken } from "@/domains/session/agent-session";
 import {
-  withClaudePrecedenceSessionStartIdentityEvidence,
   withCodexSessionStartIdentityEvidence,
   withPayloadPrecedenceSessionStartIdentityEvidence,
   withPiSessionStartIdentityEvidence,
+  withSeveralIdentitiesSessionStartIdentityEvidence,
   withUnsafePayloadSessionStartIdentityEvidence,
   withWhitespaceClaudeSessionStartIdentityEvidence,
 } from "@testing/harnesses/hooks/session-start";
@@ -40,19 +40,16 @@ describe("hook session-start session identity", () => {
     });
   });
 
-  it("uses CLAUDE_SESSION_ID before CODEX_THREAD_ID when both env values exist", async () => {
-    await withClaudePrecedenceSessionStartIdentityEvidence((evidence) => {
+  it("resolves no session id and writes no claim when two identity variables are set", async () => {
+    await withSeveralIdentitiesSessionStartIdentityEvidence((evidence) => {
       expect(evidence.result.ok).toBe(true);
       if (!evidence.result.ok) throw new Error(evidence.result.error);
-      expect(evidence.result.value.sessionId).toBe(evidence.claudeSessionId);
-      expect(evidence.result.value.claimed).toBe(true);
-      expect(evidence.envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID}=${evidence.claudeSessionId}`,
-      );
+      expect(evidence.result.value.sessionId).toBeUndefined();
+      expect(evidence.result.value.claimed).toBe(false);
     });
   });
 
-  it("uses CODEX_THREAD_ID when CLAUDE_SESSION_ID contains only whitespace", async () => {
+  it("uses CODEX_THREAD_ID whatever CLAUDE_SESSION_ID holds", async () => {
     await withWhitespaceClaudeSessionStartIdentityEvidence((evidence) => {
       expect(evidence.result.ok).toBe(true);
       if (!evidence.result.ok) throw new Error(evidence.result.error);
