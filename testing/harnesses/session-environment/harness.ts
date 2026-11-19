@@ -5,6 +5,7 @@
  * @module testing/harnesses/session-environment/harness
  */
 
+import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
 import { join } from "node:path";
 
 import { gatherWorktreePoolSnapshot, type WorktreePoolSnapshot } from "@/commands/diagnose/probes";
@@ -48,7 +49,7 @@ export async function withLiveClaimSessionEnvironmentProbeFixture(
     if (!written.ok) throw new Error(written.error);
 
     const env = {
-      ...(options.shellIdentity ? { [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: claim.sessionId } : {}),
+      ...(options.shellIdentity ? { [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: claim.sessionId } : {}),
       [HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH]: written.value,
     };
     const facts: GitFacts = {
