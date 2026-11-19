@@ -7,6 +7,7 @@
 import { resolve } from "node:path";
 
 import type { Result } from "@/config/types";
+import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
 import { AGENT_SESSION_KIND, type AgentSessionKind, isAgentSearchSessionKind } from "@/domains/agent/protocol";
 import { parsePiHead } from "@/domains/agent/resume";
 import { normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
@@ -31,7 +32,7 @@ export const HOOK_SESSION_START_SOURCE = {
 export const HOOK_SESSION_START_ENV = {
   CLAUDE_ENV_FILE: "CLAUDE_ENV_FILE",
   CLAUDE_PROJECT_DIR: "CLAUDE_PROJECT_DIR",
-  CODEX_THREAD_ID: "CODEX_THREAD_ID",
+  CODEX_THREAD_ID: AGENT_IDENTITY_VARIABLE[AGENT.CODEX],
   PROJECT_DIR: "PROJECT_DIR",
   SPX_WORKTREE_CLAIM_PATH: "SPX_WORKTREE_CLAIM_PATH",
 } as const;
