@@ -83,7 +83,7 @@ serves: `spx/36-session.enabler/session.md` and
 `spx/38-worktree.enabler/worktree.md` name them in their `SO THAT` clauses;
 `spx/36-session.enabler/87-session-pick.enabler/session-pick.md` asserts that
 `spx session pick` launches an agent with a `pickup <reference>` prompt;
-`spx/38-worktree.enabler/43-worktree-cli.enabler/worktree-cli.md` describes
+`spx/38-worktree.enabler/43-worktree-cli.enabler/worktree-cli.spec.md` describes
 them as the flows that invoke `spx worktree release` and `status`;
 [`spx/36-session.enabler/43-session-store.enabler/21-list-json-contract.adr.md`](spx/36-session.enabler/43-session-store.enabler/21-list-json-contract.adr.md)
 cites the `/pickup` skill as a convention driver; the co-located tests under

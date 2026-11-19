@@ -10,7 +10,7 @@ Reconcile Claude Code and Codex configuration from configured harness environmen
 
 ## Governing specs
 
-- `spx/33-harness-environment.enabler/harness-environment.md`
+- `spx/33-harness-environment.enabler/harness-environment.spec.md`
 - `spx/33-harness-environment.enabler/21-agent-instructions.enabler/agent-instructions.md`
 
 ## Governing decision

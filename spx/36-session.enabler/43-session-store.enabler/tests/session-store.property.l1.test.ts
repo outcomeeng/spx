@@ -8,7 +8,7 @@
  * fails for any implementation that destroys caller content during parsing
  * (e.g., the YAML-comment truncation that motivates this contract).
  *
- * Spec: spx/36-session.enabler/43-session-store.enabler/session-store.md
+ * Spec: spx/36-session.enabler/43-session-store.enabler/session-store.spec.md
  *
  * @module spx/36-session.enabler/43-session-store.enabler/tests/property
  */

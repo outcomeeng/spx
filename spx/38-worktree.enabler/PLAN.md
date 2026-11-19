@@ -24,7 +24,7 @@ The plugin-side integration design is governed in `github.com/outcomeeng/plugins
 
 [`spx/12-agent-harness.pdr.md`](spx/12-agent-harness.pdr.md) distinguishes agents from agent sessions. Align [`spx/15-worktree-management.pdr.md`](spx/15-worktree-management.pdr.md), worktree occupancy specs, command text, and claim records so the worktree holder vocabulary names the holder session identity the claim records, rather than treating the worktree claim itself as an agent.
 
-`src/domains/worktree/controlling-process.ts`, `src/domains/worktree/process-table.ts`, [`spx/38-worktree.enabler/43-worktree-cli.enabler/21-worktree-command.adr.md`](spx/38-worktree.enabler/43-worktree-cli.enabler/21-worktree-command.adr.md), `spx/38-worktree.enabler/43-worktree-cli.enabler/worktree-cli.md`, and their tests still use `AGENT_RUNTIME` / agent-runtime wording for controlling-process detection. The worktree identity slice reconciles those names to the agent and agent-session vocabulary in [`spx/12-agent-harness.pdr.md`](spx/12-agent-harness.pdr.md).
+`src/domains/worktree/controlling-process.ts`, `src/domains/worktree/process-table.ts`, [`spx/38-worktree.enabler/43-worktree-cli.enabler/21-worktree-command.adr.md`](spx/38-worktree.enabler/43-worktree-cli.enabler/21-worktree-command.adr.md), `spx/38-worktree.enabler/43-worktree-cli.enabler/worktree-cli.spec.md`, and their tests still use `AGENT_RUNTIME` / agent-runtime wording for controlling-process detection. The worktree identity slice reconciles those names to the agent and agent-session vocabulary in [`spx/12-agent-harness.pdr.md`](spx/12-agent-harness.pdr.md).
 
 ## Harness governance
 

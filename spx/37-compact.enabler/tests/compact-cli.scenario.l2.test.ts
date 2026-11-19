@@ -3,8 +3,8 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { COMPACT_MARKER, COMPACT_RECORD_FIELDS, COMPACT_STORE_PATH } from "@/domains/compact";
 import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
+import { COMPACT_MARKER, COMPACT_RECORD_FIELDS, COMPACT_STORE_PATH } from "@/domains/compact";
 import { resolveAgentSessionId } from "@/domains/session/agent-session";
 import { COMPACT_CLI } from "@/interfaces/cli/compact";
 import { STATE_STORE_DOMAIN, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";

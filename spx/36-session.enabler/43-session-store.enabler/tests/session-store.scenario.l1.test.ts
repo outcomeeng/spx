@@ -6,7 +6,7 @@
  * - Pure functions: formatShowOutput, resolveSessionPaths, resolveDeletePath
  * - Domain error types
  *
- * Spec: 43-session-store.enabler/session-store.md
+ * Spec: 43-session-store.enabler/session-store.spec.md
  */
 
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";

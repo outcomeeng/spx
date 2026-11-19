@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { AGENT_IDENTITY_KIND, AGENT_IDENTITY_VARIABLE, resolveAgentIdentity } from "@/domains/agent-environment/config";
+import {
+  AGENT,
+  AGENT_IDENTITY_KIND,
+  AGENT_IDENTITY_VARIABLE,
+  resolveAgentIdentity,
+} from "@/domains/agent-environment/config";
 
 function byCodeUnit(left: string, right: string): number {
   return left.localeCompare(right);
@@ -13,10 +18,10 @@ function subsetsOf<T>(items: readonly T[]): T[][] {
 describe("agent identification over every subset of the identity variables", () => {
   // The agent each identity variable names, stated independently of the source mapping.
   const expectedAgentByVariable: Readonly<Record<string, string>> = {
-    CLAUDE_CODE_SESSION_ID: "claudeCode",
-    CODEX_THREAD_ID: "codex",
-    ANTIGRAVITY_CONVERSATION_ID: "agy",
-    PI_SESSION_ID: "pi",
+    CLAUDE_CODE_SESSION_ID: AGENT.CLAUDE_CODE,
+    CODEX_THREAD_ID: AGENT.CODEX,
+    ANTIGRAVITY_CONVERSATION_ID: AGENT.AGY,
+    PI_SESSION_ID: AGENT.PI,
   };
   const hookExportNoise: Readonly<Record<string, string>> = {
     CLAUDE_SESSION_ID: "hook-exported-session",
@@ -30,7 +35,7 @@ describe("agent identification over every subset of the identity variables", () 
   });
 
   for (const subset of subsetsOf(identityVariables)) {
-    const label = subset.length === 0 ? "none" : subset.join("+");
+    const label = subset.length === 0 ? AGENT_IDENTITY_KIND.NONE : subset.join("+");
     for (const noise of [{}, hookExportNoise]) {
       const noiseLabel = Object.keys(noise).length === 0 ? "without" : "with";
       it(`maps ${label} ${noiseLabel} hook exports to the identity rule's verdict`, () => {

@@ -82,18 +82,16 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
 
     it("registers Claude Code, Codex, agy, and Pi with the identity variable each sets for itself", () => {
       expect(AGENT_IDENTITY_VARIABLE).toEqual({
-        claudeCode: "CLAUDE_CODE_SESSION_ID",
-        codex: "CODEX_THREAD_ID",
-        agy: "ANTIGRAVITY_CONVERSATION_ID",
-        pi: "PI_SESSION_ID",
+        [AGENT.CLAUDE_CODE]: "CLAUDE_CODE_SESSION_ID",
+        [AGENT.CODEX]: "CODEX_THREAD_ID",
+        [AGENT.AGY]: "ANTIGRAVITY_CONVERSATION_ID",
+        [AGENT.PI]: "PI_SESSION_ID",
       });
       expect(
         Object.keys(harnessEnvironmentConfigDescriptor.defaults.agents).sort((left, right) =>
           left.localeCompare(right)
         ),
-      ).toEqual(
-        ["agy", "claudeCode", "codex", "pi"],
-      );
+      ).toEqual(Object.values(AGENT).sort((left, right) => left.localeCompare(right)));
     });
 
     it("resolves explicit agent hook policy overrides", async () => {

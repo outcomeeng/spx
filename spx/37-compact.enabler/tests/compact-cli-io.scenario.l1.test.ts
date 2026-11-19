@@ -3,8 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { COMPACT_MARKER } from "@/domains/compact";
 import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
+import { COMPACT_MARKER } from "@/domains/compact";
 import { COMPACT_CLI, compactDomain } from "@/interfaces/cli/compact";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
