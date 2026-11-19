@@ -1,0 +1,38 @@
+---
+type: Decision Basis
+description: Why session files carry a required goal and next step, a base reachable from the shared queue, and an agent session id only from the one variable its agent sets for itself.
+---
+
+# Session frontmatter: decision basis
+
+This entry records the basis of [spx/36-session.enabler/11-session-frontmatter.pdr.md](spx/36-session.enabler/11-session-frontmatter.pdr.md).
+
+## Rationale
+
+`goal` and `next_step` form the forward-looking handoff: the handing-off agent declares why the session exists and what to do first, and the resuming agent acts on them, so the shape carries no recorded-result field. The `archive/` directory holds sessions drained from the active queue and is never consulted for outcomes, and archive is an unconditional rename so no session is ever stranded in the active queue. Optional structured fields would rot without enforcement (sessions land with empty goals and the picker falls back to parsing the body), so `goal` and `next_step` are required at write; `created_at` and `agent_session_id` are prefilled because the agent does not know them while everything else it does.
+
+The session queue is shared across worktrees per [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md), so a resuming agent in a different working copy reads the queue and must reach the session's base without the working copy that produced it. That is why no working copy is recorded (a recorded `worktree` path would invite navigation to a checkout that may not exist) and why the handoff base is constrained instead. `git_ref` defaults to a git-derived base rather than free caller text because an unverifiable caller value would let a session point at state no other checkout can reach; the caller may nonetheless supply an explicit work-branch ref, which `spx session handoff` admits only after confirming the branch exists on `origin`. An origin branch is reachable from the shared queue by exactly the standard the base gate enforces, so the verification, not blind trust, is what makes the caller value admissible. The explicit ref answers the bare-pool layout, where feature work lives on a named branch in a pool worktree the gate refuses as a base: the worktree detaches to `origin/<default>` and the caller names the pushed feature branch directly, so `git_ref` anchors at the work rather than at the unrelated base SHA.
+
+In the main checkout the derived base is the checked-out branch (or the HEAD SHA when detached), and a non-main checkout, whose branch and uncommitted state are local and cannot be reconstructed from the shared file, is permitted only from a clean checkout detached at `origin/<default>`, recording that commit's SHA rather than the default branch name because no work sits on the default branch and the SHA names the exact reachable commit. The git-context gate validates the running worktree, leaving a pool worktree clean and detached so another session can reuse it, independently of which ref is recorded: a verified work-branch ref changes what `git_ref` names, never whether the handoff is permitted. The default branch is resolved from git so the rule holds for products whose default is not `main`.
+
+The refusal is a checklist rather than a static message because an agent that hits it must learn from the diagnostic alone which prerequisite failed and how to satisfy it; the prerequisites differ between the main checkout and non-main checkouts, so a single message would force the agent to re-derive git state by hand. Success stays silent because an accepted base has nothing to report, and the clean-tree remedy keeps in-progress work visible to resuming and concurrent agents while satisfying the clean-tree check. Handoff input and session-file storage stay separate so callers can supply structured fields without ambiguity while session files remain readable in markdown tools. The `specs` and `files` arrays are file paths, so a non-empty entry resolving to an existing directory is malformed input: a directory carries no injectable file content. Handoff rejects such an entry at write time, where the author can correct it, while a path that does not yet exist on disk is accepted because sessions outlive the files they reference, and an empty entry, which names no path, is recorded verbatim; pickup stays robust to whatever each entry later resolves.
+
+`agent_session_id` resolves from the variable each coding agent sets for itself, `$CLAUDE_CODE_SESSION_ID`, `$CODEX_THREAD_ID`, `$ANTIGRAVITY_CONVERSATION_ID`, and `$PI_SESSION_ID` under Claude Code, Codex, agy, and Pi respectively, by the identity rule of [spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md](spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md), because an agent naming its own session is the only source whose value is authoritative for that agent. Handoff records the field only when exactly one of the four is non-empty: an agent launched from another inherits the parent's variables, so several set variables leave the session doing the work unknown, and handoff omits the field rather than guess. `$CLAUDE_SESSION_ID`, a name only SPX's own hook export defines, is no source.
+
+## Rejected
+
+- Keeping the priority, tags, and created_at shape and adding `goal` and `next_step` as optional fields: optional structured fields rot; required-at-write is the only durable contract.
+- Retaining a `result` field: no reader consults it, and requiring it before archive strands abandoned sessions.
+- Recording the working copy as a `worktree` path: it invites navigation to a checkout that may not exist in the resuming agent's environment.
+- Recording the default branch name in a detached base's `git_ref`: it names a branch the session never sits on; the SHA carries the same reachability and names the exact commit.
+- Allowing a non-main-checkout handoff on any branch or a dirty tree: a worktree-local branch or dirty tree cannot be reached from the shared queue.
+- Recording a caller-supplied work-branch ref without confirming it exists on `origin`: an unverified ref reintroduces the dangling-pointer failure the git-derived base prevents.
+- Letting the explicit ref bypass the worktree gate: the ref names where the work is, not whether the running worktree is safe to leave; both must hold.
+- Refusing with a single static message carrying placeholder text: it forces the agent to re-derive git state, and the literal `origin/<default>` names no concrete ref.
+- Offering a clean-tree remedy that hides local work outside the shared session queue.
+
+## Product properties
+
+1. `spx session list` shows each session's `goal` and `next_step`, so an agent picks the work to resume without opening the file.
+2. `spx session handoff` writes a session only from a base a resuming agent can reach from the shared queue, the main checkout or a clean checkout detached at the `origin/<default>` tip, and on a non-main-checkout refusal prints a prerequisite checklist carrying resolved git values, numbered pass/fail checks, and a dirty-checkout headline when the working tree is dirty; a dirty-checkout remedy directs the agent to commit before handoff and never offers the main checkout as an alternative, while off-tip and unresolved-base remedies may direct the agent to the main checkout; a caller may anchor `git_ref` at an explicit work-branch ref, which the command records only after confirming the branch exists on `origin` and refuses otherwise.
+3. A session whose metadata omits structured fields stays readable by every command, and every caller-supplied string field round-trips identically for any unicode codepoint.

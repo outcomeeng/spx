@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { COMPACT_MARKER, COMPACT_RECORD_FIELDS, COMPACT_STORE_PATH } from "@/domains/compact";
-import { AGENT_SESSION_ENV, resolveAgentSessionId } from "@/domains/session/agent-session";
+import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
+import { resolveAgentSessionId } from "@/domains/session/agent-session";
 import { COMPACT_CLI } from "@/interfaces/cli/compact";
 import { STATE_STORE_DOMAIN, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { COMPACT_TEST_GENERATOR, sampleCompactTestValue } from "@testing/generators/compact/compact";
@@ -22,20 +23,20 @@ async function runSpx(
 }
 
 function agentSessionEnv(sessionToken: string): Readonly<Record<string, string>> {
-  return { [AGENT_SESSION_ENV.CLAUDE_SESSION_ID]: sessionToken };
+  return { [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: sessionToken };
 }
 
 function codexAgentSessionEnv(sessionToken: string): Readonly<Record<string, string>> {
   return {
-    [AGENT_SESSION_ENV.CLAUDE_SESSION_ID]: "",
-    [AGENT_SESSION_ENV.CODEX_THREAD_ID]: sessionToken,
+    [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: "",
+    [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: sessionToken,
   };
 }
 
 function emptyAgentSessionEnv(): Readonly<Record<string, string>> {
   return {
-    [AGENT_SESSION_ENV.CLAUDE_SESSION_ID]: "",
-    [AGENT_SESSION_ENV.CODEX_THREAD_ID]: "",
+    [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: "",
+    [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: "",
   };
 }
 

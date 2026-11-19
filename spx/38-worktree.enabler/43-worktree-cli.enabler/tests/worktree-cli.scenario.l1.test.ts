@@ -12,7 +12,8 @@ import {
   WORKTREE_STATUS_FORMAT,
   WORKTREE_STATUS_RENDER,
 } from "@/commands/worktree/index";
-import { AGENT_SESSION_ENV, normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
+import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
+import { normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { AGENT_RUNTIME, AGENT_RUNTIME_DISPLAY_NAME, CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_ERROR, OCCUPANCY_STATUS, readClaim, writeClaim } from "@/domains/worktree/occupancy-store";
 import { WORKTREE_RESOLVE_ERROR } from "@/domains/worktree/resolve";
@@ -720,7 +721,7 @@ describe("worktree command handlers", () => {
   it("removes a claim recorded with the normalized environment session id", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const rawSessionId = samplePathUnsafeAgentSessionIdentity();
-    const normalizedSessionId = resolveAgentSessionId({ [AGENT_SESSION_ENV.CODEX_THREAD_ID]: rawSessionId });
+    const normalizedSessionId = resolveAgentSessionId({ [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: rawSessionId });
     if (normalizedSessionId === undefined) throw new Error(SESSION_GENERATOR_ERROR.EMPTY_IDENTITY_SAMPLE);
     const record = {
       ...sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord()),
@@ -741,7 +742,7 @@ describe("worktree command handlers", () => {
       const result = await releaseCommand({
         cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
         env: {
-          [AGENT_SESSION_ENV.CODEX_THREAD_ID]: rawSessionId,
+          [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: rawSessionId,
           [CONTROLLING_PID_ENV]: String(record.pid),
         },
         fs: defaultOccupancyFileSystem,

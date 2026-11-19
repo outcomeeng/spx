@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
 import { AGENT_SESSION_TOKEN_PATTERN, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { DEFAULT_SESSION_METADATA, parseSessionMetadata } from "@/domains/session/list";
 import { generateSessionId, parseSessionId, SESSION_ID_PATTERN } from "@/domains/session/timestamp";
@@ -59,11 +60,15 @@ export function registerSessionIdentityPropertyEvidence(): void {
       assertProperty(
         arbitraryPathUnsafeAgentSessionIdentity(),
         (unsafeSessionToken) => {
-          const firstClaudeToken = resolveAgentSessionId({ CLAUDE_SESSION_ID: unsafeSessionToken });
-          const secondClaudeToken = resolveAgentSessionId({ CLAUDE_SESSION_ID: unsafeSessionToken });
+          const firstClaudeToken = resolveAgentSessionId({
+            [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: unsafeSessionToken,
+          });
+          const secondClaudeToken = resolveAgentSessionId({
+            [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: unsafeSessionToken,
+          });
           const codexToken = resolveAgentSessionId({
-            CLAUDE_SESSION_ID: "",
-            CODEX_THREAD_ID: unsafeSessionToken,
+            [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: "",
+            [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: unsafeSessionToken,
           });
 
           expect(firstClaudeToken).toBeDefined();

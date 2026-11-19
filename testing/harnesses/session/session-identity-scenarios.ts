@@ -1,4 +1,9 @@
-import { AGENT_SESSION_TOKEN_PATTERN, resolveAgentSessionId } from "@/domains/session/agent-session";
+import { AGENT, AGENT_IDENTITY_KIND, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
+import {
+  AGENT_SESSION_TOKEN_PATTERN,
+  resolveAgentSessionId,
+  resolveAgentSessionIdentity,
+} from "@/domains/session/agent-session";
 import { buildSessionFrontMatterContent, SESSION_FRONT_MATTER_DELIMITER } from "@/domains/session/create";
 import { DEFAULT_SESSION_METADATA, parseSessionMetadata } from "@/domains/session/list";
 import {
@@ -26,31 +31,39 @@ function expectedSessionId(instant: Date): string {
 
 export function registerSessionIdentityScenarioEvidence(): void {
   describe("resolveAgentSessionId", () => {
-    it("GIVEN agent session environment values WHEN resolved THEN Claude takes precedence and Codex is the fallback", () => {
-      const [claudeSession, codexSession] = sampleDistinctSessionIds(2);
-
-      expect(resolveAgentSessionId({
-        CLAUDE_SESSION_ID: claudeSession,
-        CODEX_THREAD_ID: codexSession,
-      })).toBe(claudeSession);
-      expect(resolveAgentSessionId({
-        CODEX_THREAD_ID: codexSession,
-      })).toBe(codexSession);
-      expect(resolveAgentSessionId({
-        CLAUDE_SESSION_ID: "",
-        CODEX_THREAD_ID: codexSession,
-      })).toBe(codexSession);
-      expect(resolveAgentSessionId({
-        CLAUDE_SESSION_ID: "",
-        CODEX_THREAD_ID: "",
-      })).toBeUndefined();
-      expect(resolveAgentSessionId({})).toBeUndefined();
+    it("GIVEN each subset of the identity variables WHEN resolved THEN only a one-member subset identifies, and several are named", () => {
+      const variables = Object.values(AGENT_IDENTITY_VARIABLE);
+      const subsets = variables.reduce<string[][]>(
+        (all, variable) => [...all, ...all.map((subset) => [...subset, variable])],
+        [[]],
+      );
+      expect(subsets).toHaveLength(16);
+      for (const subset of subsets) {
+        const sessions = sampleDistinctSessionIds(Math.max(subset.length, 1));
+        const env: Record<string, string> = { CLAUDE_SESSION_ID: sessions[0] };
+        subset.forEach((variable, index) => {
+          env[variable] = sessions[index];
+        });
+        const identity = resolveAgentSessionIdentity(env);
+        if (subset.length === 0) {
+          expect(identity).toEqual({ kind: AGENT_IDENTITY_KIND.NONE });
+          expect(resolveAgentSessionId(env)).toBeUndefined();
+        } else if (subset.length === 1) {
+          expect(resolveAgentSessionId(env)).toBe(sessions[0]);
+        } else {
+          expect(identity.kind).toBe(AGENT_IDENTITY_KIND.AMBIGUOUS);
+          if (identity.kind === AGENT_IDENTITY_KIND.AMBIGUOUS) {
+            expect(new Set(identity.variables)).toEqual(new Set(subset));
+          }
+          expect(resolveAgentSessionId(env)).toBeUndefined();
+        }
+      }
     });
 
     it("GIVEN path-unsafe Codex thread identity WHEN resolved THEN returns a safe token", () => {
       const pathUnsafeIdentity = samplePathUnsafeAgentSessionIdentity();
       const resolved = resolveAgentSessionId({
-        CODEX_THREAD_ID: pathUnsafeIdentity,
+        [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: pathUnsafeIdentity,
       });
 
       expect(resolved).toBeDefined();

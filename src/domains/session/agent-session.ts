@@ -1,9 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const AGENT_SESSION_ENV = {
-  CLAUDE_SESSION_ID: "CLAUDE_SESSION_ID",
-  CODEX_THREAD_ID: "CODEX_THREAD_ID",
-} as const;
+import { AGENT_IDENTITY_KIND, type AgentIdentity, resolveAgentIdentity } from "@/domains/agent-environment/config";
 
 export type AgentSessionEnvironment = Readonly<Record<string, string | undefined>>;
 
@@ -40,8 +37,22 @@ export function normalizeAgentSessionToken(value: string): string {
   return normalized.length === 0 ? hash : `${normalized}${AGENT_SESSION_TOKEN_SEPARATOR}${hash}`;
 }
 
+/**
+ * The identity rule's verdict for the invoking environment: the one agent whose
+ * own identity variable alone is non-empty, with its session, or none, or the
+ * ambiguous set of identity variables found set.
+ */
+export function resolveAgentSessionIdentity(env: AgentSessionEnvironment): AgentIdentity {
+  return resolveAgentIdentity(env);
+}
+
+/**
+ * The normalized session id of the agent the identity rule identifies, or none
+ * when no identity variable, or two or more, are non-empty.
+ */
 export function resolveAgentSessionId(env: AgentSessionEnvironment): string | undefined {
-  const raw = nonEmptyEnvValue(env[AGENT_SESSION_ENV.CLAUDE_SESSION_ID])
-    ?? nonEmptyEnvValue(env[AGENT_SESSION_ENV.CODEX_THREAD_ID]);
-  return raw === undefined ? undefined : normalizeAgentSessionToken(raw);
+  const identity = resolveAgentIdentity(env);
+  return identity.kind === AGENT_IDENTITY_KIND.IDENTIFIED
+    ? normalizeAgentSessionToken(identity.sessionId)
+    : undefined;
 }

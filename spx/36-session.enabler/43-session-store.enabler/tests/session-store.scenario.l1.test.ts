@@ -21,7 +21,7 @@ import { pickupCommand } from "@/commands/session/pickup";
 import { releaseCommand } from "@/commands/session/release";
 import { showCommand } from "@/commands/session/show";
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { AGENT_SESSION_ENV } from "@/domains/session/agent-session";
+import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
 import { buildSessionFrontMatterContent, SESSION_FRONT_MATTER_DELIMITER } from "@/domains/session/create";
 import { resolveDeletePath } from "@/domains/session/delete";
 import {
@@ -100,7 +100,7 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const [TODO, DOING] = SESSION_STATUSES;
 
-const envKeys = Object.values(AGENT_SESSION_ENV);
+const envKeys = Object.values(AGENT_IDENTITY_VARIABLE);
 const testGoal = "Exercise session handoff";
 const testNextStep = "Inspect generated session";
 const prefillHandoffHeader: HandoffHeaderFixture = {
@@ -1062,9 +1062,24 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     expect(frontMatter[SESSION_FRONT_MATTER.CREATED_AT]).toEqual(expect.any(String));
   });
 
-  it("GIVEN CLAUDE_SESSION_ID is set WHEN handoff creates session THEN agent_session_id is written with CLAUDE_SESSION_ID value", async () => {
-    const agentSessionId = "fa0a91ee-f0bc-449e-8299-727ebe314a78";
-    process.env.CLAUDE_SESSION_ID = agentSessionId;
+  for (const variable of envKeys) {
+    it(`GIVEN only ${variable} is non-empty WHEN handoff creates session THEN agent_session_id is written with its value`, async () => {
+      const agentSessionId = sampleSessionId();
+      process.env[variable] = agentSessionId;
+
+      const { output } = await handoffCommand({
+        content: prefillHandoffStdin,
+        sessionsDir: harness.sessionsDir,
+        deps: handoffGitDeps,
+      });
+      const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
+
+      expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, agentSessionId);
+    });
+  }
+
+  it("GIVEN no identity variable is non-empty, whatever CLAUDE_SESSION_ID holds, WHEN handoff creates session THEN agent_session_id does not appear in YAML front matter", async () => {
+    process.env.CLAUDE_SESSION_ID = sampleSessionId();
 
     const { output } = await handoffCommand({
       content: prefillHandoffStdin,
@@ -1073,24 +1088,13 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     });
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
-    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, agentSessionId);
+    expect(frontMatter).not.toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID);
+    delete process.env.CLAUDE_SESSION_ID;
   });
 
-  it("GIVEN CLAUDE_SESSION_ID absent and CODEX_THREAD_ID set WHEN handoff creates session THEN agent_session_id is written with CODEX_THREAD_ID value", async () => {
-    const threadId = "thread-xyz-789";
-    process.env.CODEX_THREAD_ID = threadId;
+  it("GIVEN two or more identity variables are non-empty WHEN handoff creates session THEN agent_session_id does not appear in YAML front matter", async () => {
+    for (const variable of envKeys) process.env[variable] = sampleSessionId();
 
-    const { output } = await handoffCommand({
-      content: prefillHandoffStdin,
-      sessionsDir: harness.sessionsDir,
-      deps: handoffGitDeps,
-    });
-    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
-
-    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, threadId);
-  });
-
-  it("GIVEN neither CLAUDE_SESSION_ID nor CODEX_THREAD_ID set WHEN handoff creates session THEN agent_session_id does not appear in YAML front matter", async () => {
     const { output } = await handoffCommand({
       content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
@@ -1583,7 +1587,7 @@ describe("listCommand JSON records and field projection", () => {
 
   it("carries created_at and agent_session_id only when the session frontmatter holds them", async () => {
     const agentSessionId = sampleSessionId();
-    process.env.CLAUDE_SESSION_ID = agentSessionId;
+    process.env[AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]] = agentSessionId;
     const { output: handoffOutput } = await handoffCommand({
       content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
@@ -1713,7 +1717,7 @@ describe("showCommand JSON output", () => {
 
   it("GIVEN a session carrying created_at and agent_session_id WHEN shown as JSON THEN both appear; a bare session omits them", async () => {
     const agentSessionId = sampleSessionId();
-    process.env.CLAUDE_SESSION_ID = agentSessionId;
+    process.env[AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]] = agentSessionId;
     const { output: handoffOutput } = await handoffCommand({
       content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,

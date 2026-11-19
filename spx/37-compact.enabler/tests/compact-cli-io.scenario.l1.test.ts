@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { COMPACT_MARKER } from "@/domains/compact";
-import { AGENT_SESSION_ENV } from "@/domains/session/agent-session";
+import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
 import { COMPACT_CLI, compactDomain } from "@/interfaces/cli/compact";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
@@ -33,14 +33,14 @@ function escapedMarker(nodePath: string): string {
 }
 
 async function runCompactCli(args: readonly string[], productDir: string, sessionToken: string): Promise<CliRun> {
-  const previousClaudeSessionId = process.env[AGENT_SESSION_ENV.CLAUDE_SESSION_ID];
-  const previousCodexThreadId = process.env[AGENT_SESSION_ENV.CODEX_THREAD_ID];
+  const previousClaudeSessionId = process.env[AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]];
+  const previousCodexThreadId = process.env[AGENT_IDENTITY_VARIABLE[AGENT.CODEX]];
   const deferredExitCodes: number[] = [];
   const immediateExitCodes: number[] = [];
   const stdout: string[] = [];
 
-  process.env[AGENT_SESSION_ENV.CLAUDE_SESSION_ID] = sessionToken;
-  process.env[AGENT_SESSION_ENV.CODEX_THREAD_ID] = "";
+  process.env[AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]] = sessionToken;
+  process.env[AGENT_IDENTITY_VARIABLE[AGENT.CODEX]] = "";
 
   try {
     const program = createCliProgram({
@@ -62,15 +62,15 @@ async function runCompactCli(args: readonly string[], productDir: string, sessio
     }
   } finally {
     if (previousClaudeSessionId === undefined) {
-      delete process.env[AGENT_SESSION_ENV.CLAUDE_SESSION_ID];
+      delete process.env[AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]];
     } else {
-      process.env[AGENT_SESSION_ENV.CLAUDE_SESSION_ID] = previousClaudeSessionId;
+      process.env[AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]] = previousClaudeSessionId;
     }
 
     if (previousCodexThreadId === undefined) {
-      delete process.env[AGENT_SESSION_ENV.CODEX_THREAD_ID];
+      delete process.env[AGENT_IDENTITY_VARIABLE[AGENT.CODEX]];
     } else {
-      process.env[AGENT_SESSION_ENV.CODEX_THREAD_ID] = previousCodexThreadId;
+      process.env[AGENT_IDENTITY_VARIABLE[AGENT.CODEX]] = previousCodexThreadId;
     }
   }
 
