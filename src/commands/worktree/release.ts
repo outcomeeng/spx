@@ -5,7 +5,13 @@
  */
 
 import type { Result } from "@/config/types";
-import { nonEmptyEnvValue, normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
+import { AGENT_IDENTITY_KIND } from "@/domains/agent-environment/config";
+import {
+  nonEmptyEnvValue,
+  normalizeAgentSessionToken,
+  resolveAgentSessionId,
+  resolveAgentSessionIdentity,
+} from "@/domains/session/agent-session";
 import { type ControllingProcessEnv, resolveControllingProcess } from "@/domains/worktree/controlling-process";
 import {
   createClaimOperationRecord,
@@ -19,6 +25,7 @@ import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-te
 
 export const WORKTREE_RELEASE_ERROR = {
   SESSION_UNRESOLVED: "worktree release session id could not be resolved",
+  SESSION_AMBIGUOUS: "worktree release found several agent identity variables set",
 } as const;
 
 export interface ReleaseCommandOptions extends WorktreeScopeOptions {
@@ -42,6 +49,15 @@ export interface ReleaseCommandOptions extends WorktreeScopeOptions {
  */
 export async function releaseCommand(options: ReleaseCommandOptions): Promise<Result<void, TerminalText>> {
   const explicitSessionId = nonEmptyEnvValue(options.sessionId);
+  if (explicitSessionId === undefined) {
+    const identity = resolveAgentSessionIdentity(options.env);
+    if (identity.kind === AGENT_IDENTITY_KIND.AMBIGUOUS) {
+      return {
+        ok: false,
+        error: authoredText(`${WORKTREE_RELEASE_ERROR.SESSION_AMBIGUOUS}: ${identity.variables.join(", ")}`),
+      };
+    }
+  }
   const sessionId = resolveReleaseSessionId(explicitSessionId, options.env);
   if (sessionId === undefined) return { ok: false, error: authoredText(WORKTREE_RELEASE_ERROR.SESSION_UNRESOLVED) };
 

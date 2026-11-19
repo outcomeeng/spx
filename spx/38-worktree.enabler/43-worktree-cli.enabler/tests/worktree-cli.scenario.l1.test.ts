@@ -958,6 +958,51 @@ describe("worktree command handlers", () => {
     expect(result).toEqual({ ok: false, error: WORKTREE_RELEASE_ERROR.SESSION_UNRESOLVED });
   });
 
+  it("refuses release when only CLAUDE_SESSION_ID is set, which identifies no agent", async () => {
+    const selfPid = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.pid());
+    const gitDeps = createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT });
+    const processTable = createProcessTable({
+      host: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host()),
+      processes: new Map<number, ProcessTableEntry>(),
+    });
+
+    const result = await releaseCommand({
+      cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+      env: { CLAUDE_SESSION_ID: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId()) },
+      fs: defaultOccupancyFileSystem,
+      processTable,
+      selfPid,
+      gitDeps,
+    });
+
+    expect(result).toEqual({ ok: false, error: WORKTREE_RELEASE_ERROR.SESSION_UNRESOLVED });
+  });
+
+  it("refuses release naming every identity variable set when two or more are set", async () => {
+    const selfPid = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.pid());
+    const gitDeps = createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT });
+    const processTable = createProcessTable({
+      host: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host()),
+      processes: new Map<number, ProcessTableEntry>(),
+    });
+    const [first, second] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const variables = [AGENT_IDENTITY_VARIABLE[AGENT.CODEX], AGENT_IDENTITY_VARIABLE[AGENT.PI]];
+
+    const result = await releaseCommand({
+      cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+      env: { [variables[0]]: first, [variables[1]]: second },
+      fs: defaultOccupancyFileSystem,
+      processTable,
+      selfPid,
+      gitDeps,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(String(result.error)).toContain(WORKTREE_RELEASE_ERROR.SESSION_AMBIGUOUS);
+    for (const variable of variables) expect(String(result.error)).toContain(variable);
+  });
+
   it("reports the current worktree's occupancy when no worktree argument is given", async () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
