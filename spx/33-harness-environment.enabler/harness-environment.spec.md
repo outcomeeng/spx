@@ -15,7 +15,7 @@ CAN run with explicitly enabled and available coding agents, version-matched ins
 - [registry-resolution](tests/harness-environment-descriptor.compliance.l1.test.ts): ALWAYS: the `harnessEnvironment` descriptor resolves instruction, agent, marketplace, plugin, and skill configuration through the static config registry.
 - [agent-hook-policy-defaults](tests/harness-environment-descriptor.compliance.l1.test.ts): ALWAYS: each agent carries hook policy at `hooks.sessionStart.compactStdout`, with Codex, agy, and Pi defaulting compact `SessionStart` stdout off and Claude Code defaulting it on.
 - [registered-agent-references](tests/harness-environment-descriptor.compliance.l1.test.ts): ALWAYS: configured instruction files, marketplaces, plugins, and skills reference registered agents exported by the descriptor module.
-- registered-agent-identities: ALWAYS: the descriptor module registers Claude Code, Codex, agy, and Pi with their agent ids and their identity variables, `CLAUDE_CODE_SESSION_ID`, `CODEX_THREAD_ID`, `ANTIGRAVITY_CONVERSATION_ID`, and `PI_SESSION_ID`.
+- [registered-agent-identities](tests/harness-environment-descriptor.compliance.l1.test.ts): ALWAYS: the descriptor module registers Claude Code, Codex, agy, and Pi with their agent ids and their identity variables, `CLAUDE_CODE_SESSION_ID`, `CODEX_THREAD_ID`, `ANTIGRAVITY_CONVERSATION_ID`, and `PI_SESSION_ID`.
 
 ### Test.Mapping: [config-format-equivalence](tests/harness-environment-descriptor.mapping.l1.test.ts)
 
@@ -27,7 +27,7 @@ Equivalent `harnessEnvironment` sections declared in each config file format res
 | yaml | `spx.config.yaml` | identical to the config the other formats yield |
 | toml | `spx.config.toml` | identical to the config the other formats yield |
 
-### Test.Mapping: agent-identification
+### Test.Mapping: [agent-identification](tests/agent-identification.mapping.l1.test.ts)
 
 Every subset of the four identity variables, generated from the source-owned identity-variable keys, with its members non-empty and every other identity variable empty or absent, maps to the identified agent and session, whatever `CLAUDE_SESSION_ID` and `CLAUDE_ENV_FILE` hold.
 

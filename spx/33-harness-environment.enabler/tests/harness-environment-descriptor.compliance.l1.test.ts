@@ -5,6 +5,7 @@ import { productionRegistry } from "@/config/registry";
 import { RESULT_VALUE_KEY } from "@/config/types";
 import {
   AGENT,
+  AGENT_IDENTITY_VARIABLE,
   DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
   HARNESS_ENVIRONMENT_CONFIG_FIELDS,
   type HarnessEnvironmentConfig,
@@ -74,7 +75,25 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
 
         expect(harnessEnvironment.agents[AGENT.CODEX].hooks.sessionStart.compactStdout).toBe(false);
         expect(harnessEnvironment.agents[AGENT.CLAUDE_CODE].hooks.sessionStart.compactStdout).toBe(true);
+        expect(harnessEnvironment.agents[AGENT.AGY].hooks.sessionStart.compactStdout).toBe(false);
+        expect(harnessEnvironment.agents[AGENT.PI].hooks.sessionStart.compactStdout).toBe(false);
       });
+    });
+
+    it("registers Claude Code, Codex, agy, and Pi with the identity variable each sets for itself", () => {
+      expect(AGENT_IDENTITY_VARIABLE).toEqual({
+        claudeCode: "CLAUDE_CODE_SESSION_ID",
+        codex: "CODEX_THREAD_ID",
+        agy: "ANTIGRAVITY_CONVERSATION_ID",
+        pi: "PI_SESSION_ID",
+      });
+      expect(
+        Object.keys(harnessEnvironmentConfigDescriptor.defaults.agents).sort((left, right) =>
+          left.localeCompare(right)
+        ),
+      ).toEqual(
+        ["agy", "claudeCode", "codex", "pi"],
+      );
     });
 
     it("resolves explicit agent hook policy overrides", async () => {

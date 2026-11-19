@@ -9,6 +9,7 @@ export function enabledHarnessEnvironment(): HarnessEnvironmentConfig {
   return {
     ...harnessEnvironmentConfigDescriptor.defaults,
     agents: {
+      ...harnessEnvironmentConfigDescriptor.defaults.agents,
       [AGENT.CODEX]: {
         ...harnessEnvironmentConfigDescriptor.defaults.agents[AGENT.CODEX],
         enabled: true,

@@ -6,12 +6,64 @@ import { METHODOLOGY_CODING_AGENT, type MethodologyCodingAgent } from "@/lib/met
 export const AGENT = {
   CODEX: "codex",
   CLAUDE_CODE: "claudeCode",
+  AGY: "agy",
+  PI: "pi",
 } as const;
 
 export type Agent = (typeof AGENT)[keyof typeof AGENT];
 
-/** The shipped-methodology-tree coding agent each harness agent identity maps onto. */
-export const METHODOLOGY_CODING_AGENT_BY_AGENT: Readonly<Record<Agent, MethodologyCodingAgent>> = {
+/** The variable each registered agent sets for itself; its value is that agent's session id. */
+export const AGENT_IDENTITY_VARIABLE = {
+  [AGENT.CLAUDE_CODE]: "CLAUDE_CODE_SESSION_ID",
+  [AGENT.CODEX]: "CODEX_THREAD_ID",
+  [AGENT.AGY]: "ANTIGRAVITY_CONVERSATION_ID",
+  [AGENT.PI]: "PI_SESSION_ID",
+} as const satisfies Readonly<Record<Agent, string>>;
+
+export type AgentIdentityVariable = (typeof AGENT_IDENTITY_VARIABLE)[Agent];
+
+export const AGENT_IDENTITY_KIND = {
+  IDENTIFIED: "identified",
+  NONE: "none",
+  AMBIGUOUS: "ambiguous",
+} as const;
+
+/** The identity rule's verdict for one invoking environment. */
+export type AgentIdentity =
+  | { readonly kind: typeof AGENT_IDENTITY_KIND.IDENTIFIED; readonly agent: Agent; readonly sessionId: string }
+  | { readonly kind: typeof AGENT_IDENTITY_KIND.NONE }
+  | { readonly kind: typeof AGENT_IDENTITY_KIND.AMBIGUOUS; readonly variables: readonly AgentIdentityVariable[] };
+
+export type AgentIdentityEnvironment = Readonly<Record<string, string | undefined>>;
+
+function identityValue(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? undefined : trimmed;
+}
+
+/**
+ * Applies the identity rule: an invoking process identifies an agent and its
+ * session only when exactly one identity variable holds a value that is neither
+ * empty nor whitespace-only; none identifies nothing, and two or more are
+ * ambiguous, naming every variable found set. No variable takes precedence.
+ */
+export function resolveAgentIdentity(env: AgentIdentityEnvironment): AgentIdentity {
+  const set = (Object.entries(AGENT_IDENTITY_VARIABLE) as [Agent, AgentIdentityVariable][])
+    .map(([agent, variable]) => ({ agent, variable, value: identityValue(env[variable]) }))
+    .filter((entry): entry is { agent: Agent; variable: AgentIdentityVariable; value: string } =>
+      entry.value !== undefined
+    );
+  if (set.length === 0) return { kind: AGENT_IDENTITY_KIND.NONE };
+  if (set.length > 1) {
+    return { kind: AGENT_IDENTITY_KIND.AMBIGUOUS, variables: set.map((entry) => entry.variable) };
+  }
+  const [only] = set;
+  return { kind: AGENT_IDENTITY_KIND.IDENTIFIED, agent: only.agent, sessionId: only.value };
+}
+
+/** The shipped-methodology-tree coding agent each harness agent identity maps onto, where one ships. */
+export const METHODOLOGY_CODING_AGENT_BY_AGENT: Readonly<Partial<Record<Agent, MethodologyCodingAgent>>> = {
   [AGENT.CLAUDE_CODE]: METHODOLOGY_CODING_AGENT.CLAUDE,
   [AGENT.CODEX]: METHODOLOGY_CODING_AGENT.CODEX,
 };
@@ -118,6 +170,22 @@ export const DEFAULT_HARNESS_ENVIRONMENT_CONFIG: HarnessEnvironmentConfig = {
       hooks: {
         sessionStart: {
           compactStdout: true,
+        },
+      },
+    },
+    [AGENT.AGY]: {
+      enabled: false,
+      hooks: {
+        sessionStart: {
+          compactStdout: false,
+        },
+      },
+    },
+    [AGENT.PI]: {
+      enabled: false,
+      hooks: {
+        sessionStart: {
+          compactStdout: false,
         },
       },
     },

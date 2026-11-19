@@ -774,6 +774,22 @@ function arbitraryHarnessEnvironmentConfig(): fc.Arbitrary<GeneratedHarnessEnvir
                 },
               },
             },
+            [AGENT.AGY]: {
+              enabled: false,
+              hooks: {
+                sessionStart: {
+                  compactStdout: false,
+                },
+              },
+            },
+            [AGENT.PI]: {
+              enabled: false,
+              hooks: {
+                sessionStart: {
+                  compactStdout: false,
+                },
+              },
+            },
           },
           pluginBootstrap: {
             marketplaces: [

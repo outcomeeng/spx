@@ -139,6 +139,9 @@ const RUNTIME_CONFIG_SPECS = {
   },
 } as const;
 
+/** The agents whose native runtime configuration this module projects. */
+type RuntimeConfigAgent = keyof typeof RUNTIME_CONFIG_SPECS;
+
 const RUNTIME_CONFIG_ORDER = [
   AGENT.CODEX,
   AGENT.CLAUDE_CODE,
@@ -260,7 +263,7 @@ export async function reconcileRuntimeConfig(
 
 export function runtimeConfigPath(
   productDir: string,
-  agent: Agent,
+  agent: RuntimeConfigAgent,
   target: RuntimeConfigTarget = DEFAULT_RUNTIME_CONFIG_TARGET,
 ): string {
   const spec = RUNTIME_CONFIG_SPECS[agent];
@@ -407,7 +410,7 @@ function runtimeConfigState(
   };
 }
 
-function agentConfigDirectory(agent: Agent): string {
+function agentConfigDirectory(agent: RuntimeConfigAgent): string {
   switch (agent) {
     case AGENT.CODEX:
       return CODEX_AGENT_CONFIG_DIRECTORY;

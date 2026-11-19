@@ -574,6 +574,7 @@ async function defaultEnabledCodingAgents(productDir: string): Promise<readonly 
   return (Object.keys(harnessEnvironment.agents) as Agent[])
     .filter((agent) => harnessEnvironment.agents[agent].enabled)
     .map((agent) => METHODOLOGY_CODING_AGENT_BY_AGENT[agent])
+    .filter((codingAgent): codingAgent is NonNullable<typeof codingAgent> => codingAgent !== undefined)
     .sort(compareCodeUnitOrder);
 }
 
