@@ -5,7 +5,7 @@
     "test": {
       "tests/test-harness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "d30bddb0357c116e3325e8d9523f3e1527e1756f",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-test-harness.enabler/test-harness.md",

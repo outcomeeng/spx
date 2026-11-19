@@ -3,12 +3,44 @@
   "malleability": "implementation",
   "verification": {
     "test": {
-      "tests/harness-environment-descriptor.compliance.l1.test.ts": {
+      "tests/agent-identification.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "d30bddb0357c116e3325e8d9523f3e1527e1756f",
         "read": [
           "pnpm-lock.yaml",
-          "spx/33-harness-environment.enabler/harness-environment.md",
+          "spx/33-harness-environment.enabler/harness-environment.spec.md",
+          "spx/33-harness-environment.enabler/tests/agent-identification.mapping.l1.test.ts",
+          "src/config/field-errors.ts",
+          "src/config/methodology.ts",
+          "src/domains/agent-environment/config.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/file-system/pathContainment.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/harness-environment-section.ts",
+          "src/lib/methodology/coding-agent.ts",
+          "src/lib/methodology/compact-recovery.ts",
+          "src/lib/methodology/declaration-fields.ts",
+          "src/lib/methodology/fetch.ts",
+          "src/lib/methodology/foundation-manifest.ts",
+          "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
+          "src/lib/methodology/provider-match.ts",
+          "src/lib/methodology/tree-resource.ts",
+          "src/lib/methodology/tree.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts"
+        ]
+      },
+      "tests/harness-environment-descriptor.compliance.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "d30bddb0357c116e3325e8d9523f3e1527e1756f",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/33-harness-environment.enabler/harness-environment.spec.md",
           "spx/33-harness-environment.enabler/tests/harness-environment-descriptor.compliance.l1.test.ts",
           "src/config/descriptor-digest.ts",
           "src/config/field-errors.ts",
@@ -115,10 +147,10 @@
       },
       "tests/harness-environment-descriptor.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "d30bddb0357c116e3325e8d9523f3e1527e1756f",
         "read": [
           "pnpm-lock.yaml",
-          "spx/33-harness-environment.enabler/harness-environment.md",
+          "spx/33-harness-environment.enabler/harness-environment.spec.md",
           "spx/33-harness-environment.enabler/tests/harness-environment-descriptor.mapping.l1.test.ts",
           "src/config/descriptor-digest.ts",
           "src/config/field-errors.ts",

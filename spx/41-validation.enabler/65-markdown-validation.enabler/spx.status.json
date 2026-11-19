@@ -5,7 +5,7 @@
     "test": {
       "tests/markdown-validation-command.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "d30bddb0357c116e3325e8d9523f3e1527e1756f",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -398,7 +398,7 @@
       },
       "tests/markdown-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "d30bddb0357c116e3325e8d9523f3e1527e1756f",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -550,7 +550,7 @@
       },
       "tests/markdown-validation.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "d30bddb0357c116e3325e8d9523f3e1527e1756f",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -655,7 +655,7 @@
       },
       "tests/markdown-validation.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "d30bddb0357c116e3325e8d9523f3e1527e1756f",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -754,7 +754,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "d30bddb0357c116e3325e8d9523f3e1527e1756f",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
@@ -879,7 +879,7 @@
           "spx/21-infrastructure.enabler/43-precommit.enabler/ISSUES.md",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-hook-event-runner.pdr.md",
-          "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/21-session-id.enabler/session-id.md",
+          "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/21-session-id.enabler/session-id.spec.md",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/32-worktree-claim.enabler/worktree-claim.md",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/43-compact-output.enabler/21-compact-directive-source.adr.md",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/43-compact-output.enabler/ISSUES.md",
@@ -1026,7 +1026,10 @@
           "spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler/plugin-bootstrap.md",
           "spx/33-harness-environment.enabler/ISSUES.md",
           "spx/33-harness-environment.enabler/PLAN.md",
-          "spx/33-harness-environment.enabler/harness-environment.md",
+          "spx/33-harness-environment.enabler/harness-environment.spec.md",
+          "spx/33-harness-environment.enabler/knowledge/descriptor-decision-basis.md",
+          "spx/33-harness-environment.enabler/knowledge/index.md",
+          "spx/33-harness-environment.enabler/knowledge/log.md",
           "spx/34-verification.enabler/15-run-write-paths.pdr.md",
           "spx/34-verification.enabler/21-verification-context.enabler/13-verification-context-module-structure.adr.md",
           "spx/34-verification.enabler/21-verification-context.enabler/ISSUES.md",
@@ -1075,12 +1078,12 @@
           "spx/36-session.enabler/21-directory-structure.adr.md",
           "spx/36-session.enabler/21-session-test-harness.enabler/session-test-harness.md",
           "spx/36-session.enabler/21-timestamp-format.adr.md",
-          "spx/36-session.enabler/32-session-identity.enabler/session-identity.md",
+          "spx/36-session.enabler/32-session-identity.enabler/session-identity.spec.md",
           "spx/36-session.enabler/37-frontmatter-key-enforcement.adr.md",
           "spx/36-session.enabler/43-session-store.enabler/21-list-json-contract.adr.md",
           "spx/36-session.enabler/43-session-store.enabler/21-test-harness.enabler/test-harness.md",
           "spx/36-session.enabler/43-session-store.enabler/ISSUES.md",
-          "spx/36-session.enabler/43-session-store.enabler/session-store.md",
+          "spx/36-session.enabler/43-session-store.enabler/session-store.spec.md",
           "spx/36-session.enabler/54-auto-injection.enabler/auto-injection.md",
           "spx/36-session.enabler/54-session-reconciliation.enabler/PLAN.md",
           "spx/36-session.enabler/54-session-reconciliation.enabler/session-reconciliation.md",
@@ -1096,6 +1099,9 @@
           "spx/36-session.enabler/87-session-pick.enabler/session-pick.md",
           "spx/36-session.enabler/ISSUES.md",
           "spx/36-session.enabler/PLAN.md",
+          "spx/36-session.enabler/knowledge/index.md",
+          "spx/36-session.enabler/knowledge/log.md",
+          "spx/36-session.enabler/knowledge/session-frontmatter-decision-basis.md",
           "spx/36-session.enabler/session.md",
           "spx/37-compact.enabler/21-compact-cli.adr.md",
           "spx/37-compact.enabler/ISSUES.md",
@@ -1106,7 +1112,7 @@
           "spx/38-worktree.enabler/32-occupancy-store.enabler/occupancy-store.md",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/21-worktree-command.adr.md",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/ISSUES.md",
-          "spx/38-worktree.enabler/43-worktree-cli.enabler/worktree-cli.md",
+          "spx/38-worktree.enabler/43-worktree-cli.enabler/worktree-cli.spec.md",
           "spx/38-worktree.enabler/ISSUES.md",
           "spx/38-worktree.enabler/PLAN.md",
           "spx/38-worktree.enabler/worktree.md",

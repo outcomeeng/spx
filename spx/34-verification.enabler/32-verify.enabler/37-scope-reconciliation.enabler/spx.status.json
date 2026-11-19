@@ -5,7 +5,7 @@
     "test": {
       "tests/reconciliation-determinism.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "d30bddb0357c116e3325e8d9523f3e1527e1756f",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
@@ -405,7 +405,7 @@
       },
       "tests/reconciliation-expectations.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "d30bddb0357c116e3325e8d9523f3e1527e1756f",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
@@ -509,7 +509,7 @@
       },
       "tests/reconciliation-read-only.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "d30bddb0357c116e3325e8d9523f3e1527e1756f",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
@@ -909,7 +909,7 @@
       },
       "tests/reconciliation-rejection.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "d30bddb0357c116e3325e8d9523f3e1527e1756f",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
@@ -1310,7 +1310,7 @@
       },
       "tests/reconciliation-result.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "d30bddb0357c116e3325e8d9523f3e1527e1756f",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",

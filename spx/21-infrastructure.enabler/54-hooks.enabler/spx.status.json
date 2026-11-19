@@ -5,7 +5,7 @@
     "test": {
       "tests/hook-cli.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "d30bddb0357c116e3325e8d9523f3e1527e1756f",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/54-hooks.enabler/hooks.md",
@@ -15,6 +15,7 @@
           "src/config/methodology-resolution.ts",
           "src/config/methodology.ts",
           "src/config/product-file.ts",
+          "src/domains/agent-environment/config.ts",
           "src/domains/agent/home.ts",
           "src/domains/agent/protocol.ts",
           "src/domains/agent/resume.ts",
