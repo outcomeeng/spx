@@ -49,7 +49,7 @@ const PI_SEARCH_SAMPLE = {
   NOW_MS: 508,
   PICKUP_ID: 509,
   CODEX_SESSION_ID: 510,
-  CLAUDE_SESSION_ID: 511,
+  CLAUDE_CODE_SESSION: 511,
   PI_SESSION_ID: 512,
   MALFORMED_PI_SESSION_ID: 513,
   FOREIGN_PI_SESSION_ID: 514,
@@ -70,7 +70,7 @@ const PI_SEARCH_SAMPLE = {
   CLI_PI_CWD: 544,
   CLI_NOW_MS: 545,
   CLI_CODEX_SESSION_ID: 546,
-  CLI_CLAUDE_SESSION_ID: 547,
+  CLI_CLAUDE_CODE_SESSION: 547,
   CLI_PI_SESSION_ID: 548,
 } as const;
 
@@ -115,7 +115,7 @@ export async function withPiSearchPickupEvidence(
   const pickupId = sampleAgentResumeValue(arbitraryAgentSessionId(), PI_SEARCH_SAMPLE.PICKUP_ID);
   const marker = pickupIdSearchLiteral(pickupId);
   const codexSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), PI_SEARCH_SAMPLE.CODEX_SESSION_ID);
-  const claudeSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), PI_SEARCH_SAMPLE.CLAUDE_SESSION_ID);
+  const claudeSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), PI_SEARCH_SAMPLE.CLAUDE_CODE_SESSION);
   const piSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), PI_SEARCH_SAMPLE.PI_SESSION_ID);
   const malformedPiSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
@@ -258,7 +258,7 @@ export async function withPiSearchCliSelectionEvidence(
   const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), PI_SEARCH_SAMPLE.CLI_NOW_MS);
   const timestamp = new Date(nowMs).toISOString();
   const codexSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), PI_SEARCH_SAMPLE.CLI_CODEX_SESSION_ID);
-  const claudeSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), PI_SEARCH_SAMPLE.CLI_CLAUDE_SESSION_ID);
+  const claudeSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), PI_SEARCH_SAMPLE.CLI_CLAUDE_CODE_SESSION);
   const piSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), PI_SEARCH_SAMPLE.CLI_PI_SESSION_ID);
   const stdout: string[] = [];
   const stderr: string[] = [];

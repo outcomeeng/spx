@@ -61,7 +61,7 @@ Each metadata field a session file carries takes its type, its lifecycle, and it
 ### Test.Compliance: metadata prefill
 
 - created-at-format: ALWAYS: `spx session handoff` prefills `created_at` as an ISO-8601 timestamp with timezone offset per [spx/36-session.enabler/21-timestamp-format.adr.md](spx/36-session.enabler/21-timestamp-format.adr.md).
-- agent-session-id-prefill: ALWAYS: `spx session handoff` prefills `agent_session_id` from whichever of `$CLAUDE_CODE_SESSION_ID`, `$CODEX_THREAD_ID`, `$ANTIGRAVITY_CONVERSATION_ID`, and `$PI_SESSION_ID` is the only one non-empty; when none or two or more are non-empty the field is absent, and `$CLAUDE_SESSION_ID` is never read.
+- agent-session-id-prefill: ALWAYS: `spx session handoff` prefills `agent_session_id` from whichever of `$CLAUDE_CODE_SESSION_ID`, `$CODEX_THREAD_ID`, `$ANTIGRAVITY_CONVERSATION_ID`, and `$PI_SESSION_ID` is the only one non-empty; when none or two or more are non-empty the field is absent.
 - priority-default: ALWAYS: `spx session handoff` defaults `priority` to `medium` when the caller omits it and validates it as one of the `SESSION_PRIORITY` values (`high`, `medium`, `low`).
 - no-invented-session-id: NEVER: `spx session handoff` invents a value for `agent_session_id` or chooses one of several non-empty identity variables; the field is omitted, not populated with a placeholder or a chosen variable's value.
 

@@ -29,7 +29,7 @@ Equivalent `harnessEnvironment` sections declared in each config file format res
 
 ### Test.Mapping: [agent-identification](tests/agent-identification.mapping.l1.test.ts)
 
-Every subset of the four identity variables, generated from the source-owned identity-variable keys, with its members non-empty and every other identity variable empty or absent, maps to the identified agent and session, whatever `CLAUDE_SESSION_ID` and `CLAUDE_ENV_FILE` hold.
+Every subset of the four identity variables, generated from the source-owned identity-variable keys, with its members non-empty and every other identity variable empty or absent, maps to the identified agent and session, whatever `CLAUDE_ENV_FILE` holds.
 
 | Case             | Non-empty identity variables                                                                | Identified agent and session                       |
 | ---------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------- |

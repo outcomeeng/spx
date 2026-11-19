@@ -17,15 +17,15 @@ CAN share one session identity across hook runtime state and SPX state
 - [environment-session-single](tests/session-id.scenario.l1.test.ts):
   - Given the `session-start` payload has no session id and exactly one of `CLAUDE_CODE_SESSION_ID`, `CODEX_THREAD_ID`, `ANTIGRAVITY_CONVERSATION_ID`, and `PI_SESSION_ID` is non-empty
   - When the hook runs
-  - Then SPX uses that variable's value as the session id and writes it to the hook env file
+  - Then SPX uses that variable's value as the session id
 - [environment-session-none-or-several](tests/session-id.scenario.l1.test.ts):
-  - Given the `session-start` payload has no session id and none, or two or more, of the four identity variables are non-empty, whatever `CLAUDE_SESSION_ID` holds
+  - Given the `session-start` payload has no session id and none, or two or more, of the four identity variables are non-empty
   - When the hook runs
   - Then SPX resolves no session id and writes no worktree claim
 - [payload-session-precedence](tests/session-id.scenario.l1.test.ts):
-  - Given the `session-start` payload contains a session id and the hook environment also contains `CLAUDE_SESSION_ID`
+  - Given the `session-start` payload contains a session id and the hook environment also contains an identity variable naming another session
   - When the hook runs
-  - Then SPX uses the payload session id and writes it to the hook env file
+  - Then SPX uses the payload session id
 - [pi-transcript-header-identity](tests/session-id.scenario.l1.test.ts):
   - Given a Pi `session-start` payload contains the exact native transcript path but no session id, and that transcript opens with a valid Pi session header whose cwd matches the payload product directory
   - When the hook runs

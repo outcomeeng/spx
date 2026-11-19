@@ -6,7 +6,6 @@ import {
   type WorktreePoolSnapshotProvider,
 } from "@/commands/diagnose/probes";
 import { classifySessionEnvironment, SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
-import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 import { withLiveClaimSessionEnvironmentProbeFixture } from "@testing/harnesses/session-environment/harness";
 
 function snapshotProvider(snapshot: WorktreePoolSnapshot): WorktreePoolSnapshotProvider {
@@ -42,7 +41,6 @@ describe("the session-environment probe maps exported claim paths", () => {
       claimMatchesCurrentWorktree: true,
       shellIdentity: false,
     }, async ({ env, snapshot }) => {
-      expect(env).not.toHaveProperty(HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID);
       const reading = await sessionEnvironmentProbeFromSnapshotProvider(
         snapshotProvider(snapshot),
         env,

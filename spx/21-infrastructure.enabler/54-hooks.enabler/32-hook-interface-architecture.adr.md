@@ -94,7 +94,7 @@ claim.
   agent session, and the `PreToolUse` hook adapter does not perform a
   status-then-claim occupancy repair loop ([audit])
 - ALWAYS: the `session-start` hook adapter writes hook env-file exports for
-  `CLAUDE_SESSION_ID`, `CLAUDE_PROJECT_DIR`, and `PROJECT_DIR` when the hook
+  `CLAUDE_PROJECT_DIR` and `PROJECT_DIR` when the hook
   runtime supplies an env-file path and enough identity and project information
   to compute each value, writes an absolute `SPX_WORKTREE_CLAIM_PATH` export
   when the worktree claim succeeds, and writes `unset SPX_WORKTREE_CLAIM_PATH`

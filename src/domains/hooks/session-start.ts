@@ -31,7 +31,6 @@ export const HOOK_SESSION_START_SOURCE = {
 export const HOOK_SESSION_START_ENV = {
   CLAUDE_ENV_FILE: "CLAUDE_ENV_FILE",
   CLAUDE_PROJECT_DIR: "CLAUDE_PROJECT_DIR",
-  CLAUDE_SESSION_ID: "CLAUDE_SESSION_ID",
   CODEX_THREAD_ID: "CODEX_THREAD_ID",
   PROJECT_DIR: "PROJECT_DIR",
   SPX_WORKTREE_CLAIM_PATH: "SPX_WORKTREE_CLAIM_PATH",
@@ -177,9 +176,6 @@ export function renderHookSessionStartEnvFile(input: HookSessionStartEnvRenderIn
   return [
     "",
     ENV_FILE_HEADER,
-    ...(input.sessionId === undefined
-      ? []
-      : [renderExportLine(HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, input.sessionId)]),
     renderExportLine(HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR, input.productDir),
     renderExportLine(HOOK_SESSION_START_ENV.PROJECT_DIR, input.productDir),
     ...(input.claimPath === undefined

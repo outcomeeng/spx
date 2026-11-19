@@ -1,3 +1,4 @@
+import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
 import * as fc from "fast-check";
 
 import {
@@ -1059,7 +1060,7 @@ export type SpecContextCodingAgentWitnessCase = SpecContextCodingAgentMarkerCase
  */
 const CODING_AGENT_MARKER_KEYS: Record<MethodologyCodingAgent, readonly [string, ...(readonly string[])]> = {
   [METHODOLOGY_CODING_AGENT.CLAUDE]: [
-    HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID,
+    AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE],
     HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE,
   ],
   [METHODOLOGY_CODING_AGENT.CODEX]: [HOOK_SESSION_START_ENV.CODEX_THREAD_ID],

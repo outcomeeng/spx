@@ -1078,9 +1078,7 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     });
   }
 
-  it("GIVEN no identity variable is non-empty, whatever CLAUDE_SESSION_ID holds, WHEN handoff creates session THEN agent_session_id does not appear in YAML front matter", async () => {
-    process.env.CLAUDE_SESSION_ID = sampleSessionId();
-
+  it("GIVEN no identity variable is non-empty WHEN handoff creates session THEN agent_session_id does not appear in YAML front matter", async () => {
     const { output } = await handoffCommand({
       content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
@@ -1089,7 +1087,6 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(frontMatter).not.toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID);
-    delete process.env.CLAUDE_SESSION_ID;
   });
 
   it("GIVEN two or more identity variables are non-empty WHEN handoff creates session THEN agent_session_id does not appear in YAML front matter", async () => {

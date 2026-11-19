@@ -34,11 +34,11 @@ const PI_CONFIGURED_AGENT_HOME_SAMPLE = {
   CLAUDE_CWD: 408,
   PI_CWD: 409,
   CODEX_SESSION_ID: 410,
-  CLAUDE_SESSION_ID: 411,
+  CLAUDE_CODE_SESSION: 411,
   PI_SESSION_ID: 412,
   DEFAULT_SESSION_ID: 413,
   NOW_MS: 414,
-  DEFAULT_CLAUDE_SESSION_ID: 415,
+  DEFAULT_CLAUDE_CODE_SESSION: 415,
   DEFAULT_PI_SESSION_ID: 416,
 } as const;
 
@@ -326,7 +326,7 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
   );
   const claudeSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
-    PI_CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_SESSION_ID,
+    PI_CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_CODE_SESSION,
   );
   const piSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
@@ -338,7 +338,7 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
   );
   const defaultClaudeSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
-    PI_CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_CLAUDE_SESSION_ID,
+    PI_CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_CLAUDE_CODE_SESSION,
   );
   const defaultPiSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),

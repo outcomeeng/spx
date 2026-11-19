@@ -135,7 +135,7 @@ const SEARCH_SAMPLE = {
   FOREIGN_CWD: 5,
   PICKUP_ID: 6,
   CODEX_SESSION_ID: 7,
-  CLAUDE_SESSION_ID: 8,
+  CLAUDE_CODE_SESSION: 8,
   FOREIGN_SESSION_ID: 9,
   SUBAGENT_SESSION_ID: 10,
   JSON_HOME_DIR: 20,
@@ -174,7 +174,7 @@ const SEARCH_SAMPLE = {
   COMPLIANCE_NOW_MS: 76,
   COMPLIANCE_RECENT_OFFSET_MS: 77,
   COMPLIANCE_CODEX_SESSION_ID: 78,
-  COMPLIANCE_CLAUDE_SESSION_ID: 79,
+  COMPLIANCE_CLAUDE_CODE_SESSION: 79,
   COMPLIANCE_STALE_SESSION_ID: 80,
   COMPLIANCE_FOREIGN_SESSION_ID: 81,
   AGENT_ONLY_HOME_DIR: 90,
@@ -183,7 +183,7 @@ const SEARCH_SAMPLE = {
   AGENT_ONLY_CLAUDE_CWD: 93,
   AGENT_ONLY_NOW_MS: 94,
   AGENT_ONLY_CODEX_SESSION_ID: 95,
-  AGENT_ONLY_CLAUDE_SESSION_ID: 96,
+  AGENT_ONLY_CLAUDE_CODE_SESSION: 96,
   SELECTOR_HOME_DIR: 100,
   SELECTOR_PRODUCT_SCOPE_ROOT: 101,
   SELECTOR_CWD: 102,
@@ -230,7 +230,7 @@ const SEARCH_SAMPLE = {
   COMMAND_TARGET_BRANCH: 138,
   COMMAND_OTHER_BRANCH: 139,
   COMMAND_CODEX_SESSION_ID: 140,
-  COMMAND_CLAUDE_SESSION_ID: 141,
+  COMMAND_CLAUDE_CODE_SESSION: 141,
   BRANCH_ONLY_HOME_DIR: 142,
   BRANCH_ONLY_PRODUCT_SCOPE_ROOT: 143,
   BRANCH_ONLY_CWD: 144,
@@ -280,7 +280,7 @@ const SEARCH_SAMPLE = {
   BRANCH_METADATA_OTHER_BRANCH: 160,
   BRANCH_METADATA_SESSION_ID: 161,
   BRANCH_METADATA_CLAUDE_CWD: 173,
-  BRANCH_METADATA_CLAUDE_SESSION_ID: 174,
+  BRANCH_METADATA_CLAUDE_CODE_SESSION: 174,
   BRANCH_METADATA_FOREIGN_ROOT: 170,
   BRANCH_METADATA_FOREIGN_CWD: 171,
   BRANCH_METADATA_FOREIGN_SESSION_ID: 172,
@@ -557,7 +557,7 @@ export async function withAgentSearchPickupMarkerEvidence(
   const pickupId = sampleAgentResumeValue(arbitraryDomainLiteral(), SEARCH_SAMPLE.PICKUP_ID);
   const pickupMarker = pickupIdSearchLiteral(pickupId);
   const codexSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.CODEX_SESSION_ID);
-  const claudeSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.CLAUDE_SESSION_ID);
+  const claudeSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.CLAUDE_CODE_SESSION);
   const foreignSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.FOREIGN_SESSION_ID);
   const subagentSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.SUBAGENT_SESSION_ID);
 
@@ -1133,7 +1133,7 @@ export async function withAgentSearchBranchCommandEvidence(
   );
   const claudeSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
-    SEARCH_SAMPLE.COMMAND_CLAUDE_SESSION_ID,
+    SEARCH_SAMPLE.COMMAND_CLAUDE_CODE_SESSION,
   );
 
   writeCodexTranscriptFile(fs, homeDir, {
@@ -1416,7 +1416,7 @@ export async function withAgentSearchAllScopedSessionsEvidence(
   );
   const claudeSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
-    SEARCH_SAMPLE.COMPLIANCE_CLAUDE_SESSION_ID,
+    SEARCH_SAMPLE.COMPLIANCE_CLAUDE_CODE_SESSION,
   );
   const staleSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
@@ -1484,7 +1484,7 @@ export async function withAgentSearchSelectedKindEvidence(
   );
   const claudeSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
-    SEARCH_SAMPLE.AGENT_ONLY_CLAUDE_SESSION_ID,
+    SEARCH_SAMPLE.AGENT_ONLY_CLAUDE_CODE_SESSION,
   );
 
   writeCodexTranscriptFile(fs, homeDir, { sessionId: codexSessionId, cwd: codexCwd, timestamp, modifiedAtMs: nowMs });
@@ -1825,7 +1825,7 @@ export async function withAgentSearchMetadataBranchEvidence(
   const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.BRANCH_METADATA_SESSION_ID);
   const claudeSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
-    SEARCH_SAMPLE.BRANCH_METADATA_CLAUDE_SESSION_ID,
+    SEARCH_SAMPLE.BRANCH_METADATA_CLAUDE_CODE_SESSION,
   );
   const subagentTranscriptId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),

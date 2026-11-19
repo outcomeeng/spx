@@ -24,7 +24,6 @@ describe("agent identification over every subset of the identity variables", () 
     PI_SESSION_ID: AGENT.PI,
   };
   const hookExportNoise: Readonly<Record<string, string>> = {
-    CLAUDE_SESSION_ID: "hook-exported-session",
     CLAUDE_ENV_FILE: "/tmp/hook-env-file",
   };
   const identityVariables = Object.values(AGENT_IDENTITY_VARIABLE);

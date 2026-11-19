@@ -6,7 +6,12 @@
  * @module interfaces/cli/coding-agent
  */
 
-import { AGENT, type Agent, METHODOLOGY_CODING_AGENT_BY_AGENT } from "@/domains/agent-environment/config";
+import {
+  AGENT,
+  type Agent,
+  AGENT_IDENTITY_VARIABLE,
+  METHODOLOGY_CODING_AGENT_BY_AGENT,
+} from "@/domains/agent-environment/config";
 import { HOOK_SESSION_START_ENV, type HookSessionStartEnv } from "@/domains/hooks/session-start";
 import type { MethodologyCodingAgent } from "@/lib/methodology";
 
@@ -20,7 +25,7 @@ export const METHODOLOGY_CODING_AGENT_FOR_HARNESS_AGENT = METHODOLOGY_CODING_AGE
  */
 export function resolveInvokingAgent(env: HookSessionStartEnv): Agent | undefined {
   if (env[HOOK_SESSION_START_ENV.CODEX_THREAD_ID]?.trim()) return AGENT.CODEX;
-  if (env[HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]?.trim()) return AGENT.CLAUDE_CODE;
+  if (env[AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]?.trim()) return AGENT.CLAUDE_CODE;
   if (env[HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]?.trim()) return AGENT.CLAUDE_CODE;
   return undefined;
 }

@@ -23,7 +23,7 @@ SO THAT every consumer reads one validated input and identifies the invoking age
 - no-identity-otherwise: ALWAYS: when none of the four identity variables is non-empty, or two or more are, no agent and no session are identified; no identity variable takes precedence over another, and no agent falls back to another agent's variable.
 - ambiguous-identity-failure: ALWAYS: a command whose spec declares an agent-session identity failure fails when two or more identity variables are non-empty, naming every one of the four it found set; every other consumer treats them as no identity.
 - methodology-claude-default: ALWAYS: methodology source selection, which selects one shipped coding-agent bundle, selects Claude when two or more identity variables are non-empty, whichever they are; this default identifies no agent and no session and is the one exception to no-identity-otherwise.
-- no-hook-markers: NEVER: `CLAUDE_SESSION_ID` or `CLAUDE_ENV_FILE` identifies an agent or a session, and no consumer of the identity rule reads `CLAUDE_SESSION_ID`.
+- no-hook-markers: NEVER: `CLAUDE_ENV_FILE` identifies an agent or a session.
 - compact-policy-agent: ALWAYS: compact stdout agent policy follows the agent the identity rule identifies and resolves false when the rule identifies no agent; `session-start` session identity stays a separate, event-specific concern.
 - registration-scope: ALWAYS: registering agy and Pi adds their agent ids, identity variables, and hook policy; native configuration projection for them stays with `spx/33-harness-environment.enabler/32-agent-config.enabler`.
 - child-owned-checks: ALWAYS: the instruction-reconciliation child validates concrete instruction paths before writing files, and the plugin-bootstrap child validates marketplace source formats before resolving external inputs.
@@ -33,7 +33,7 @@ SO THAT every consumer reads one validated input and identifies the invoking age
 - explicit-instruction-targets: NEVER: adding an agent makes it an implicit instruction target; each instruction file's target agents are explicit.
 - methodology-descriptor-owns-source: ALWAYS: methodology source and version belong to the top-level `methodology` descriptor under `spx/16-config.enabler/43-methodology-config.enabler`.
 - registered-agent-identities: ALWAYS: the descriptor module registers Claude Code, Codex, agy, and Pi, each with its agent id, its identity variable, and its hook policy default.
-- identity-rule-subsets: ALWAYS: agent and session identification, evidenced over every subset of the four identity variables generated from the source-owned identity-variable keys, identifies the one agent whose variable alone is non-empty and its session, and identifies none for every other subset, whatever `CLAUDE_SESSION_ID` and `CLAUDE_ENV_FILE` hold.
+- identity-rule-subsets: ALWAYS: agent and session identification, evidenced over every subset of the four identity variables generated from the source-owned identity-variable keys, identifies the one agent whose variable alone is non-empty and its session, and identifies none for every other subset, whatever `CLAUDE_ENV_FILE` holds.
 
 ### Test.Compliance: descriptor resolution
 
@@ -60,4 +60,4 @@ The descriptor section resolves to the same values whichever config file format 
 - no-child-safety-checks: NEVER: validate traversal safety for instruction paths or protocol safety for marketplace sources in this descriptor; the children that know the concrete target own those checks.
 - no-descriptor-import-in-runners: NEVER: import the harness-environment descriptor from hook event runners; the hook CLI transport resolves hook policy and passes primitive policy values to hook infrastructure.
 - identity-policy-separation: NEVER: infer session-start identity from compact stdout agent policy selection or infer compact stdout agent policy from session-start identity; compact stdout policy follows the agent the identity rule identifies, while session-start identity follows its event-specific inputs.
-- no-identity-precedence: NEVER: let one identity variable take precedence over another, fall back from one agent's identity variable to another's, or read `CLAUDE_SESSION_ID` or `CLAUDE_ENV_FILE` as an identity source or marker; the methodology-source Claude default, which identifies no agent, is the one exception.
+- no-identity-precedence: NEVER: let one identity variable take precedence over another, fall back from one agent's identity variable to another's, or read `CLAUDE_ENV_FILE` as an identity source or marker; the methodology-source Claude default, which identifies no agent, is the one exception.

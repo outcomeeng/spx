@@ -37,7 +37,7 @@ CAN identify sessions uniquely, determine sort order, resolve agent-session toke
   - When metadata is parsed
   - Then the returned object contains only the declared fields, and no error or warning is raised, per [spx/36-session.enabler/11-session-frontmatter.pdr.md](spx/36-session.enabler/11-session-frontmatter.pdr.md)
 - [agent-session-identity](tests/session-identity.scenario.l1.test.ts):
-  - Given each subset of `CLAUDE_CODE_SESSION_ID`, `CODEX_THREAD_ID`, `ANTIGRAVITY_CONVERSATION_ID`, and `PI_SESSION_ID`, generated from the source-owned identity-variable keys, whose members are non-empty while every other identity variable is empty or absent, whatever `CLAUDE_SESSION_ID` holds
+  - Given each subset of `CLAUDE_CODE_SESSION_ID`, `CODEX_THREAD_ID`, `ANTIGRAVITY_CONVERSATION_ID`, and `PI_SESSION_ID`, generated from the source-owned identity-variable keys, whose members are non-empty while every other identity variable is empty or absent
   - When agent-session identity is resolved
   - Then a one-member subset returns that member's value, the empty subset returns no identity, and a subset of two or more members returns no identity and names every member
 

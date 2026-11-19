@@ -40,7 +40,7 @@ export function registerSessionIdentityScenarioEvidence(): void {
       expect(subsets).toHaveLength(16);
       for (const subset of subsets) {
         const sessions = sampleDistinctSessionIds(Math.max(subset.length, 1));
-        const env: Record<string, string> = { CLAUDE_SESSION_ID: sessions[0] };
+        const env: Record<string, string> = {};
         subset.forEach((variable, index) => {
           env[variable] = sessions[index];
         });

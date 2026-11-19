@@ -129,10 +129,10 @@ const CONFIGURED_AGENT_HOME_SAMPLE = {
   CODEX_CWD: 405,
   CLAUDE_CWD: 406,
   CODEX_SESSION_ID: 407,
-  CLAUDE_SESSION_ID: 408,
+  CLAUDE_CODE_SESSION: 408,
   DEFAULT_SESSION_ID: 409,
   NOW_MS: 410,
-  DEFAULT_CLAUDE_SESSION_ID: 411,
+  DEFAULT_CLAUDE_CODE_SESSION: 411,
 } as const;
 
 export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSystem {
@@ -1535,7 +1535,7 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
   );
   const claudeSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
-    CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_SESSION_ID,
+    CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_CODE_SESSION,
   );
   const defaultSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
@@ -1543,7 +1543,7 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
   );
   const defaultClaudeSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
-    CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_CLAUDE_SESSION_ID,
+    CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_CLAUDE_CODE_SESSION,
   );
   const timestamp = new Date(nowMs).toISOString();
   const defaultHomeDirs = agentHomeDirsFromHomeDir(homedir());

@@ -1,3 +1,4 @@
+import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -44,7 +45,7 @@ describe("hook CLI compact stdout boundary", () => {
       const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
         env: {
           [CONTROLLING_PID_ENV]: String(process.pid),
-          [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: claudeSessionId,
+          [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: claudeSessionId,
           [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: codexThreadId,
         },
       });
@@ -92,7 +93,7 @@ describe("hook CLI compact stdout boundary", () => {
         env: {
           [CONTROLLING_PID_ENV]: String(process.pid),
           [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: "",
-          [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: "",
+          [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: "",
           [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: "",
         },
       });
@@ -131,7 +132,7 @@ describe("hook CLI compact stdout boundary", () => {
         env: {
           [CONTROLLING_PID_ENV]: String(process.pid),
           [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: "",
-          [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: "",
+          [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: "",
           [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: "",
         },
       });

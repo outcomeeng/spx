@@ -153,7 +153,7 @@ CAN enumerate, read, write, and remove sessions without reimplementing filesyste
   - When handoff creates the session file
   - Then `agent_session_id` is written to YAML front matter with that variable's value
 - [agent-session-id-none-or-several](tests/session-store.scenario.l1.test.ts):
-  - Given none, or two or more, of the four identity variables are non-empty in the calling environment, whatever `CLAUDE_SESSION_ID` holds
+  - Given none, or two or more, of the four identity variables are non-empty in the calling environment
   - When handoff creates the session file
   - Then `agent_session_id` does not appear in YAML front matter
 

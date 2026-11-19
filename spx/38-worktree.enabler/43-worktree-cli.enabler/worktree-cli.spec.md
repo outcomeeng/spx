@@ -52,7 +52,7 @@ CAN claim, query, and release worktree occupancy with predictable output, exit c
   - When the release handler runs with `--session-id S`
   - Then the claim is removed
 - [release-without-identity](tests/worktree-cli.scenario.l1.test.ts):
-  - Given no `--session-id` and none of `CLAUDE_CODE_SESSION_ID`, `CODEX_THREAD_ID`, `ANTIGRAVITY_CONVERSATION_ID`, and `PI_SESSION_ID` non-empty, whatever `CLAUDE_SESSION_ID` holds
+  - Given no `--session-id` and none of `CLAUDE_CODE_SESSION_ID`, `CODEX_THREAD_ID`, `ANTIGRAVITY_CONVERSATION_ID`, and `PI_SESSION_ID` non-empty
   - When the release handler runs
   - Then the handler reports failure
 - [release-ambiguous-identity](tests/worktree-cli.scenario.l1.test.ts):
