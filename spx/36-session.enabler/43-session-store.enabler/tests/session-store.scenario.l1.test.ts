@@ -87,9 +87,11 @@ import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/gene
 import {
   buildHandoffStdin,
   buildSessionMarkdownBody,
+  createIdentityIsolatedSessionHarness,
   createSessionGitDeps,
   createSessionHarness,
   HEAD_SHA,
+  type IdentityIsolatedSessionHarness,
   ORIGIN_DEFAULT_SHA,
   SESSION_FORBIDDEN_JSON_RECORD_FIELD,
   SessionHarness,
@@ -1034,20 +1036,14 @@ describe("sortSessions with unparsable IDs", () => {
 // ============================================================
 
 describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
-  let harness: SessionHarness;
+  let harness: IdentityIsolatedSessionHarness;
 
   beforeEach(async () => {
-    harness = await createSessionHarness();
-    for (const key of envKeys) {
-      delete process.env[key];
-    }
+    harness = await createIdentityIsolatedSessionHarness();
   });
 
   afterEach(async () => {
     await harness.cleanup();
-    for (const key of envKeys) {
-      delete process.env[key];
-    }
   });
 
   it("GIVEN handoff is invoked WHEN session file is created THEN created_at is written to YAML front matter", async () => {
@@ -1065,7 +1061,7 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
   for (const variable of envKeys) {
     it(`GIVEN only ${variable} is non-empty WHEN handoff creates session THEN agent_session_id is written with its value`, async () => {
       const agentSessionId = sampleSessionId();
-      process.env[variable] = agentSessionId;
+      harness.setAgentIdentity({ [variable]: agentSessionId });
 
       const { output } = await handoffCommand({
         content: prefillHandoffStdin,
@@ -1090,7 +1086,8 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
   });
 
   it("GIVEN two or more identity variables are non-empty WHEN handoff creates session THEN agent_session_id does not appear in YAML front matter", async () => {
-    for (const variable of envKeys) process.env[variable] = sampleSessionId();
+    const sessionIds = sampleDistinctSessionIds(envKeys.length);
+    harness.setAgentIdentity(Object.fromEntries(envKeys.map((variable, index) => [variable, sessionIds[index]])));
 
     const { output } = await handoffCommand({
       content: prefillHandoffStdin,
@@ -1529,20 +1526,14 @@ describe("parseFieldSelection", () => {
 });
 
 describe("listCommand JSON records and field projection", () => {
-  let harness: SessionHarness;
+  let harness: IdentityIsolatedSessionHarness;
 
   beforeEach(async () => {
-    harness = await createSessionHarness();
-    for (const key of envKeys) {
-      delete process.env[key];
-    }
+    harness = await createIdentityIsolatedSessionHarness();
   });
 
   afterEach(async () => {
     await harness.cleanup();
-    for (const key of envKeys) {
-      delete process.env[key];
-    }
   });
 
   it("emits flat per-session records keyed by status, without a path or metadata nesting", async () => {
@@ -1584,7 +1575,7 @@ describe("listCommand JSON records and field projection", () => {
 
   it("carries created_at and agent_session_id only when the session frontmatter holds them", async () => {
     const agentSessionId = sampleSessionId();
-    process.env[AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]] = agentSessionId;
+    harness.setAgentIdentity({ [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: agentSessionId });
     const { output: handoffOutput } = await handoffCommand({
       content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
@@ -1645,20 +1636,14 @@ describe("listCommand JSON records and field projection", () => {
 });
 
 describe("showCommand JSON output", () => {
-  let harness: SessionHarness;
+  let harness: IdentityIsolatedSessionHarness;
 
   beforeEach(async () => {
-    harness = await createSessionHarness();
-    for (const key of envKeys) {
-      delete process.env[key];
-    }
+    harness = await createIdentityIsolatedSessionHarness();
   });
 
   afterEach(async () => {
     await harness.cleanup();
-    for (const key of envKeys) {
-      delete process.env[key];
-    }
   });
 
   // The exact key set a session with no optional frontmatter projects to. Asserting
@@ -1714,7 +1699,7 @@ describe("showCommand JSON output", () => {
 
   it("GIVEN a session carrying created_at and agent_session_id WHEN shown as JSON THEN both appear; a bare session omits them", async () => {
     const agentSessionId = sampleSessionId();
-    process.env[AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]] = agentSessionId;
+    harness.setAgentIdentity({ [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: agentSessionId });
     const { output: handoffOutput } = await handoffCommand({
       content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,

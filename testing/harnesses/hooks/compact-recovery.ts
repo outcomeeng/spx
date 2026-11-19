@@ -9,7 +9,7 @@ import {
   type MethodologyConfig,
 } from "@/config/methodology";
 import type { Result } from "@/config/types";
-import { AGENT, HARNESS_ENVIRONMENT_CONFIG_FIELDS } from "@/domains/agent-environment/config";
+import { AGENT, type Agent, HARNESS_ENVIRONMENT_CONFIG_FIELDS } from "@/domains/agent-environment/config";
 import {
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
@@ -286,6 +286,36 @@ export async function writeCodexCompactStdoutConfig(
           [METHODOLOGY_CONFIG_FIELDS.VERSION]: methodologyVersion,
         },
       }),
+    }),
+  );
+}
+
+/**
+ * Writes a product config that states each named agent's compact stdout policy and declares the
+ * methodology version, so the policy alone decides whether a directive resolves.
+ */
+export async function writeCompactStdoutPolicyConfig(
+  productDir: string,
+  policies: Readonly<Partial<Record<Agent, boolean>>>,
+  methodologyVersion: string,
+): Promise<void> {
+  await writeFile(
+    join(productDir, CONFIG_FILENAMES.json),
+    JSON.stringify({
+      [HARNESS_ENVIRONMENT_SECTION]: {
+        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS]: Object.fromEntries(
+          Object.entries(policies).map(([agent, compactStdout]) => [agent, {
+            [HARNESS_ENVIRONMENT_CONFIG_FIELDS.HOOKS]: {
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.SESSION_START]: {
+                [HARNESS_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT]: compactStdout,
+              },
+            },
+          }]),
+        ),
+      },
+      [METHODOLOGY_SECTION]: {
+        [METHODOLOGY_CONFIG_FIELDS.VERSION]: methodologyVersion,
+      },
     }),
   );
 }

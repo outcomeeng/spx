@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { HOOK_ENV_FILE, HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
+import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 import { OCCUPANCY_STATUS } from "@/domains/worktree/occupancy-store";
 import {
   withPiSessionStartCliClaimEvidence,
@@ -17,17 +17,9 @@ describe("hook CLI session-start boundary", () => {
       expect(evidence.claim?.host).toBe(evidence.host);
       expect(evidence.claim?.startedAt).toBe(evidence.startedAt);
       expect(evidence.envContent.startsWith(evidence.originalEnvLine)).toBe(true);
-      expect(evidence.envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR}=`,
-      );
-      expect(evidence.envContent).toContain(evidence.productDir);
-      expect(evidence.envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.PROJECT_DIR}=`,
-      );
-      expect(evidence.envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH}=`,
-      );
-      expect(evidence.envContent).toContain(evidence.claimPath);
+      expect(evidence.exportedEnvironment[HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR]).toBe(evidence.productDir);
+      expect(evidence.exportedEnvironment[HOOK_SESSION_START_ENV.PROJECT_DIR]).toBe(evidence.productDir);
+      expect(evidence.exportedEnvironment[HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH]).toBe(evidence.claimPath);
     });
   });
 

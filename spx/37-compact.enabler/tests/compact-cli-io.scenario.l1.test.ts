@@ -9,6 +9,7 @@ import { COMPACT_CLI, compactDomain } from "@/interfaces/cli/compact";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { COMPACT_TEST_GENERATOR, sampleCompactTestValue } from "@testing/generators/compact/compact";
+import { withAgentIdentityEnvironment } from "@testing/harnesses/agent-environment/identity-environment";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 
@@ -33,16 +34,11 @@ function escapedMarker(nodePath: string): string {
 }
 
 async function runCompactCli(args: readonly string[], productDir: string, sessionToken: string): Promise<CliRun> {
-  const previousClaudeSessionId = process.env[AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]];
-  const previousCodexThreadId = process.env[AGENT_IDENTITY_VARIABLE[AGENT.CODEX]];
   const deferredExitCodes: number[] = [];
   const immediateExitCodes: number[] = [];
   const stdout: string[] = [];
 
-  process.env[AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]] = sessionToken;
-  process.env[AGENT_IDENTITY_VARIABLE[AGENT.CODEX]] = "";
-
-  try {
+  await withAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: sessionToken }, async () => {
     const program = createCliProgram({
       domains: [compactDomain],
       processCwd: () => productDir,
@@ -60,19 +56,7 @@ async function runCompactCli(args: readonly string[], productDir: string, sessio
     } catch (error) {
       if (!(error instanceof ImmediateExit)) throw error;
     }
-  } finally {
-    if (previousClaudeSessionId === undefined) {
-      delete process.env[AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]];
-    } else {
-      process.env[AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]] = previousClaudeSessionId;
-    }
-
-    if (previousCodexThreadId === undefined) {
-      delete process.env[AGENT_IDENTITY_VARIABLE[AGENT.CODEX]];
-    } else {
-      process.env[AGENT_IDENTITY_VARIABLE[AGENT.CODEX]] = previousCodexThreadId;
-    }
-  }
+  });
 
   return {
     deferredExitCodes,

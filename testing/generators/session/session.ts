@@ -9,6 +9,7 @@
  */
 
 import * as fc from "fast-check";
+import { createHash } from "node:crypto";
 import { stringify as stringifyYaml } from "yaml";
 
 import { SESSION_FRONT_MATTER_DELIMITER } from "@/domains/session/create";
@@ -577,6 +578,25 @@ const WHITESPACE_IDENTITY_SAMPLE_SEED = 0x5e5532;
 export const SESSION_GENERATOR_ERROR = {
   EMPTY_IDENTITY_SAMPLE: "session identity generator returned an empty value",
 } as const;
+
+const INDEPENDENT_TOKEN_UNSAFE_RUN = /[^A-Za-z0-9_-]+/g;
+const INDEPENDENT_TOKEN_EDGE_DASHES = /^-+|-+$/g;
+const INDEPENDENT_TOKEN_DIGEST_HEX_LENGTH = 12;
+
+/**
+ * The safe token an agent-session identity yields, constructed independently of the production
+ * normalizer: a path-safe identity is its own token; an unsafe one keeps its safe characters with each
+ * unsafe run collapsed to one dash, edge dashes trimmed, and the first twelve hex digits of the
+ * identity's SHA-256 digest appended (the digest alone when nothing safe remains). A second
+ * implementation of the contract the `safe-session-token` property states, so a scenario compares a
+ * recorded claim against it rather than against the code under test.
+ */
+export function independentSafeAgentSessionToken(identity: string): string {
+  if (/^[A-Za-z0-9_-]+$/.test(identity)) return identity;
+  const digest = createHash("sha256").update(identity).digest("hex").slice(0, INDEPENDENT_TOKEN_DIGEST_HEX_LENGTH);
+  const safeCharacters = identity.replace(INDEPENDENT_TOKEN_UNSAFE_RUN, "-").replace(INDEPENDENT_TOKEN_EDGE_DASHES, "");
+  return safeCharacters.length === 0 ? digest : `${safeCharacters}-${digest}`;
+}
 
 /**
  * Arbitrary non-empty agent-session identity (the value of an agent identity variable)

@@ -5,10 +5,11 @@ import { describe, expect, it } from "vitest";
 
 import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
 import { COMPACT_MARKER, COMPACT_RECORD_FIELDS, COMPACT_STORE_PATH } from "@/domains/compact";
-import { resolveAgentSessionId } from "@/domains/session/agent-session";
 import { COMPACT_CLI } from "@/interfaces/cli/compact";
 import { STATE_STORE_DOMAIN, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { COMPACT_TEST_GENERATOR, sampleCompactTestValue } from "@testing/generators/compact/compact";
+import { independentSafeAgentSessionToken } from "@testing/generators/session/session";
+import { isolatedAgentIdentityEnvironment } from "@testing/harnesses/agent-environment/identity-environment";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
@@ -20,24 +21,6 @@ async function runSpx(
 ): Promise<{ readonly stdout: string; readonly stderr: string; readonly exitCode: number }> {
   const result = await execa(NODE_EXECUTABLE, [CLI_PATH, ...args], { cwd, env, reject: false });
   return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode ?? 1 };
-}
-
-function agentSessionEnv(sessionToken: string): Readonly<Record<string, string>> {
-  return { [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: sessionToken };
-}
-
-function codexAgentSessionEnv(sessionToken: string): Readonly<Record<string, string>> {
-  return {
-    [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: "",
-    [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: sessionToken,
-  };
-}
-
-function emptyAgentSessionEnv(): Readonly<Record<string, string>> {
-  return {
-    [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: "",
-    [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: "",
-  };
 }
 
 function compactStashPath(productDir: string, sessionToken: string): string {
@@ -94,7 +77,7 @@ describe("compact CLI", () => {
           transcriptPath,
         ],
         gitEnv.productDir,
-        agentSessionEnv(sessionToken),
+        isolatedAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: sessionToken }),
       );
       expect(firstStored.exitCode).toBe(0);
       expect(firstStored.stdout).toHaveLength(0);
@@ -115,7 +98,7 @@ describe("compact CLI", () => {
           transcriptPath,
         ],
         gitEnv.productDir,
-        agentSessionEnv(sessionToken),
+        isolatedAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: sessionToken }),
       );
       expect(latestStored.exitCode).toBe(0);
       expect(latestStored.stdout).toHaveLength(0);
@@ -127,7 +110,7 @@ describe("compact CLI", () => {
           COMPACT_CLI.retrieveCommandName,
         ],
         gitEnv.productDir,
-        agentSessionEnv(sessionToken),
+        isolatedAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: sessionToken }),
       );
       expect(retrieved.exitCode).toBe(0);
       expect(retrieved.stderr).toHaveLength(0);
@@ -158,7 +141,7 @@ describe("compact CLI", () => {
           transcriptPath,
         ],
         gitEnv.productDir,
-        agentSessionEnv(sessionToken),
+        isolatedAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: sessionToken }),
       );
 
       expect(stored.exitCode).toBe(0);
@@ -170,7 +153,7 @@ describe("compact CLI", () => {
           COMPACT_CLI.retrieveCommandName,
         ],
         gitEnv.productDir,
-        agentSessionEnv(sessionToken),
+        isolatedAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: sessionToken }),
       );
       expect(retrieved.exitCode).toBe(1);
       expect(retrieved.stdout).toHaveLength(0);
@@ -182,9 +165,8 @@ describe("compact CLI", () => {
     const unsafeSessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.unsafeSessionToken());
     const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
     const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
-    const env = codexAgentSessionEnv(unsafeSessionToken);
-    const resolvedSessionToken = resolveAgentSessionId(env);
-    if (resolvedSessionToken === undefined) throw new Error("unsafe Codex session token did not resolve");
+    const env = isolatedAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: unsafeSessionToken });
+    const resolvedSessionToken = independentSafeAgentSessionToken(unsafeSessionToken);
 
     await withGitWorktreeEnv(async (gitEnv) => {
       const transcriptPath = join(gitEnv.productDir, transcriptFileName);
@@ -237,7 +219,7 @@ describe("compact CLI", () => {
           COMPACT_CLI.retrieveCommandName,
         ],
         gitEnv.productDir,
-        agentSessionEnv(sessionToken),
+        isolatedAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: sessionToken }),
       );
 
       expect(retrieved.exitCode).toBe(1);
@@ -264,7 +246,7 @@ describe("compact CLI", () => {
           transcriptPath,
         ],
         gitEnv.productDir,
-        emptyAgentSessionEnv(),
+        isolatedAgentIdentityEnvironment(),
       );
       expect(firstStored.exitCode).toBe(0);
       await writeFile(transcriptPath, transcriptJsonl([COMPACT_MARKER.FOUNDATION, escapedMarker(latestNode)]));
@@ -278,7 +260,7 @@ describe("compact CLI", () => {
           transcriptPath,
         ],
         gitEnv.productDir,
-        emptyAgentSessionEnv(),
+        isolatedAgentIdentityEnvironment(),
       );
       expect(latestStored.exitCode).toBe(0);
 
@@ -290,7 +272,7 @@ describe("compact CLI", () => {
           sessionToken,
         ],
         gitEnv.productDir,
-        emptyAgentSessionEnv(),
+        isolatedAgentIdentityEnvironment(),
       );
 
       expect(retrieved.exitCode).toBe(0);
@@ -322,7 +304,7 @@ describe("compact CLI", () => {
           transcriptPath,
         ],
         gitEnv.productDir,
-        emptyAgentSessionEnv(),
+        isolatedAgentIdentityEnvironment(),
       );
       const retrieved = await runSpx(
         [
@@ -332,7 +314,7 @@ describe("compact CLI", () => {
           unsafeSessionId,
         ],
         gitEnv.productDir,
-        emptyAgentSessionEnv(),
+        isolatedAgentIdentityEnvironment(),
       );
 
       // Store exit 0 proves the unsafe id was normalized — an un-normalized token makes composeScopeDir reject and exit 1.
@@ -365,12 +347,12 @@ describe("compact CLI", () => {
           transcriptPath,
         ],
         gitEnv.productDir,
-        agentSessionEnv(sessionToken),
+        isolatedAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: sessionToken }),
       );
       const retrieved = await runSpx(
         [COMPACT_CLI.commandName, COMPACT_CLI.retrieveCommandName],
         gitEnv.productDir,
-        agentSessionEnv(sessionToken),
+        isolatedAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: sessionToken }),
       );
 
       expect(stored.exitCode).toBe(0);
@@ -409,7 +391,7 @@ describe("compact CLI", () => {
           transcriptPath,
         ],
         gitEnv.productDir,
-        agentSessionEnv(envToken),
+        isolatedAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: envToken }),
       );
       const retrieved = await runSpx(
         [
@@ -419,7 +401,7 @@ describe("compact CLI", () => {
           flagToken,
         ],
         gitEnv.productDir,
-        agentSessionEnv(envToken),
+        isolatedAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: envToken }),
       );
 
       expect(stored.exitCode).toBe(0);
@@ -457,7 +439,7 @@ describe("compact CLI", () => {
           transcriptPath,
         ],
         gitEnv.productDir,
-        emptyAgentSessionEnv(),
+        isolatedAgentIdentityEnvironment(),
       );
       const retrieved = await runSpx(
         [
@@ -465,7 +447,7 @@ describe("compact CLI", () => {
           COMPACT_CLI.retrieveCommandName,
         ],
         gitEnv.productDir,
-        emptyAgentSessionEnv(),
+        isolatedAgentIdentityEnvironment(),
       );
 
       expect(stored.exitCode).toBe(1);

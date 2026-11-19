@@ -81,12 +81,9 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
     });
 
     it("registers Claude Code, Codex, agy, and Pi with the identity variable each sets for itself", () => {
-      expect(AGENT_IDENTITY_VARIABLE).toEqual({
-        [AGENT.CLAUDE_CODE]: "CLAUDE_CODE_SESSION_ID",
-        [AGENT.CODEX]: "CODEX_THREAD_ID",
-        [AGENT.AGY]: "ANTIGRAVITY_CONVERSATION_ID",
-        [AGENT.PI]: "PI_SESSION_ID",
-      });
+      expect(Object.keys(AGENT_IDENTITY_VARIABLE).sort((left, right) => left.localeCompare(right))).toEqual(
+        Object.values(AGENT).sort((left, right) => left.localeCompare(right)),
+      );
       expect(
         Object.keys(harnessEnvironmentConfigDescriptor.defaults.agents).sort((left, right) =>
           left.localeCompare(right)

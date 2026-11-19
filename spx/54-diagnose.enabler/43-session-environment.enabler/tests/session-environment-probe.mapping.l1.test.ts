@@ -5,7 +5,7 @@ import {
   type WorktreePoolSnapshot,
   type WorktreePoolSnapshotProvider,
 } from "@/commands/diagnose/probes";
-import { classifySessionEnvironment, SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
+import { probeClaimMergeCases } from "@testing/generators/diagnose/session-environment";
 import { withLiveClaimSessionEnvironmentProbeFixture } from "@testing/harnesses/session-environment/harness";
 
 function snapshotProvider(snapshot: WorktreePoolSnapshot): WorktreePoolSnapshotProvider {
@@ -17,61 +17,20 @@ function snapshotProvider(snapshot: WorktreePoolSnapshot): WorktreePoolSnapshotP
 }
 
 describe("the session-environment probe maps exported claim paths", () => {
-  it("treats a live SPX_WORKTREE_CLAIM_PATH claim as the current worktree claim", async () => {
-    await withLiveClaimSessionEnvironmentProbeFixture({
-      claimMatchesCurrentWorktree: true,
-      shellIdentity: true,
-    }, async ({ env, snapshot }) => {
-      const reading = await sessionEnvironmentProbeFromSnapshotProvider(
-        snapshotProvider(snapshot),
-        env,
-      ).probe();
+  it.each(probeClaimMergeCases())(
+    "merges a live SPX_WORKTREE_CLAIM_PATH claim only when it names the current worktree (claim matches current worktree: $claimMatchesCurrentWorktree, shell identity: $shellIdentity)",
+    async ({ claimMatchesCurrentWorktree, shellIdentity, expectedReading }) => {
+      await withLiveClaimSessionEnvironmentProbeFixture({
+        claimMatchesCurrentWorktree,
+        shellIdentity,
+      }, async ({ env, snapshot }) => {
+        const reading = await sessionEnvironmentProbeFromSnapshotProvider(
+          snapshotProvider(snapshot),
+          env,
+        ).probe();
 
-      expect(reading).toEqual({
-        errored: false,
-        hookPresent: true,
-        sessionIdentity: true,
-        worktreeClaimed: true,
+        expect(reading).toEqual(expectedReading);
       });
-    });
-  });
-
-  it("derives session identity from a live current-worktree claim when shell identity is absent", async () => {
-    await withLiveClaimSessionEnvironmentProbeFixture({
-      claimMatchesCurrentWorktree: true,
-      shellIdentity: false,
-    }, async ({ env, snapshot }) => {
-      const reading = await sessionEnvironmentProbeFromSnapshotProvider(
-        snapshotProvider(snapshot),
-        env,
-      ).probe();
-
-      expect(reading).toEqual({
-        errored: false,
-        hookPresent: true,
-        sessionIdentity: true,
-        worktreeClaimed: true,
-      });
-      expect(classifySessionEnvironment(reading).verdict).toBe(SESSION_ENVIRONMENT_VERDICT.WORKING);
-    });
-  });
-
-  it("ignores a live SPX_WORKTREE_CLAIM_PATH claim for a different worktree", async () => {
-    await withLiveClaimSessionEnvironmentProbeFixture({
-      claimMatchesCurrentWorktree: false,
-      shellIdentity: true,
-    }, async ({ env, snapshot }) => {
-      const reading = await sessionEnvironmentProbeFromSnapshotProvider(
-        snapshotProvider(snapshot),
-        env,
-      ).probe();
-
-      expect(reading).toEqual({
-        errored: false,
-        hookPresent: true,
-        sessionIdentity: true,
-        worktreeClaimed: false,
-      });
-    });
-  });
+    },
+  );
 });

@@ -36,6 +36,10 @@ import {
 } from "@/lib/git/root";
 import { sessionsScopeDir } from "@/lib/state-store";
 import type { HandoffHeaderFixture } from "@testing/generators/session/session";
+import {
+  type AgentIdentityValues,
+  beginAgentIdentityIsolation,
+} from "@testing/harnesses/agent-environment/identity-environment";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, gitArgsEqual } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
@@ -389,6 +393,37 @@ export async function createSessionHarness(): Promise<SessionHarness> {
       return removeTempDir(sessionsDir);
     },
   };
+}
+
+/**
+ * A session harness whose worker process environment states every agent identity variable: all
+ * deleted at creation, set again through `setAgentIdentity`, and restored to their prior state by
+ * `cleanup`.
+ */
+export interface IdentityIsolatedSessionHarness extends SessionHarness {
+  /** States all four identity variables again: the given values set, every other variable deleted. */
+  setAgentIdentity(values: AgentIdentityValues): void;
+}
+
+export async function createIdentityIsolatedSessionHarness(): Promise<IdentityIsolatedSessionHarness> {
+  const isolation = beginAgentIdentityIsolation();
+  try {
+    const harness = await createSessionHarness();
+    return {
+      ...harness,
+      setAgentIdentity: isolation.set,
+      async cleanup(): Promise<void> {
+        try {
+          await harness.cleanup();
+        } finally {
+          isolation.restore();
+        }
+      },
+    };
+  } catch (error) {
+    isolation.restore();
+    throw error;
+  }
 }
 
 /**

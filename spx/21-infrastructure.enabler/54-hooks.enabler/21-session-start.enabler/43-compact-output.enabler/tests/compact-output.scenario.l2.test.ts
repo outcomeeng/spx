@@ -1,15 +1,16 @@
-import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_SECTION } from "@/config/methodology";
+import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
 import { HOOK_SESSION_START_ENV, HOOK_SESSION_START_SOURCE } from "@/domains/hooks/session-start";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { HOOK_CONFIG_ERROR_PREFIX } from "@/interfaces/hooks/cli-runner";
 import { FOUNDATION_MANIFEST_FIELDS, METHODOLOGY_CODING_AGENT, METHODOLOGY_CODING_AGENTS } from "@/lib/methodology";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
+import { isolatedAgentIdentityEnvironment } from "@testing/harnesses/agent-environment/identity-environment";
 import {
   runCompactSessionStartCli,
   shippedCompactRecoveryText,
@@ -17,6 +18,7 @@ import {
   shippedTreeRelativeDir,
   withCompactSessionStartCliEnv,
   writeCodexCompactStdoutConfig,
+  writeCompactStdoutPolicyConfig,
   writeMalformedMethodologyConfig,
   writeMethodologyOnlyConfig,
 } from "@testing/harnesses/hooks/compact-recovery";
@@ -26,32 +28,46 @@ describe("hook CLI compact stdout boundary", () => {
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
 
     await withCompactSessionStartCliEnv(async (env) => {
+      const version = await shippedMethodologyVersion();
+      await writeMethodologyOnlyConfig(env.worktreePath, version.text);
       const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
         env: {
           [CONTROLLING_PID_ENV]: String(process.pid),
-          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: sessionId,
+          ...isolatedAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: sessionId }),
         },
       });
 
+      // A false policy resolves no directive, so nothing is emitted and no resolution step is named.
       expect(result.exitCode, result.stderr).toBe(0);
       expect(result.stdout).toHaveLength(0);
+      expect(result.stderr).not.toContain(FOUNDATION_MANIFEST_FIELDS.COMPACT_RECOVERY);
     });
   });
 
-  it("keeps process stdout empty when Codex and Claude Code agent markers are both present", async () => {
+  it("applies the Codex compact stdout policy when Codex and Claude Code agent markers are both present", async () => {
     const [claudeSessionId, codexThreadId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
 
     await withCompactSessionStartCliEnv(async (env) => {
+      const version = await shippedMethodologyVersion();
+      await writeCompactStdoutPolicyConfig(
+        env.worktreePath,
+        { [AGENT.CODEX]: false, [AGENT.CLAUDE_CODE]: true },
+        version.text,
+      );
       const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
         env: {
           [CONTROLLING_PID_ENV]: String(process.pid),
-          [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: claudeSessionId,
-          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: codexThreadId,
+          ...isolatedAgentIdentityEnvironment({
+            [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: claudeSessionId,
+            [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: codexThreadId,
+          }),
         },
       });
 
+      // The Claude Code policy is true: honoring it would emit the directive or name the absent entry.
       expect(result.exitCode, result.stderr).toBe(0);
       expect(result.stdout).toHaveLength(0);
+      expect(result.stderr).not.toContain(FOUNDATION_MANIFEST_FIELDS.COMPACT_RECOVERY);
     });
   });
 
@@ -62,7 +78,7 @@ describe("hook CLI compact stdout boundary", () => {
       const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
         env: {
           [CONTROLLING_PID_ENV]: String(process.pid),
-          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: "",
+          ...isolatedAgentIdentityEnvironment(),
           [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: env.envFile,
         },
       });
@@ -92,8 +108,7 @@ describe("hook CLI compact stdout boundary", () => {
       const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
         env: {
           [CONTROLLING_PID_ENV]: String(process.pid),
-          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: "",
-          [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: "",
+          ...isolatedAgentIdentityEnvironment(),
           [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: "",
         },
       });
@@ -115,7 +130,7 @@ describe("hook CLI compact stdout boundary", () => {
       const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
         env: {
           [CONTROLLING_PID_ENV]: String(process.pid),
-          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: "",
+          ...isolatedAgentIdentityEnvironment(),
           [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: env.envFile,
         },
       });
@@ -126,19 +141,26 @@ describe("hook CLI compact stdout boundary", () => {
     });
   });
 
-  it("defaults to Codex compact stdout policy when no agent marker is present", async () => {
+  it("defaults to the Codex compact stdout policy when no agent marker is present", async () => {
     await withCompactSessionStartCliEnv(async (env) => {
+      const version = await shippedMethodologyVersion();
+      await writeCompactStdoutPolicyConfig(
+        env.worktreePath,
+        { [AGENT.CODEX]: false, [AGENT.CLAUDE_CODE]: true },
+        version.text,
+      );
       const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
         env: {
           [CONTROLLING_PID_ENV]: String(process.pid),
+          ...isolatedAgentIdentityEnvironment(),
           [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: "",
-          [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: "",
-          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: "",
         },
       });
 
+      // The Claude Code policy is true: honoring it, or no policy at all, would resolve a directive.
       expect(result.exitCode, result.stderr).toBe(0);
       expect(result.stdout).toHaveLength(0);
+      expect(result.stderr).not.toContain(FOUNDATION_MANIFEST_FIELDS.COMPACT_RECOVERY);
     });
   });
 
@@ -151,7 +173,7 @@ describe("hook CLI compact stdout boundary", () => {
       const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
         env: {
           [CONTROLLING_PID_ENV]: String(process.pid),
-          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: sessionId,
+          ...isolatedAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: sessionId }),
         },
       });
 
@@ -174,7 +196,7 @@ describe("hook CLI compact stdout boundary", () => {
       const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
         env: {
           [CONTROLLING_PID_ENV]: String(process.pid),
-          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: sessionId,
+          ...isolatedAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: sessionId }),
         },
         invocationDir: nestedInvocationDir,
       });
@@ -204,7 +226,7 @@ describe("hook CLI compact stdout boundary", () => {
       const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
         env: {
           [CONTROLLING_PID_ENV]: String(process.pid),
-          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: sessionId,
+          ...isolatedAgentIdentityEnvironment({ [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: sessionId }),
         },
         invocationDir: externalInvocationDir,
       });

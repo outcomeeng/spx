@@ -11,18 +11,16 @@ import {
   DIAGNOSE_SPX_EXECUTABLE,
   gatherWorktreePoolSnapshot,
   sessionEnvironmentProbeFromSnapshotProvider,
-  sessionEnvironmentReadingFromSnapshot,
   sessionStoreProbeFromSnapshotProvider,
   sessionStoreReadingFromSnapshot,
   worktreePoolProbeFromSnapshotProvider,
   type WorktreePoolSnapshot,
   type WorktreePoolSnapshotProvider,
 } from "@/commands/diagnose/probes";
-import { classifySessionEnvironment, SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
+
 import { classifySessionStore, SESSION_STORE_VERDICT } from "@/domains/diagnose/checks/session-store";
 import { VERDICT_BUCKET } from "@/domains/diagnose/types";
 import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
-import { normalizeAgentSessionToken } from "@/domains/session/agent-session";
 import { DEFAULT_SESSION_METADATA, type SessionRecord } from "@/domains/session/list";
 import { SESSION_STATUSES } from "@/domains/session/types";
 import { OCCUPANCY_STATUS, writeClaim } from "@/domains/worktree/occupancy-store";
@@ -30,6 +28,7 @@ import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { GIT_URL_SUFFIX, type GitFacts } from "@/lib/git/root";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import {
+  independentSafeAgentSessionToken,
   sampleDistinctPathUnsafeAgentSessionIdentities,
   sampleDistinctSessionIds,
 } from "@testing/generators/session/session";
@@ -133,56 +132,19 @@ function healthySnapshot(
       ...(sessionId === undefined ? {} : { sessionId }),
     }],
     currentWorktreeRoot: worktreeRoot,
-    liveClaimSessionIds: new Set(sessionId === undefined ? [] : [normalizeAgentSessionToken(sessionId)]),
+    liveClaimSessionIds: new Set(sessionId === undefined ? [] : [independentSafeAgentSessionToken(sessionId)]),
   };
 }
 
-export function assertSessionEnvironmentSnapshotMapping(): void {
-  const cases = [
-    [OCCUPANCY_STATUS.RUNNING, false, true, true, true, SESSION_ENVIRONMENT_VERDICT.WORKING, VERDICT_BUCKET.HEALTHY],
-    [
-      OCCUPANCY_STATUS.FREE,
-      true,
-      true,
-      false,
-      true,
-      SESSION_ENVIRONMENT_VERDICT.IDENTITY_ONLY,
-      VERDICT_BUCKET.DEGRADED,
-    ],
-    [OCCUPANCY_STATUS.RUNNING, true, false, true, true, SESSION_ENVIRONMENT_VERDICT.WORKING, VERDICT_BUCKET.HEALTHY],
-    [OCCUPANCY_STATUS.RUNNING, false, false, true, true, SESSION_ENVIRONMENT_VERDICT.WORKING, VERDICT_BUCKET.HEALTHY],
-    [OCCUPANCY_STATUS.RUNNING, true, false, true, false, SESSION_ENVIRONMENT_VERDICT.UNKNOWN, VERDICT_BUCKET.UNKNOWN],
-    [
-      OCCUPANCY_STATUS.FREE,
-      false,
-      false,
-      false,
-      false,
-      SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE,
-      VERDICT_BUCKET.NOT_APPLICABLE,
-    ],
-  ] as const;
-
-  for (const [status, hookPresent, sessionIdentity, worktreeClaimed, includeClaimIdentity, verdict, bucket] of cases) {
-    const worktreeRoot = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
-    const snapshot = healthySnapshot(
-      worktreeRoot,
-      status,
-      includeClaimIdentity ? sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId()) : undefined,
-    );
-    const reading = sessionEnvironmentReadingFromSnapshot(snapshot, { hookPresent, sessionIdentity });
-    const record = classifySessionEnvironment(reading);
-
-    expect(reading).toEqual({
-      errored: false,
-      hookPresent,
-      sessionIdentity: includeClaimIdentity && worktreeClaimed ? true : sessionIdentity,
-      worktreeClaimed,
-    });
-    expect(record.verdict).toBe(verdict);
-    expect(record.bucket).toBe(bucket);
-    expect(record.remediation.length).toBeGreaterThan(0);
-  }
+/**
+ * A healthy bare-repository snapshot whose one current worktree reads `status` and whose claim carries
+ * `sessionId` when given.
+ */
+export function sessionEnvironmentSnapshotFixture(
+  status: WorktreePoolSnapshot["worktrees"][number]["status"],
+  sessionId?: string,
+): WorktreePoolSnapshot {
+  return healthySnapshot(sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()), status, sessionId);
 }
 
 export function assertSessionStoreSnapshotMapping(): void {
@@ -192,7 +154,7 @@ export function assertSessionStoreSnapshotMapping(): void {
     const worktreeRoot = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const snapshot = healthySnapshot(worktreeRoot, OCCUPANCY_STATUS.RUNNING, backingAgentSessionId);
     const liveClaimSessionIds = new Set(snapshot.liveClaimSessionIds);
-    if (includeOrphanedClaim) liveClaimSessionIds.add(normalizeAgentSessionToken(orphanedAgentSessionId));
+    if (includeOrphanedClaim) liveClaimSessionIds.add(independentSafeAgentSessionToken(orphanedAgentSessionId));
     const reading = sessionStoreReadingFromSnapshot({ ...snapshot, liveClaimSessionIds }, [
       doingSession(backedSessionId, backingAgentSessionId),
       doingSession(orphanedSessionId, orphanedAgentSessionId),

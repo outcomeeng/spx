@@ -13,7 +13,6 @@ import {
   WORKTREE_STATUS_RENDER,
 } from "@/commands/worktree/index";
 import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
-import { normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { AGENT_RUNTIME, AGENT_RUNTIME_DISPLAY_NAME, CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_ERROR, OCCUPANCY_STATUS, readClaim, writeClaim } from "@/domains/worktree/occupancy-store";
 import { WORKTREE_RESOLVE_ERROR } from "@/domains/worktree/resolve";
@@ -33,7 +32,10 @@ import { DETAIL_BRANCH_SEPARATOR, DETAIL_ELBOW, DETAIL_TEE } from "@/lib/styled-
 import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
-import { samplePathUnsafeAgentSessionIdentity, SESSION_GENERATOR_ERROR } from "@testing/generators/session/session";
+import {
+  independentSafeAgentSessionToken,
+  samplePathUnsafeAgentSessionIdentity,
+} from "@testing/generators/session/session";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { gitArgsEqual } from "@testing/harnesses/git-test-constants";
 import { createSessionGitDeps, SESSION_GIT_DEPS_PATHS, WORKTREE_KIND } from "@testing/harnesses/session/harness";
@@ -187,7 +189,7 @@ describe("worktree command handlers", () => {
     const host = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host());
     const startedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
     const rawSessionId = samplePathUnsafeAgentSessionIdentity();
-    const normalizedSessionId = normalizeAgentSessionToken(rawSessionId);
+    const normalizedSessionId = independentSafeAgentSessionToken(rawSessionId);
     const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
     const [selfPid, agentPid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
     const gitDeps = createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT });
@@ -721,8 +723,7 @@ describe("worktree command handlers", () => {
   it("removes a claim recorded with the normalized environment session id", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const rawSessionId = samplePathUnsafeAgentSessionIdentity();
-    const normalizedSessionId = resolveAgentSessionId({ [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: rawSessionId });
-    if (normalizedSessionId === undefined) throw new Error(SESSION_GENERATOR_ERROR.EMPTY_IDENTITY_SAMPLE);
+    const normalizedSessionId = independentSafeAgentSessionToken(rawSessionId);
     const record = {
       ...sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord()),
       sessionId: normalizedSessionId,
@@ -828,7 +829,7 @@ describe("worktree command handlers", () => {
   it("removes a claim recorded with the normalized explicit session id", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const rawSessionId = samplePathUnsafeAgentSessionIdentity();
-    const normalizedSessionId = normalizeAgentSessionToken(rawSessionId);
+    const normalizedSessionId = independentSafeAgentSessionToken(rawSessionId);
     const record = {
       ...sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord()),
       sessionId: normalizedSessionId,
@@ -959,28 +960,42 @@ describe("worktree command handlers", () => {
   });
 
   it("refuses release naming every identity variable set when two or more are set", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
     const selfPid = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.pid());
     const gitDeps = createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT });
+    const name = worktreeClaimName(SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL);
     const processTable = createProcessTable({
-      host: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host()),
-      processes: new Map<number, ProcessTableEntry>(),
+      host: record.host,
+      processes: new Map<number, ProcessTableEntry>([[record.pid, { alive: true, startTime: record.startedAt }]]),
     });
     const [first, second] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
     const variables = [AGENT_IDENTITY_VARIABLE[AGENT.CODEX], AGENT_IDENTITY_VARIABLE[AGENT.PI]];
 
-    const result = await releaseCommand({
-      cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
-      env: { [variables[0]]: first, [variables[1]]: second },
-      fs: defaultOccupancyFileSystem,
-      processTable,
-      selfPid,
-      gitDeps,
-    });
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
 
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(String(result.error)).toContain(WORKTREE_RELEASE_ERROR.SESSION_AMBIGUOUS);
-    for (const variable of variables) expect(String(result.error)).toContain(variable);
+      const result = await releaseCommand({
+        cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+        env: { [variables[0]]: first, [variables[1]]: second, [CONTROLLING_PID_ENV]: String(record.pid) },
+        fs: defaultOccupancyFileSystem,
+        processTable,
+        selfPid,
+        worktreesDir,
+        gitDeps,
+      });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(String(result.error)).toContain(WORKTREE_RELEASE_ERROR.SESSION_AMBIGUOUS);
+      for (const variable of variables) expect(String(result.error)).toContain(variable);
+
+      const after = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(after.ok).toBe(true);
+      if (!after.ok) throw new Error(after.error);
+      expect(after.value).toEqual(record);
+    });
   });
 
   it("reports the current worktree's occupancy when no worktree argument is given", async () => {

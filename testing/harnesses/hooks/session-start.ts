@@ -1,4 +1,5 @@
 import { AGENT, AGENT_IDENTITY_VARIABLE } from "@/domains/agent-environment/config";
+import { execa } from "execa";
 import { mkdir, open, readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
@@ -76,6 +77,8 @@ export interface SessionStartCliClaimEvidence {
   readonly sessionId: string;
   readonly claim: WorktreeClaimRecord | undefined;
   readonly envContent: string;
+  /** The values of the project and claim-path exports as a shell reads them back from the env file. */
+  readonly exportedEnvironment: Readonly<Record<string, string>>;
   readonly originalEnvLine: string;
   readonly claimPath: string;
   readonly host: string;
@@ -160,6 +163,38 @@ const nodeHookTranscriptFileSystem: HookTranscriptFileSystem = {
   },
 };
 
+const SHELL_EXECUTABLE = "sh";
+const SHELL_COMMAND_STRING_FLAG = "-c";
+const SHELL_SOURCE_AND_LIST_SCRIPT = `. "$1"; exec env`;
+const ENV_ASSIGNMENT_SEPARATOR = "=";
+
+/**
+ * The environment a real shell holds after sourcing the env file, read back for the named
+ * variables: the observation a later hook command makes of the exports, whatever quoting the
+ * writer chose. A name the file does not export is absent from the result.
+ */
+async function sourceHookEnvExports(
+  envFile: string,
+  names: readonly string[],
+): Promise<Readonly<Record<string, string>>> {
+  const result = await execa(SHELL_EXECUTABLE, [
+    SHELL_COMMAND_STRING_FLAG,
+    SHELL_SOURCE_AND_LIST_SCRIPT,
+    SHELL_EXECUTABLE,
+    envFile,
+  ], {
+    extendEnv: false,
+  });
+  const exported: Record<string, string> = {};
+  for (const line of result.stdout.split("\n")) {
+    const separator = line.indexOf(ENV_ASSIGNMENT_SEPARATOR);
+    if (separator < 0) continue;
+    const name = line.slice(0, separator);
+    if (names.includes(name)) exported[name] = line.slice(separator + 1);
+  }
+  return exported;
+}
+
 function hookContent(env: WorktreePoolEnv, sessionId?: string): string {
   return JSON.stringify({
     ...(sessionId === undefined ? {} : { [HOOK_SESSION_START_PAYLOAD.SESSION_ID]: sessionId }),
@@ -186,6 +221,7 @@ async function runSessionStartIdentityScenario(
     readonly content: string;
     readonly env: HookSessionStartEnv;
     readonly transcriptFileSystem?: HookTranscriptFileSystem;
+    readonly worktreesDir?: string;
   },
 ): Promise<Result<SessionStartHookResult>> {
   return runSessionStartHook({
@@ -196,7 +232,7 @@ async function runSessionStartIdentityScenario(
     envFile: input.env[HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE],
     fs: env.fs,
     gitDeps: defaultGitDependencies,
-    worktreesDir: env.worktreesDir,
+    worktreesDir: input.worktreesDir ?? env.worktreesDir,
     processTable: env.processTable,
     selfPid: env.holder.pid,
     env: input.env,
@@ -229,17 +265,82 @@ async function withDirectIdentityEvidence(
   );
 }
 
-export async function withCodexSessionStartIdentityEvidence(
+export interface SessionStartHookScenarioRunInput {
+  /** Whether the hook payload carries the scenario's session id. */
+  readonly payloadCarriesSessionId: boolean;
+  /** The invoking environment; omitted, the controlling-process holder and the env file are stated. */
+  readonly env?: HookSessionStartEnv;
+  /** A worktrees directory overriding the pool's. */
+  readonly worktreesDir?: string;
+}
+
+export interface SessionStartHookScenario {
+  readonly pool: WorktreePoolEnv;
+  readonly envFile: string;
+  readonly sessionId: string;
+  /** Runs the hook once and returns its result. */
+  run(input: SessionStartHookScenarioRunInput): Promise<Result<SessionStartHookResult>>;
+  /** Reads the claim the hook wrote for the pool worktree, from the given worktrees directory. */
+  readClaim(worktreesDir?: string): ReturnType<typeof readClaim>;
+  /** Reads the env file as the hook left it. */
+  readEnvFile(): Promise<string>;
+  /** Seeds the env file with one existing export line and returns that line. */
+  seedEnvFile(): Promise<string>;
+}
+
+/**
+ * A real pool worktree, a controlled holder process, and an env file path, with generated names,
+ * session id, and claim random bytes. The callback receives handles and observations; it owns every
+ * assertion.
+ */
+export async function withSessionStartHookScenario(
+  callback: (scenario: SessionStartHookScenario) => void | Promise<void>,
+): Promise<void> {
+  const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+  const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+  await withWorktreePool(
+    {
+      worktreeName: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()),
+      holder: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder()),
+    },
+    async (pool) => {
+      const envFile = join(pool.container, sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName()));
+      await callback({
+        pool,
+        envFile,
+        sessionId,
+        run: (input) =>
+          runSessionStartIdentityScenario(pool, {
+            claimRandomBytes,
+            content: hookContent(pool, input.payloadCarriesSessionId ? sessionId : undefined),
+            env: input.env ?? hookEnvWithHolder(pool, envFile, {}),
+            worktreesDir: input.worktreesDir,
+          }),
+        readClaim: (worktreesDir) =>
+          readClaim(worktreesDir ?? pool.worktreesDir, worktreeClaimName(basename(pool.worktreePath)), {
+            fs: pool.fs,
+          }),
+        readEnvFile: () => readFile(envFile, HOOK_ENV_FILE.ENCODING),
+        async seedEnvFile(): Promise<string> {
+          const existingExport =
+            `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CODEX_THREAD_ID}=${sessionId}\n`;
+          await writeFile(envFile, existingExport, HOOK_ENV_FILE.ENCODING);
+          return existingExport;
+        },
+      });
+    },
+  );
+}
+
+/**
+ * Runs the session-start hook for a payload that carries no session id, in the given invoking
+ * environment, and hands the callback the hook's result and the env file it wrote.
+ */
+export async function withEnvironmentSessionStartIdentityEvidence(
+  environment: HookSessionStartEnv,
   callback: (evidence: SessionStartIdentityEvidence) => void | Promise<void>,
 ): Promise<void> {
-  const codexSessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-  await withDirectIdentityEvidence(
-    {
-      envOverlay: { [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: codexSessionId },
-      evidence: { codexSessionId },
-    },
-    callback,
-  );
+  await withDirectIdentityEvidence({ envOverlay: environment, evidence: {} }, callback);
 }
 
 export async function withUnsafePayloadSessionStartIdentityEvidence(
@@ -249,22 +350,6 @@ export async function withUnsafePayloadSessionStartIdentityEvidence(
   await withDirectIdentityEvidence(
     { payloadSessionId, envOverlay: {}, evidence: { payloadSessionId } },
     async (evidence) => callback({ ...evidence, payloadSessionId }),
-  );
-}
-
-export async function withSeveralIdentitiesSessionStartIdentityEvidence(
-  callback: (evidence: SessionStartIdentityEvidence) => void | Promise<void>,
-): Promise<void> {
-  const [claudeSessionId, codexSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
-  await withDirectIdentityEvidence(
-    {
-      envOverlay: {
-        [AGENT_IDENTITY_VARIABLE[AGENT.CLAUDE_CODE]]: claudeSessionId,
-        [AGENT_IDENTITY_VARIABLE[AGENT.CODEX]]: codexSessionId,
-      },
-      evidence: { claudeSessionId, codexSessionId },
-    },
-    callback,
   );
 }
 
@@ -439,6 +524,11 @@ export async function withSessionStartCliClaimEvidence(
         sessionId,
         claim: claimResult.value,
         envContent: await readFile(env.envFile, HOOK_ENV_FILE.ENCODING),
+        exportedEnvironment: await sourceHookEnvExports(env.envFile, [
+          HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR,
+          HOOK_SESSION_START_ENV.PROJECT_DIR,
+          HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH,
+        ]),
         originalEnvLine,
         claimPath: join(env.worktreesDir, `${claimName}${OCCUPANCY_CLAIM.FILE_EXTENSION}`),
         host: defaultProcessTable.currentHost(),
