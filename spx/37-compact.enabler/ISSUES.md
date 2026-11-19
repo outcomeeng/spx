@@ -14,9 +14,9 @@ The `work/verification-tag-alignment` changeset moves the complete compact **ass
 
 **Affected evidence:**
 
-- `spx/37-compact.enabler/tests/compact-cli.scenario.l2.test.ts`
-- `spx/37-compact.enabler/tests/compact-cli-io.scenario.l1.test.ts`
 - `spx/37-compact.enabler/tests/compact.scenario.l1.test.ts`
+
+`tests/compact-cli.scenario.l2.test.ts` and `tests/compact-cli-io.scenario.l1.test.ts` own their expects; the identity-variable isolation they depend on lives in `testing/harnesses/agent-environment/identity-environment.ts`.
 
 This shape violates the assertion ownership defined by [spx/12-test-infrastructure.adr.md](spx/12-test-infrastructure.adr.md) and [spx/local/typescript-tests.md](spx/local/typescript-tests.md): executed test files own assertion flow and every `expect`; test infrastructure owns reusable resource lifecycle, controlled boundaries, execution policy, cleanup, and diagnostics.
 
