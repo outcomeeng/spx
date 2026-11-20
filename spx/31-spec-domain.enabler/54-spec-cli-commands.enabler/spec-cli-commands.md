@@ -47,15 +47,15 @@ CAN inspect node state, select the next non-passing node, discover relevant subt
 
 A unit of a sealed audit run backs an `evidence` entry only of the Node nearest its subject: the Node whose directory holds the subject while no descendant Node's directory holds it. Each other Node, every ancestor included, takes nothing from that unit, so a Node takes its `evidence` entries from units over its own directory alone.
 
-| Case                  | Subject of the audit unit                                           | Node folded     | `evidence` entry  |
-| --------------------- | ------------------------------------------------------------------- | --------------- | ----------------- |
-| own-tests             | a test file under the Node's own `tests/`                           | that Node       | yields            |
-| child-tests           | a test file under a child Node's `tests/`                           | the child       | yields            |
-| parent-of-child-tests | a test file under a child Node's `tests/`                           | the parent      | none              |
-| grandchild-tests      | a test file under a grandchild Node's `tests/`                      | the grandparent | none              |
-| node-directory        | the Node's own directory                                            | that Node       | yields            |
-| child-directory       | a child Node's directory                                            | the parent      | none              |
-| own-spec              | the Node's own spec                                                 | that Node       | yields            |
+| Case                  | Subject of the audit unit                      | Node folded     | `evidence` entry |
+| --------------------- | ---------------------------------------------- | --------------- | ---------------- |
+| own-tests             | a test file under the Node's own `tests/`      | that Node       | yields           |
+| child-tests           | a test file under a child Node's `tests/`      | the child       | yields           |
+| parent-of-child-tests | a test file under a child Node's `tests/`      | the parent      | none             |
+| grandchild-tests      | a test file under a grandchild Node's `tests/` | the grandparent | none             |
+| node-directory        | the Node's own directory                       | that Node       | yields           |
+| child-directory       | a child Node's directory                       | the parent      | none             |
+| own-spec              | the Node's own spec                            | that Node       | yields           |
 
 ### Test.Mapping: [lockfile-pin](tests/lockfile-pin.mapping.l1.test.ts)
 
