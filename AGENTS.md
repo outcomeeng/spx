@@ -17,6 +17,8 @@ A Position holder does not invoke `product-tree:understand` or `product-tree:con
 
 Where a skill and methodology 4.0 differ, methodology 4.0 holds.
 
+Until further notice, a Position holder launches no subagent other than the Verifiers merge launches, invokes a skill only where the table above names it, and does the work itself even where methodology 4.0 or a skill assigns it to another session.
+
 ## The Product Tree
 
 The Product Tree under `spx/` declares what the Product is. Truth flows down: the Product spec, then Decision Records, then specs, then Evidence, then code. Where two layers differ, the lower one changes.
