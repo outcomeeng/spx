@@ -6,7 +6,7 @@
  * @module testing/harnesses/node-status/evidence-attribution
  */
 import { readFile } from "node:fs/promises";
-import { join, posix } from "node:path";
+import { join } from "node:path";
 
 import { createNodeStatusResolvers } from "@/commands/spec/node-status-resolvers";
 import { statusCommand } from "@/commands/spec/status";
@@ -16,14 +16,11 @@ import {
   NODE_STATUS_CLAIM_FIELD,
   NODE_STATUS_CLAIM_SECTION,
   NODE_STATUS_CLAIM_SHAPE,
-  NODE_STATUS_DEFAULT_MALLEABILITY,
   NODE_STATUS_EVIDENCE_OUTCOME,
-  NODE_STATUS_FILENAME,
   type NodeStatusClaimEntry,
   readNodeStatus,
-  serializeNodeStatusClaim,
 } from "@/lib/node-status";
-import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
 import {
   ATTRIBUTION_ROLES_OUTSIDE_IN,
@@ -58,8 +55,6 @@ export interface AttributionTree {
   subjectOf(kind: AttributionSubjectKind, holder: AttributionRole): string;
   /** Record one sealed audit run holding one tests-audit unit over `subject`, judging the chain's source file. */
   recordAuditRun(subject: string): Promise<RecordedAuditRun>;
-  /** Commit a current `evidence` entry for the Node at `role`, attributed to `recorded` and pinned over its spec and the source file. */
-  commitEvidenceEntry(role: AttributionRole, recorded: RecordedAuditRun): Promise<void>;
   /** Project every Node's claim from the recorded runs through the production `--update`. */
   update(): Promise<void>;
   /** The `evidence` entry of linked tests that the Node at `role` records, or nothing when it records none. */
@@ -121,26 +116,6 @@ export function withAttributionTree(
           judgedPaths: [fixture.sourcePath],
           at: RUN_INSTANT,
         }),
-      commitEvidenceEntry: async (role, recorded) => {
-        const entry: NodeStatusClaimEntry = {
-          [NODE_STATUS_CLAIM_FIELD.VERDICT]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
-          [NODE_STATUS_CLAIM_FIELD.COMMIT]: await head(),
-          [NODE_STATUS_CLAIM_FIELD.READ]: [specPathOf(role), fixture.sourcePath],
-          [NODE_STATUS_CLAIM_FIELD.ACTOR]: recorded.verifier,
-          [NODE_STATUS_CLAIM_FIELD.RUN]: recorded.run,
-        };
-        await env.writeRaw(
-          posix.join(nodePaths[role], NODE_STATUS_FILENAME),
-          serializeNodeStatusClaim({
-            [NODE_STATUS_CLAIM_FIELD.STATE]: SPEC_TREE_NODE_STATE.SPECIFIED,
-            [NODE_STATUS_CLAIM_FIELD.MALLEABILITY]: NODE_STATUS_DEFAULT_MALLEABILITY,
-            [NODE_STATUS_CLAIM_FIELD.VERIFICATION]: {
-              [NODE_STATUS_CLAIM_SECTION.EVIDENCE]: { [CLAIM_EVIDENCE_KIND.TEST]: entry },
-            },
-          }),
-        );
-        await commitPaths(env.productDir, REPOSITORY_ROOT_PATHS);
-      },
       update: async () => {
         await statusCommand({
           cwd: env.productDir,

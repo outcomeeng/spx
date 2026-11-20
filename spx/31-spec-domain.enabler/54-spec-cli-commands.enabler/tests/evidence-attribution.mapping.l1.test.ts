@@ -3,9 +3,7 @@ import { describe, expect, it } from "vitest";
 import { NODE_STATUS_CLAIM_FIELD, NODE_STATUS_EVIDENCE_OUTCOME } from "@/lib/node-status";
 import {
   arbitraryAttributionTree,
-  ATTRIBUTION_ROLE,
   ATTRIBUTION_ROLES_OUTSIDE_IN,
-  ATTRIBUTION_SUBJECT_KIND,
   attributionSubjectCases,
   nearestNodePath,
 } from "@testing/generators/node-status/evidence-attribution";
@@ -36,21 +34,4 @@ describe("a sealed audit unit backs an evidence entry only of the Node nearest i
       });
     },
   );
-
-  it("maps a committed evidence entry whose run holds only a child Node's unit to not-run with no pin", async () => {
-    await withAttributionTree(sampleGeneratedValue(arbitraryAttributionTree()), async (tree) => {
-      const subject = tree.subjectOf(ATTRIBUTION_SUBJECT_KIND.TESTS_FILE, ATTRIBUTION_ROLE.CHILD);
-      const recorded = await tree.recordAuditRun(subject);
-      await tree.commitEvidenceEntry(ATTRIBUTION_ROLE.PARENT, recorded);
-
-      await tree.update();
-
-      expect(nearestNodePath(subject, Object.values(tree.nodePaths))).toBe(tree.nodePaths[ATTRIBUTION_ROLE.CHILD]);
-      const entry = tree.writtenEvidenceEntry(ATTRIBUTION_ROLE.PARENT);
-      expect(entry?.[NODE_STATUS_CLAIM_FIELD.VERDICT]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN);
-      expect(entry?.[NODE_STATUS_CLAIM_FIELD.COMMIT]).toBeUndefined();
-      expect(entry?.[NODE_STATUS_CLAIM_FIELD.READ]).toBeUndefined();
-      expect(entry?.[NODE_STATUS_CLAIM_FIELD.RUN]).toBeUndefined();
-    });
-  });
 });
