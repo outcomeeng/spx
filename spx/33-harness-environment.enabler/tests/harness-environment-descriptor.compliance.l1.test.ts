@@ -5,14 +5,22 @@ import { productionRegistry } from "@/config/registry";
 import { RESULT_VALUE_KEY } from "@/config/types";
 import {
   AGENT,
+  AGENT_IDENTITY_KIND,
   AGENT_IDENTITY_VARIABLE,
   DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
   HARNESS_ENVIRONMENT_CONFIG_FIELDS,
   type HarnessEnvironmentConfig,
   harnessEnvironmentConfigDescriptor,
+  resolveAgentIdentity,
 } from "@/domains/agent-environment/config";
 import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
+import {
+  arbitraryUnregisteredIdentityCase,
+  UNREGISTERED_VARIABLE_DERIVATIONS,
+} from "@testing/generators/agent-environment/identity";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   harnessEnvironmentPath,
   sampleHarnessEnvironmentKey,
@@ -80,16 +88,39 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
       });
     });
 
-    it("registers Claude Code, Codex, agy, and Pi with the identity variable each sets for itself", () => {
+    it("registers every agent with one distinct identity variable that identifies that agent", () => {
+      const registered = Object.values(AGENT).sort((left, right) => left.localeCompare(right));
+
       expect(Object.keys(AGENT_IDENTITY_VARIABLE).sort((left, right) => left.localeCompare(right))).toEqual(
-        Object.values(AGENT).sort((left, right) => left.localeCompare(right)),
+        registered,
       );
       expect(
         Object.keys(harnessEnvironmentConfigDescriptor.defaults.agents).sort((left, right) =>
           left.localeCompare(right)
         ),
-      ).toEqual(Object.values(AGENT).sort((left, right) => left.localeCompare(right)));
+      ).toEqual(registered);
+      expect(new Set(registered.map((agent) => AGENT_IDENTITY_VARIABLE[agent])).size).toBe(registered.length);
+      for (const agent of registered) {
+        const session = sampleGeneratedValue(arbitraryDomainLiteral());
+
+        expect(resolveAgentIdentity({ [AGENT_IDENTITY_VARIABLE[agent]]: session })).toEqual({
+          kind: AGENT_IDENTITY_KIND.IDENTIFIED,
+          agent,
+          sessionId: session,
+        });
+      }
     });
+
+    for (const derivation of UNREGISTERED_VARIABLE_DERIVATIONS) {
+      it(`rejects a session id held under an unregistered ${derivation} identity variable`, () => {
+        const violating = sampleGeneratedValue(arbitraryUnregisteredIdentityCase(derivation));
+
+        expect(Object.values(AGENT_IDENTITY_VARIABLE)).not.toContain(violating.unregisteredVariable);
+        expect(resolveAgentIdentity({ [violating.unregisteredVariable]: violating.sessionValue })).toEqual({
+          kind: AGENT_IDENTITY_KIND.NONE,
+        });
+      });
+    }
 
     it("resolves explicit agent hook policy overrides", async () => {
       const productConfig: Config = {
@@ -181,6 +212,30 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
             harnessEnvironmentPath(HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS, unknownAgent),
           );
           expect(RESULT_VALUE_KEY in result).toBe(false);
+        }
+      });
+    });
+
+    it("rejects a violating harness environment section through the static config registry", async () => {
+      const unknownAgent = sampleUnknownAgent();
+      const productConfig: Config = {
+        [HARNESS_ENVIRONMENT_SECTION]: {
+          [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS]: {
+            [unknownAgent]: {
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: true,
+            },
+          },
+        },
+      };
+
+      await withTestEnv(productConfig, async ({ productDir }) => {
+        const result = await resolveConfig(productDir, productionRegistry);
+
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error).toContain(
+            harnessEnvironmentPath(HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS, unknownAgent),
+          );
         }
       });
     });

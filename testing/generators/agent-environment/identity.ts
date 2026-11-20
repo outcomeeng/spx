@@ -122,3 +122,59 @@ export function arbitraryIdentityEnvironmentCase(
       return { ...input, environment, expected: expectedIdentity(input.members, sessions) };
     });
 }
+
+/** How a violating registration derives its variable name from a registered identity variable. */
+export const UNREGISTERED_VARIABLE_DERIVATION = {
+  SUFFIXED: "suffixed",
+  PREFIXED: "prefixed",
+  LOWERCASED: "lowercased",
+} as const;
+
+export type UnregisteredVariableDerivation =
+  (typeof UNREGISTERED_VARIABLE_DERIVATION)[keyof typeof UNREGISTERED_VARIABLE_DERIVATION];
+
+export const UNREGISTERED_VARIABLE_DERIVATIONS: readonly UnregisteredVariableDerivation[] = Object.values(
+  UNREGISTERED_VARIABLE_DERIVATION,
+);
+
+export interface UnregisteredIdentityCase {
+  readonly registeredVariable: AgentIdentityVariable;
+  readonly unregisteredVariable: string;
+  readonly sessionValue: string;
+}
+
+function unregisteredVariableName(
+  derivation: UnregisteredVariableDerivation,
+  registeredVariable: AgentIdentityVariable,
+  affix: string,
+): string {
+  switch (derivation) {
+    case UNREGISTERED_VARIABLE_DERIVATION.SUFFIXED:
+      return `${registeredVariable}_${affix}`;
+    case UNREGISTERED_VARIABLE_DERIVATION.PREFIXED:
+      return `${affix}_${registeredVariable}`;
+    case UNREGISTERED_VARIABLE_DERIVATION.LOWERCASED:
+      return registeredVariable.toLowerCase();
+  }
+}
+
+/**
+ * A violating registration: a session id held under a variable name that is a near miss of a
+ * registered identity variable but is not itself registered.
+ */
+export function arbitraryUnregisteredIdentityCase(
+  derivation: UnregisteredVariableDerivation,
+): fc.Arbitrary<UnregisteredIdentityCase> {
+  return fc
+    .tuple(
+      fc.constantFrom(...IDENTITY_VARIABLES),
+      arbitraryDomainLiteral().map((literal) => literal.toUpperCase()),
+      arbitraryDomainLiteral(),
+    )
+    .map(([registeredVariable, affix, sessionValue]) => ({
+      registeredVariable,
+      unregisteredVariable: unregisteredVariableName(derivation, registeredVariable, affix),
+      sessionValue,
+    }))
+    .filter(({ unregisteredVariable }) => !IDENTITY_VARIABLES.some((variable) => variable === unregisteredVariable));
+}
