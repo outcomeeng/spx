@@ -43,15 +43,11 @@ export interface NodeAttributedResult extends NodeAttribution {
 export interface NodeAttributedRequest {
   readonly auditRuleSlugs: readonly string[];
   readonly evidenceKinds: readonly string[];
-  /** The run each committed `evidence` entry of the node is attributed to, by kind. */
-  readonly committedEvidenceRuns?: Readonly<Record<string, string>>;
 }
 
 export type NodeAttributedResults = Readonly<{
   audit?: Readonly<Record<string, NodeAttributedResult>>;
   evidence?: Readonly<Record<string, NodeAttributedResult>>;
-  /** The `evidence` kinds whose committed run is sealed and holds no unit nearest the node. */
-  unattributedEvidence?: readonly string[];
 }>;
 
 /** Resolves the paths a linked reference's recorded result read; `undefined` when its adapter reports none. */
@@ -133,7 +129,6 @@ export async function foldNodeClaim(input: NodeClaimFoldInput): Promise<NodeStat
     : await input.resolveAttributedResults(input.nodeId, {
       auditRuleSlugs: input.declaration.auditRuleSlugs,
       evidenceKinds,
-      committedEvidenceRuns: committedEvidenceRuns(input.committed),
     });
   const attributedRequirements: readonly [NodeStatusClaimSection, readonly string[]][] = [
     [NODE_STATUS_CLAIM_SECTION.AUDIT, input.declaration.auditRuleSlugs],
@@ -143,11 +138,7 @@ export async function foldNodeClaim(input: NodeClaimFoldInput): Promise<NodeStat
     const recorded = section === NODE_STATUS_CLAIM_SECTION.AUDIT ? attributed.audit : attributed.evidence;
     for (const key of keys) {
       const result = recorded?.[key];
-      const { candidate, coverage } = attributedCoverage(
-        result,
-        input.declaration.specPath,
-        section === NODE_STATUS_CLAIM_SECTION.EVIDENCE && attributed.unattributedEvidence?.includes(key) === true,
-      );
+      const { candidate, coverage } = attributedCoverage(result, input.declaration.specPath);
       place(section, key, await fold(section, key, candidate, coverage));
     }
   }
@@ -217,9 +208,7 @@ type ReferenceCoverage = (typeof REFERENCE_COVERAGE)[keyof typeof REFERENCE_COVE
 function attributedCoverage(
   result: NodeAttributedResult | undefined,
   specPath: string,
-  unattributed: boolean,
 ): { readonly candidate: PinCandidate | undefined; readonly coverage: ReferenceCoverage } {
-  if (unattributed) return { candidate: undefined, coverage: REFERENCE_COVERAGE.RECORDED };
   if (result === undefined) return { candidate: undefined, coverage: REFERENCE_COVERAGE.UNCOVERED };
   return {
     candidate: candidateOf(result.verdict, withoutLockfile(result.read), [specPath], result),
@@ -301,15 +290,6 @@ function sectionOfEvidence(evidencePath: string): NodeStatusClaimSection {
   if (segments.includes(SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME)) return NODE_STATUS_CLAIM_SECTION.EVAL;
   if (segments.includes(SPEC_TREE_GRAMMAR.PROBE.DIRECTORY_NAME)) return NODE_STATUS_CLAIM_SECTION.PROBE;
   return NODE_STATUS_CLAIM_SECTION.TEST;
-}
-
-function committedEvidenceRuns(committed: NodeStatusClaimVerification): Readonly<Record<string, string>> {
-  const runs: Record<string, string> = {};
-  for (const [key, entry] of Object.entries(committed[NODE_STATUS_CLAIM_SECTION.EVIDENCE] ?? {})) {
-    const run = entry[NODE_STATUS_CLAIM_FIELD.RUN];
-    if (run !== undefined) runs[key] = run;
-  }
-  return runs;
 }
 
 /** The kinds of linked evidence a node's `evidence` results are keyed by. */

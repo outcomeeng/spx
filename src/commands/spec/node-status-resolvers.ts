@@ -319,7 +319,6 @@ function subjectInNode(subject: string, nodeId: string): boolean {
 /**
  * The `evidence` results the node's requested kinds take from the newest sealed audit run that yields each. A
  * unit backs the node only when its subject lies in the node's directory and in no descendant node's directory.
- * A kind whose committed run is sealed yet holds no such unit is reported unattributed.
  */
 async function evidenceResults(
   runs: readonly SealedRun[],
@@ -353,10 +352,5 @@ async function evidenceResults(
       results[entry.key] = { verdict: entry.verdict, read, actor: entry.actor, run: entry.run };
     }
   }
-  const sealedTokens = new Set(runs.map((run) => run.runToken));
-  const unattributedEvidence = request.evidenceKinds.filter((kind) => {
-    const committedRun = request.committedEvidenceRuns?.[kind];
-    return !(kind in results) && committedRun !== undefined && sealedTokens.has(committedRun);
-  });
-  return { evidence: results, unattributedEvidence };
+  return { evidence: results };
 }
