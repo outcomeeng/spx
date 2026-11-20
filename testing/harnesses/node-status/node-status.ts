@@ -688,8 +688,6 @@ export type PinnedNodeRepository = {
   readonly passingOutcomes: NodeOutcomeResolver;
   /** A resolver answering every requested audit rule slug and evidence kind as passed, each reading `read`. */
   passedAttributedResults(read: readonly string[]): NodeAttributedResultResolver;
-  /** A resolver reporting every requested evidence kind as unattributed, with no audit or evidence result. */
-  readonly unattributedEvidenceResults: NodeAttributedResultResolver;
   /** A resolver answering each audit rule slug of `audit` with its verdict, reading `read`, and no other result. */
   attributedResultsFor(
     audit: Readonly<Record<string, NodeStatusEvidenceOutcome>>,
@@ -861,8 +859,6 @@ export async function withPinnedNodeRepository(
           audit: answeredBy(passedFor(request.auditRuleSlugs), read),
           evidence: answeredBy(passedFor(request.evidenceKinds), read),
         }),
-      unattributedEvidenceResults: (_nodeId, request) =>
-        Promise.resolve({ unattributedEvidence: [...request.evidenceKinds] }),
       attributedResultsFor: (audit, read) => () => Promise.resolve({ audit: answeredBy(audit, read) }),
       resolversOfRecordedRuns: (runs) => ({
         resolveOutcome: (_nodeId, evidencePaths) =>

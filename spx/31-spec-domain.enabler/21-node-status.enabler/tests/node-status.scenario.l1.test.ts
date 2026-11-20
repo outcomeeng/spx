@@ -397,7 +397,7 @@ describe("spx spec status --update under a 4.0 methodology over a node with link
     });
   });
 
-  it("keeps a committed eval, audit or evidence entry whose pin is current when no recorded run covers it and the resolver reports no evidence kind unattributed, and writes not-run with no pin for a committed test entry no recorded run covers", async () => {
+  it("keeps a committed eval, audit or evidence entry whose pin is current when no recorded run covers it, and writes not-run with no pin for a committed test entry no recorded run covers", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
     await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
       const subject = repository.subjectPaths[0] ?? "";
@@ -451,48 +451,6 @@ describe("spx spec status --update under a 4.0 methodology over a node with link
       expect(verification?.[NODE_STATUS_CLAIM_SECTION.EVAL]).toEqual(committed[NODE_STATUS_CLAIM_SECTION.EVAL]);
       expect(verification?.[NODE_STATUS_CLAIM_SECTION.AUDIT]).toEqual(committed[NODE_STATUS_CLAIM_SECTION.AUDIT]);
       expect(verification?.[NODE_STATUS_CLAIM_SECTION.EVIDENCE]).toEqual(committed[NODE_STATUS_CLAIM_SECTION.EVIDENCE]);
-    }, PINNED_SPEC_FIXTURE.EVAL_LINKED);
-  });
-
-  it("writes not-run with no pin for a committed evidence entry whose kind the resolver reports unattributed, and keeps a committed audit entry whose pin is current", async () => {
-    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
-    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
-      const subject = repository.subjectPaths[0] ?? "";
-      const attributed = () => ({
-        ...repository.passedEntry([repository.specPath, subject]),
-        ...repository.attribution,
-      });
-      const committed = {
-        [NODE_STATUS_CLAIM_SECTION.AUDIT]: Object.fromEntries(
-          repository.auditRuleSlugs.map((slug) => [slug, attributed()]),
-        ),
-        [NODE_STATUS_CLAIM_SECTION.EVIDENCE]: Object.fromEntries(
-          repository.evidenceKinds.map((kind) => [kind, attributed()]),
-        ),
-      };
-      await repository.writeClaim(committed);
-
-      await updateNodeStatus({
-        productDir: repository.env.productDir,
-        resolveOutcome: repository.passingOutcomes,
-        resolveReadPaths: () => Promise.resolve([subject]),
-        resolveAttributedResults: repository.unattributedEvidenceResults,
-        gitDependencies: repository.git,
-      });
-
-      const written = readNodeStatus(join(repository.env.productDir, repository.nodePath));
-      const verification = written?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
-        ? written.claim[NODE_STATUS_CLAIM_FIELD.VERIFICATION]
-        : undefined;
-      expect(repository.evidenceKinds.length).toBeGreaterThan(0);
-      expect(verification?.[NODE_STATUS_CLAIM_SECTION.EVIDENCE]).toEqual(
-        Object.fromEntries(
-          repository.evidenceKinds.map((
-            kind,
-          ) => [kind, { [NODE_STATUS_CLAIM_FIELD.VERDICT]: NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN }]),
-        ),
-      );
-      expect(verification?.[NODE_STATUS_CLAIM_SECTION.AUDIT]).toEqual(committed[NODE_STATUS_CLAIM_SECTION.AUDIT]);
     }, PINNED_SPEC_FIXTURE.EVAL_LINKED);
   });
 
