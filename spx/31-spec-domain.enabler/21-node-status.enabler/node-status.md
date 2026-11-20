@@ -16,7 +16,6 @@ CAN read a node's last-recorded verification projection, each result's verdict, 
 - Given a pinned Audit result and a link-format edit to the node's spec, when node status is read, then the Audit result stays current and every Test result whose pin reads the spec reports not current ([test](tests/node-status.scenario.l1.test.ts))
 - Given a node whose claim recorded `passing` and whose committed claim now carries no Test, Eval or Probe result while a current passed Audit result remains, when node status is read, then the node derives `failing`, the state `spx spec status --update` records for the same claim ([test](tests/node-status.scenario.l1.test.ts))
 - Given a parent whose variants' claims carry its entries, when node status is read, then the parent is `passing` only when every variant's copies pass, and its own claim carries no results ([test](tests/node-status.scenario.l1.test.ts))
-- [unattributed-evidence-not-run](tests/node-status.scenario.l1.test.ts): Given a committed evidence entry whose kind the resolver reports as unattributed, when `spx spec status --update` folds the node, then the entry reads `not-run` with no pin while a committed audit entry whose pin is current stays as committed
 - [agentic-pin-without-lockfile](tests/node-status.scenario.l1.test.ts): Given an Audit or Evidence result whose read set holds a dependency lockfile, when `spx spec status --update` folds the node, then the recorded pin's read set omits every dependency lockfile
 
 ### Mappings
