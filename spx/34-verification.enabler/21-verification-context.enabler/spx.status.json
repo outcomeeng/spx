@@ -5,7 +5,7 @@
     "test": {
       "tests/verification-context-cli-registry.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
+        "commit": "0dcbe93949aa9648be3d2870a62ce209d4a52aae",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/21-verification-context.enabler/tests/verification-context-cli-registry.scenario.l1.test.ts",
