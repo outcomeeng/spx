@@ -43,9 +43,9 @@ CAN inspect node state, select the next non-passing node, discover relevant subt
 
 - Recorded test evidence maps to each linked reference as follows: a fresh covering outcome maps the reference to its own test file's recorded verdict (`passed`, `failed`, or `not-run`), independent of the verdict of every other file the same run covered; a covered stale outcome keeps the committed entry with its pin; and an uncovered reference maps to `not-run` ([test](tests/spec-status-fold.mapping.l1.test.ts))
 
-### Test.Mapping: [evidence-attribution](tests/evidence-attribution.mapping.l1.test.ts)
+### Test.Mapping: evidence-attribution
 
-A unit of a sealed audit run backs an `evidence` entry only of the Node nearest its subject: the Node whose directory holds the subject while no descendant Node's directory holds it. Each other Node, every ancestor included, takes nothing from that unit, so a Node takes its `evidence` entries from units over its own directory alone, and a committed `evidence` entry whose run holds no unit nearest its Node reads `not-run` with no pin.
+A unit of a sealed audit run backs an `evidence` entry only of the Node nearest its subject: the Node whose directory holds the subject while no descendant Node's directory holds it. Each other Node, every ancestor included, takes nothing from that unit, so a Node takes its `evidence` entries from units over its own directory alone.
 
 | Case                  | Subject of the audit unit                                           | Node folded     | `evidence` entry  |
 | --------------------- | ------------------------------------------------------------------- | --------------- | ----------------- |
@@ -56,9 +56,8 @@ A unit of a sealed audit run backs an `evidence` entry only of the Node nearest 
 | node-directory        | the Node's own directory                                            | that Node       | yields            |
 | child-directory       | a child Node's directory                                            | the parent      | none              |
 | own-spec              | the Node's own spec                                                 | that Node       | yields            |
-| committed-descendant  | a child Node's unit, behind the parent's committed `evidence` entry | the parent      | `not-run`, no pin |
 
-### Test.Mapping: [lockfile-pin](tests/lockfile-pin.mapping.l1.test.ts)
+### Test.Mapping: lockfile-pin
 
 For a language whose dependencies a lockfile resolves, the pin `spx spec status --update` writes holds the lockfile exactly when its result is Deterministic or Attested, so a commit that changes only the lockfile leaves current every Agentic entry whose other read paths it leaves unchanged.
 
