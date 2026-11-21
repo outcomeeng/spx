@@ -4,82 +4,19 @@
   "verification": {
     "test": {
       "tests/color-choice.mapping.l1.test.ts": {
-        "verdict": "passed",
-        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
-        "read": [
-          "pnpm-lock.yaml",
-          "spx/13-cli.enabler/21-styled-output.enabler/styled-output.md",
-          "spx/13-cli.enabler/21-styled-output.enabler/tests/color-choice.mapping.l1.test.ts",
-          "src/lib/sanitize-cli-argument.ts",
-          "src/lib/styled-output/styled-output.ts",
-          "src/lib/terminal-text/terminal-text.ts",
-          "src/test/languages/read-recorder-install.ts",
-          "src/test/languages/read-recorder-setup.ts",
-          "src/test/languages/read-recorder.ts"
-        ]
+        "verdict": "not-run"
       },
       "tests/content-parity.property.l1.test.ts": {
-        "verdict": "passed",
-        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
-        "read": [
-          "pnpm-lock.yaml",
-          "spx/13-cli.enabler/21-styled-output.enabler/styled-output.md",
-          "spx/13-cli.enabler/21-styled-output.enabler/tests/content-parity.property.l1.test.ts",
-          "src/lib/sanitize-cli-argument.ts",
-          "src/lib/styled-output/styled-output.ts",
-          "src/lib/terminal-text/terminal-text.ts",
-          "src/test/languages/read-recorder-install.ts",
-          "src/test/languages/read-recorder-setup.ts",
-          "src/test/languages/read-recorder.ts",
-          "testing/generators/styled-output/styled-output.ts",
-          "testing/harnesses/styled-output/ansi.ts"
-        ]
+        "verdict": "not-run"
       },
       "tests/severity-styling.mapping.l1.test.ts": {
-        "verdict": "passed",
-        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
-        "read": [
-          "pnpm-lock.yaml",
-          "spx/13-cli.enabler/21-styled-output.enabler/styled-output.md",
-          "spx/13-cli.enabler/21-styled-output.enabler/tests/severity-styling.mapping.l1.test.ts",
-          "src/lib/sanitize-cli-argument.ts",
-          "src/lib/styled-output/styled-output.ts",
-          "src/lib/terminal-text/terminal-text.ts",
-          "src/test/languages/read-recorder-install.ts",
-          "src/test/languages/read-recorder-setup.ts",
-          "src/test/languages/read-recorder.ts"
-        ]
+        "verdict": "not-run"
       },
       "tests/styled-output.property.l1.test.ts": {
-        "verdict": "passed",
-        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
-        "read": [
-          "pnpm-lock.yaml",
-          "spx/13-cli.enabler/21-styled-output.enabler/styled-output.md",
-          "spx/13-cli.enabler/21-styled-output.enabler/tests/styled-output.property.l1.test.ts",
-          "src/lib/sanitize-cli-argument.ts",
-          "src/lib/styled-output/styled-output.ts",
-          "src/lib/terminal-text/terminal-text.ts",
-          "src/test/languages/read-recorder-install.ts",
-          "src/test/languages/read-recorder-setup.ts",
-          "src/test/languages/read-recorder.ts",
-          "testing/generators/styled-output/styled-output.ts"
-        ]
+        "verdict": "not-run"
       },
       "tests/styled-output.scenario.l1.test.ts": {
-        "verdict": "passed",
-        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
-        "read": [
-          "pnpm-lock.yaml",
-          "spx/13-cli.enabler/21-styled-output.enabler/styled-output.md",
-          "spx/13-cli.enabler/21-styled-output.enabler/tests/styled-output.scenario.l1.test.ts",
-          "src/lib/sanitize-cli-argument.ts",
-          "src/lib/styled-output/styled-output.ts",
-          "src/lib/terminal-text/terminal-text.ts",
-          "src/test/languages/read-recorder-install.ts",
-          "src/test/languages/read-recorder-setup.ts",
-          "src/test/languages/read-recorder.ts"
-        ]
+        "verdict": "not-run"
       }
     },
     "evidence": {

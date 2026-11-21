@@ -4,48 +4,10 @@
   "verification": {
     "test": {
       "tests/snapshot-store.compliance.l1.test.ts": {
-        "verdict": "passed",
-        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
-        "read": [
-          "pnpm-lock.yaml",
-          "spx/18-state.enabler/71-snapshot-store.enabler/snapshot-store.md",
-          "spx/18-state.enabler/71-snapshot-store.enabler/tests/snapshot-store.compliance.l1.test.ts",
-          "src/lib/config/cwd.ts",
-          "src/lib/git/environment.ts",
-          "src/lib/git/root.ts",
-          "src/lib/sanitize-cli-argument.ts",
-          "src/lib/snapshot-store/index.ts",
-          "src/lib/state-store/index.ts",
-          "src/lib/terminal-text/terminal-text.ts",
-          "src/lib/verification-env.ts",
-          "src/test/languages/read-recorder-install.ts",
-          "src/test/languages/read-recorder-setup.ts",
-          "src/test/languages/read-recorder.ts",
-          "testing/generators/state-store/state-store.ts",
-          "testing/harnesses/state/in-memory-file-system.ts"
-        ]
+        "verdict": "not-run"
       },
       "tests/snapshot-store.scenario.l1.test.ts": {
-        "verdict": "passed",
-        "commit": "21886ee757a348a9bb797988b8aec5cc6d332c04",
-        "read": [
-          "pnpm-lock.yaml",
-          "spx/18-state.enabler/71-snapshot-store.enabler/snapshot-store.md",
-          "spx/18-state.enabler/71-snapshot-store.enabler/tests/snapshot-store.scenario.l1.test.ts",
-          "src/lib/config/cwd.ts",
-          "src/lib/git/environment.ts",
-          "src/lib/git/root.ts",
-          "src/lib/sanitize-cli-argument.ts",
-          "src/lib/snapshot-store/index.ts",
-          "src/lib/state-store/index.ts",
-          "src/lib/terminal-text/terminal-text.ts",
-          "src/lib/verification-env.ts",
-          "src/test/languages/read-recorder-install.ts",
-          "src/test/languages/read-recorder-setup.ts",
-          "src/test/languages/read-recorder.ts",
-          "testing/generators/state-store/state-store.ts",
-          "testing/harnesses/state/in-memory-file-system.ts"
-        ]
+        "verdict": "not-run"
       }
     },
     "evidence": {
