@@ -47,7 +47,7 @@ than only the descriptor validator and JSON helper path.
 
 `readCoveredContents` (`src/commands/test/run-command.ts`) reads each covered test file with a serial `await` in a `for` loop. For a full-suite run over a large spec tree this is O(n) sequential I/O; concurrent reads would cut wall-clock time.
 
-**Resolution:** read the covered files concurrently (e.g. `Promise.all` over the mapped reads) when the file count justifies it, benchmarked against a realistic tree; weigh against the product's <100ms CLI-latency target in `spx/spx.product.md`.
+**Resolution:** read the covered files concurrently (e.g. `Promise.all` over the mapped reads) when the file count justifies it, benchmarked against a realistic tree; weigh against `command-latency` of [spx/11-command-guarantees.pdr.md](spx/11-command-guarantees.pdr.md).
 
 **Evidence:** local changes review on PR-2c; `src/commands/test/run-command.ts` `readCoveredContents`.
 

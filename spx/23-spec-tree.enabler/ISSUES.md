@@ -46,7 +46,7 @@ The canonical ADR template (`plugins/spec-tree/skills/understanding/templates/de
 
 **Settlement condition:** either the spec property and the ADR invariant are narrowed to snapshots that carry a product, or the operation is made total — a third discriminated outcome or `unresolved` when no common node exists and the snapshot has no product — with a generated product-less snapshot in the property.
 
-## The 4.0 root spec is recognized only by the `.product.md` suffix
+## The 4.0 root spec is recognized only by the `.product.md` suffix `spx/spx.product.md` `# spx` `13-agent-capability-lifecycle.pdr.md Audit rule`
 
 **Evidence:** `recognizeRootFile` in `src/lib/spec-tree/index.ts` accepts a root spec only when its file name ends with the naming schema's `productSuffix`, and `src/lib/spec-tree/config.ts` sets that suffix to `.product.md` for the 4.0 grammar as for 3.x. Methodology 4.0 names the root spec `{product}.spec.md` and marks it a Product by `kind: product` in its front matter alone. A 4.0 root such as `spx/spx.spec.md` carrying `kind: product` is therefore not recognized as the root, so this product keeps its root spec as `spx/spx.product.md` with no front matter, against the Audit rule of [spx/13-agent-capability-lifecycle.pdr.md](spx/13-agent-capability-lifecycle.pdr.md), by the Operator's ruling.
 
