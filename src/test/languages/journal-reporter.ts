@@ -19,7 +19,7 @@ import { pathToFileURL } from "node:url";
 
 import type { Reporter, TestCase, TestModule, TestRunEndReason } from "vitest/node";
 
-import { LOCKFILE_NAMES } from "@/lib/node-status/lockfile";
+import { JAVASCRIPT_LOCKFILE_NAMES as LOCKFILE_NAMES } from "@/lib/node-status/lockfile";
 import { compareCodeUnits } from "@/outcomeeng/spec-tree/graph/source/order";
 import {
   READ_RECORDER_META_KEY,

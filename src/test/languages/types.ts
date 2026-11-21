@@ -194,6 +194,8 @@ export interface TestingLanguageDescriptor {
   readonly suppliesReadPaths: boolean;
   /** Product-root files whose content influences this language's runner behavior. */
   readonly productInputPaths: readonly string[];
+  /** The dependency lockfile names this language reads into a read set; an Agentic pin strips each of them. */
+  readonly lockfileNames: readonly string[];
   /** Product-root files derived from covered test paths whose content influences this language's runner behavior. */
   readonly coveredProductInputPaths?: (coveredTestPaths: readonly string[]) => readonly string[];
   /** Whether a file path is one of this language's test files. */

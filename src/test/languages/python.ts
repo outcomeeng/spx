@@ -9,6 +9,7 @@
 import { readFile, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path/posix";
 
+import { PYTHON_LOCKFILE_NAMES } from "@/lib/node-status/lockfile";
 import { compareAsciiStrings, domainDir, generateRunId, STATE_STORE_DOMAIN, worktreeScopeDir } from "@/lib/state-store";
 import type {
   TestingLanguageDescriptor,
@@ -43,7 +44,7 @@ export const PYTHON_PRODUCT_INPUT_PATH = {
   SETUP_CFG: "setup.cfg",
   SETUP_PY: "setup.py",
   TOX_INI: "tox.ini",
-  UV_LOCK: "uv.lock",
+  UV_LOCK: PYTHON_LOCKFILE_NAMES[0],
 } as const;
 const PYTHON_PRODUCT_INPUT_PATHS = Object.values(PYTHON_PRODUCT_INPUT_PATH);
 
@@ -213,6 +214,7 @@ export const pythonTestingLanguage: TestingLanguageDescriptor = {
   testFilePatterns: PYTHON_TEST_FILE_PATTERNS,
   suppliesReadPaths: false,
   productInputPaths: PYTHON_PRODUCT_INPUT_PATHS,
+  lockfileNames: PYTHON_LOCKFILE_NAMES,
   coveredProductInputPaths,
   matchesTestFile,
   excludeFlag,

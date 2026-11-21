@@ -12,6 +12,7 @@ import { join, posix } from "node:path";
 import ts from "typescript";
 
 import { TEST_RELEVANT_SOURCE_ROOT_PREFIXES } from "@/config/source-roots";
+import { JAVASCRIPT_LOCKFILE_NAMES } from "@/lib/node-status/lockfile";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { domainDir, generateRunId, STATE_STORE_DOMAIN, worktreeScopeDir } from "@/lib/state-store";
 import {
@@ -42,7 +43,7 @@ export const TYPESCRIPT_TEST_FILE_PATTERNS: readonly string[] = TYPESCRIPT_TEST_
 );
 const TYPESCRIPT_PRODUCT_INPUT_PATHS = [
   "package.json",
-  "pnpm-lock.yaml",
+  JAVASCRIPT_LOCKFILE_NAMES[0],
   TYPESCRIPT_MARKER,
   "vitest.config.js",
   "vitest.config.mjs",
@@ -553,6 +554,7 @@ export const typescriptTestingLanguage: TestingLanguageDescriptor = {
   testFilePatterns: TYPESCRIPT_TEST_FILE_PATTERNS,
   suppliesReadPaths: true,
   productInputPaths: TYPESCRIPT_PRODUCT_INPUT_PATHS,
+  lockfileNames: JAVASCRIPT_LOCKFILE_NAMES,
   matchesTestFile,
   excludeFlag,
   detect,
