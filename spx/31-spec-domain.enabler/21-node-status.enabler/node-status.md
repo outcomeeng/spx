@@ -16,7 +16,18 @@ CAN read a node's last-recorded verification projection, each result's verdict, 
 - Given a pinned Audit result and a link-format edit to the node's spec, when node status is read, then the Audit result stays current and every Test result whose pin reads the spec reports not current ([test](tests/node-status.scenario.l1.test.ts))
 - Given a node whose claim recorded `passing` and whose committed claim now carries no Test, Eval or Probe result while a current passed Audit result remains, when node status is read, then the node derives `failing`, the state `spx spec status --update` records for the same claim ([test](tests/node-status.scenario.l1.test.ts))
 - Given a parent whose variants' claims carry its entries, when node status is read, then the parent is `passing` only when every variant's copies pass, and its own claim carries no results ([test](tests/node-status.scenario.l1.test.ts))
-- [agentic-pin-without-lockfile](tests/node-status.scenario.l1.test.ts): Given an Audit or Evidence result whose read set holds a dependency lockfile, when `spx spec status --update` folds the node, then the recorded pin's read set omits every dependency lockfile
+
+### Test.Mapping: lockfile-pin
+
+For a language whose dependencies a lockfile resolves, `spx spec status --update` writes the pin of an Agentic result without any lockfile and the pin of a Deterministic or Attested result with every lockfile its run read, so a commit that changes only a lockfile the run read leaves current every Agentic entry whose other read paths it leaves unchanged.
+
+| Case           | Entry                                         | Lockfiles in the pin        | After a commit that changes only a lockfile the run read |
+| -------------- | --------------------------------------------- | --------------------------- | -------------------------------------------------------- |
+| test-entry     | a `test` entry from a sealed test run journal | every lockfile its run read | not current                                              |
+| eval-entry     | an `eval` entry from a sealed eval run        | every lockfile its run read | not current                                              |
+| probe-entry    | a `probe` entry from an attested run          | every lockfile its run read | not current                                              |
+| audit-entry    | an `audit` entry from a sealed audit run      | none                        | current                                                  |
+| evidence-entry | an `evidence` entry from a sealed audit run   | none                        | current                                                  |
 
 ### Mappings
 
