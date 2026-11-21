@@ -4,7 +4,7 @@ CONSTRAINS how context ingestion obtains the Outcome Engineering foundation
 TO spx's shipped `methodology/{MAJOR.MINOR}/{coding-agent}/spec-tree/` bundle, selected from the exact methodology version the product declares and from the methodology bundle `--coding-agent` names or, without it, the bundle the bundle-by-identity Mapping yields, and read through `skills/understand/manifest.json` at schema version 1 with its singular `core` path resolved through the bundle containment boundary
 SO THAT foundation selection stays offline and deterministic, with no other methodology layout, consumer copy, installed-plugin dependency or network lookup
 
-### Test.Mapping: bundle-by-identity
+## Test.Mapping: bundle-by-identity
 
 Without `--coding-agent`, the methodology bundle follows agent identification under [spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md](spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md); an agent's bundle is the one its agent module declares, and the default methodology bundle is the one an agent module marks as default.
 
@@ -16,7 +16,7 @@ Without `--coding-agent`, the methodology bundle follows agent identification un
 | none-single        | no non-empty identity variable; the line ships one bundle | that bundle                    |
 | none-several       | no non-empty identity variable; the line ships several    | fails as ambiguous             |
 
-### Test.Compliance: projection
+## Test.Compliance: projection
 
 - manifest-schema: ALWAYS: the manifest schema is validated before output.
 - core-containment: ALWAYS: core containment is validated before output.
@@ -27,7 +27,7 @@ Without `--coding-agent`, the methodology bundle follows agent identification un
 - stable-display-path: NEVER: the displayed resource path is resolved against the consumer product root.
 - core-relative-references: ALWAYS: a core-relative reference resolves against the bundle path carried by the core's document frame.
 
-### Test.Mapping: methodology-failures
+## Test.Mapping: methodology-failures
 
 An absent or unsupported part of the selection fails the complete projection with the typed methodology failure.
 
@@ -39,7 +39,7 @@ An absent or unsupported part of the selection fails the complete projection wit
 | schema     | a supported manifest schema version | typed methodology failure |
 | core       | a core contained in the bundle      | typed methodology failure |
 
-### Audit: selection
+## Audit: selection
 
 - selection-inputs: ALWAYS: tree selection is a function only of spx's package root, the declared methodology line, and either the `--coding-agent` bundle or agent identification with the default bundle mark of [spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md](spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md).
 - no-fallback-source: NEVER: methodology selection falls back to another source, scans directories, compares package versions, reaches the network, reads an installed plugin or cache, or reads a consumer-side copy.

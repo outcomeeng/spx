@@ -4,7 +4,7 @@ GOVERNS the metadata every session file `spx session` writes
 SO THAT an agent choosing and resuming work from the session queue shared across worktrees per [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md)
 CAN RELY ON each session naming its goal, its next step and a base reachable from the shared queue, and on every session staying readable whatever metadata it omits
 
-### Test.Mapping: metadata-fields
+## Test.Mapping: metadata-fields
 
 `spx session handoff` writes exactly these metadata fields, each with its type, its lifecycle and its default.
 
@@ -19,7 +19,7 @@ CAN RELY ON each session naming its goal, its next step and a base reachable fro
 | specs            | `specs`            | string[] | Optional file paths for auto-injection on pickup; a non-empty entry resolving to an existing directory is rejected at handoff                                                                                                                                                    | `[]`                       |
 | files            | `files`            | string[] | Optional file paths for auto-injection on pickup; a non-empty entry resolving to an existing directory is rejected at handoff                                                                                                                                                    | `[]`                       |
 
-### Test.Compliance: handoff payload
+## Test.Compliance: handoff payload
 
 - required-goal-next-step: ALWAYS: `spx session handoff` rejects piped content lacking a non-empty `goal` and a non-empty `next_step`, which are the handoff payload.
 - injection-directory-rejected: NEVER: `spx session handoff` records a non-empty `specs` or `files` entry that resolves to an existing directory; it writes no file and exits non-zero with `SessionInjectionDirectoryError` naming the entry, while an entry that does not exist on disk is accepted and an empty entry is recorded verbatim.
@@ -28,13 +28,13 @@ CAN RELY ON each session naming its goal, its next step and a base reachable fro
 - declared-keys-only: NEVER: `spx session handoff` writes a metadata key outside the field set of the metadata-fields Mapping.
 - no-legacy-frontmatter-input: NEVER: `spx session handoff` parses caller-supplied stdin as session-file frontmatter; input opening with the frontmatter delimiter is rejected with `SessionLegacyFrontmatterInputError`.
 
-### Test.Compliance: prefilled fields
+## Test.Compliance: prefilled fields
 
 - created-at-prefill: ALWAYS: `spx session handoff` prefills `created_at` as an ISO-8601 timestamp with timezone offset per [spx/36-session.enabler/21-timestamp-format.adr.md](spx/36-session.enabler/21-timestamp-format.adr.md).
 - agent-session-id-prefill: ALWAYS: `spx session handoff` prefills `agent_session_id` with the session id agent identification yields under [spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md](spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md), and omits the field when it yields none, never inventing a placeholder.
 - priority-default: ALWAYS: `spx session handoff` defaults `priority` to `medium` when the caller omits it and validates it as one of the `SESSION_PRIORITY` values (`high`, `medium`, `low`).
 
-### Test.Compliance: handoff base
+## Test.Compliance: handoff base
 
 - main-checkout-base: ALWAYS: `spx session handoff` in the main checkout records the checked-out branch name, or the HEAD commit SHA when detached, as the session base, unless the caller supplies a work-branch ref the command has verified exists on `origin`.
 - non-main-checkout-base: ALWAYS: `spx session handoff` in a non-main checkout refuses unless the working tree is clean and HEAD is detached at the tip of `origin/<default>`, exiting non-zero with the prerequisite checklist; on success it records that commit SHA as the session base, unless the caller supplies a work-branch ref the command has verified exists on `origin`.
@@ -47,7 +47,7 @@ CAN RELY ON each session naming its goal, its next step and a base reachable fro
 - gate-not-bypassed: NEVER: a caller-supplied work-branch ref bypasses the git-context gate; a linked worktree that is not clean and detached at the `origin/<default>` tip is refused regardless of the ref.
 - no-base-override: NEVER: `spx session handoff` lets caller metadata override the session base, except a work-branch ref the command has verified exists on `origin`.
 
-### Test.Compliance: refusal diagnostic
+## Test.Compliance: refusal diagnostic
 
 - silent-success: ALWAYS: `spx session handoff` prints no base diagnostic on a permitted handoff; success emits only the session's `<HANDOFF_ID>` and `<SESSION_FILE>` tags.
 - checklist-lines: ALWAYS: on a non-main-checkout refusal, the diagnostic renders one numbered checklist line per base prerequisite marked `[PASS]` or `[FAIL]`, shown only when at least one prerequisite is unmet, and omits no prerequisite.
@@ -59,13 +59,13 @@ CAN RELY ON each session naming its goal, its next step and a base reachable fro
 - dirty-no-main-alternative: NEVER: a dirty-checkout refusal offers running handoff from the main checkout as an alternative to committing the dirty checkout.
 - no-literal-placeholder: NEVER: the refusal diagnostic renders the literal-text placeholder `origin/<default>` in place of a base ref that resolves to a commit.
 
-### Test.Compliance: reading and archive
+## Test.Compliance: reading and archive
 
 - unconditional-archive: ALWAYS: `spx session archive` moves a session from `todo/` or `doing/` to `archive/` by rename for any resolvable session id, validating no frontmatter field and rejecting none for a missing or empty field.
 - list-shows-goal: ALWAYS: `spx session list` shows each session's `goal` and `next_step`, so an agent picks the work to resume without opening the file.
 - lenient-reads: ALWAYS: `spx session list`, `show`, `pickup`, and `release` render missing structured fields as empty strings without rejecting the session.
 - no-lineage: NEVER: a command embeds session lineage (`previous_session_id`, `previous_result`) in the metadata; each session carries its own `goal` and `next_step`.
 
-### Test.Property: round-trip
+## Test.Property: round-trip
 
 - string-fields-verbatim: ALWAYS: `spx session handoff` preserves every string-typed metadata field exactly, including punctuation, quotes, whitespace, newlines and any unicode codepoint.

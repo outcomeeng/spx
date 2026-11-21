@@ -11,7 +11,7 @@ GOVERNS where coding-agent state lives across the user scope, the agent home and
 SO THAT a person running SPX in a product repository
 CAN RELY ON product-scoped capabilities installing only into the agent home SPX sets, never into their own home or the tracked working tree
 
-### Test.Compliance: scopes
+## Test.Compliance: scopes
 
 - agent-home-writes: ALWAYS: every write of a marketplace, plugin, or skill by the harness targets the agent home SPX sets for that coding agent.
 - no-user-scope-writes: NEVER: the harness writes into the user scope of any coding agent.

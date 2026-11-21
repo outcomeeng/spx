@@ -4,7 +4,7 @@ GOVERNS the guarantees every SPX command and operation keeps
 SO THAT a practitioner, a coding agent or CI automation running SPX
 CAN RELY ON fast, offline, deterministic local operations governed by committed product configuration
 
-### Audit: command guarantees
+## Audit: command guarantees
 
 - command-latency: ALWAYS: a CLI command that reads repository state completes in under 100 ms once the CLI process is running; Node.js process startup is excluded, and a command that scans an agent-native transcript store is bounded by the native locator's time over that store rather than by this limit.
 - deterministic-context: ALWAYS: the context of a Product Tree target is a pure function of the tracked `spx/` tree, in this order: every ancestor spec from the product root down; at each level of the path, every sibling spec and each decision indexed below the child the path continues through; every `ISSUES.md` on the path; each decision the path cites from another subtree, once; the target's immediate children and its own decisions; and its own spec with its outcome record and its `knowledge/index.md`; `tests/`, `evals/`, `probes/` and `audits/` stay out.

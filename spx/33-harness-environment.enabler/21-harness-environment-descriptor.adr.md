@@ -4,7 +4,7 @@ CONSTRAINS the coding agents SPX supports, how it identifies the invoking agent 
 TO the agent registry module under `src/lib/agent-environment/`, which imports one agent module per coding agent from `src/lib/agent-environment/agents/`, one identity rule over the identity variables those modules declare, and one `harnessEnvironment` config descriptor at `src/domains/agent-environment/config.ts`, registered with the production config registry per [spx/16-config.enabler/21-descriptor-registration.adr.md](spx/16-config.enabler/21-descriptor-registration.adr.md), that resolves the subsections `instructions`, `agents` and `pluginBootstrap` over the registered agent ids
 SO THAT adding or removing a coding agent changes only its agent module and its registry entry, and the methodology bundle set of [spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/21-tree-fetch.adr.md](spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/21-tree-fetch.adr.md) when the agent ships a new bundle; no consumer guesses which agent does the work; and instruction reconciliation, agent configuration, hook CLI transport and plugin bootstrap consume one validated, typed input, in which a typo fails instead of dropping configured intent
 
-### Test.Compliance: agent registry
+## Test.Compliance: agent registry
 
 - registry-declarations: ALWAYS: each agent module declares its agent id, exactly one identity variable, its compact-stdout default, and at most one methodology bundle from the bundle set of [spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/21-tree-fetch.adr.md](spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/21-tree-fetch.adr.md), and the agent registry module lists every agent module.
 - default-bundle-mark: ALWAYS: exactly one agent module marks its methodology bundle as the default methodology bundle.
@@ -13,7 +13,7 @@ SO THAT adding or removing a coding agent changes only its agent module and its 
 - only-registered-identity: NEVER: a variable other than a registered identity variable identifies an agent, identifies a session, or selects a methodology bundle, including a variable a hook mechanism supplies or SPX writes.
 - ambiguous-identity-failure: ALWAYS: a command whose spec declares an agent-session identity failure fails when two or more registered identity variables are non-empty, naming each of them.
 
-### Test.Mapping: agent-identification
+## Test.Mapping: agent-identification
 
 A registered identity variable is non-empty when its value is neither empty nor whitespace-only; agent identification yields at most one agent and one session, no identity variable takes precedence over another, and no agent falls back to another agent's variable.
 
@@ -23,7 +23,7 @@ A registered identity variable is non-empty when its value is neither empty nor 
 | one     | exactly one                             | the agent whose module declares it | that variable's value, normalized to the safe agent session token |
 | several | two or more                             | none                               | none                                                              |
 
-### Test.Mapping: compact-policy
+## Test.Mapping: compact-policy
 
 Compact stdout policy follows agent identification, and an explicit `hooks.sessionStart.compactStdout` boolean in the identified agent's configuration overrides the default its agent module declares.
 
@@ -33,7 +33,7 @@ Compact stdout policy follows agent identification, and an explicit `hooks.sessi
 | one     | one agent            | that agent's configured value, else its module's default |
 | several | no agent             | false                                                    |
 
-### Test.Compliance: descriptor resolution
+## Test.Compliance: descriptor resolution
 
 - registry-defaults: ALWAYS: the descriptor resolves `instructions`, `agents`, and `pluginBootstrap` defaults through the static config registry.
 - compact-stdout-default: ALWAYS: each agent config carries `hooks.sessionStart.compactStdout`, whose default and explicit override follow the compact-policy Mapping.
@@ -46,7 +46,7 @@ Compact stdout policy follows agent identification, and an explicit `hooks.sessi
 - default-instruction-file: ALWAYS: an omitted `instructions.files` keeps the default `AGENTS.md`, and an explicit empty list disables instruction-file management.
 - disabled-agent-targets: ALWAYS: an instruction target may name a disabled agent; validation requires a registered agent id, not an enabled one.
 
-### Test.Mapping: config-format-equivalence
+## Test.Mapping: config-format-equivalence
 
 Equivalent `harnessEnvironment` sections declared in each config file format resolve to identical typed harness environment config.
 
@@ -56,7 +56,7 @@ Equivalent `harnessEnvironment` sections declared in each config file format res
 | yaml | `spx.config.yaml` | identical to the config the other formats yield |
 | toml | `spx.config.toml` | identical to the config the other formats yield |
 
-### Audit: descriptor boundaries
+## Audit: descriptor boundaries
 
 - validation-side-effect-free: NEVER: descriptor validation has a filesystem, process, network, or agent side effect, or performs instruction-file reconciliation, an agent config write, or a plugin installation or update.
 - no-methodology-effects: NEVER: the descriptor validator loads methodology files, injects methodology context, or resolves methodology source or version; the top-level `methodology` descriptor under `spx/16-config.enabler/43-methodology-config.enabler` owns them.
@@ -69,6 +69,6 @@ Equivalent `harnessEnvironment` sections declared in each config file format res
 - explicit-instruction-targets: NEVER: adding an agent makes it an implicit instruction target.
 - child-validation: ALWAYS: the instruction-reconciliation child validates concrete instruction paths before writing files, and the plugin-bootstrap child validates marketplace source formats before resolving external inputs.
 
-### Audit: agent registry
+## Audit: agent registry
 
 - declaration-completeness: ALWAYS: each agent module declares every agent-specific variable SPX reads or writes for that agent; a variable SPX reads or writes for one agent that its module does not declare is a failure.

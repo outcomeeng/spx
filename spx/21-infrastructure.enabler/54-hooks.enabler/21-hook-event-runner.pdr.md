@@ -5,7 +5,7 @@ GOVERNS agent lifecycle hooks as one product-level event runner invoked as `spx 
 SO THAT a plugin that integrates a coding agent's lifecycle with SPX
 CAN RELY ON one hook invocation that coordinates worktree occupancy, session identity, project identity and hook policy, and that never blocks the agent's startup because one responsibility degrades
 
-### Audit: hook events
+## Audit: hook events
 
 - hook-event-behavior: ALWAYS: hook behavior that consumes agent lifecycle payloads is SPX hook event behavior, not a command in the worktree, session, or Spec Tree domains.
 - invocation-contract: ALWAYS: the public hook invocation contract is `spx hook run <event>`, and `session-start` is the first required event operand.
