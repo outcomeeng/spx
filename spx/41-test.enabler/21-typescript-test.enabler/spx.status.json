@@ -5,7 +5,7 @@
     "test": {
       "tests/typescript-test-verdicts.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "7cf4af5893133c8207d335ec5246a956ecf842b2",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test-verdicts.scenario.l2.test.ts",
@@ -79,7 +79,6 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
-          "src/lib/node-status/lockfile.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/spec-tree/config.ts",
           "src/lib/spec-tree/context-manifest.ts",
@@ -146,7 +145,7 @@
       },
       "tests/typescript-test.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "7cf4af5893133c8207d335ec5246a956ecf842b2",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.compliance.l1.test.ts",
@@ -220,7 +219,6 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
-          "src/lib/node-status/lockfile.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/spec-tree/config.ts",
           "src/lib/spec-tree/context-manifest.ts",
@@ -287,7 +285,7 @@
       },
       "tests/typescript-test.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "7cf4af5893133c8207d335ec5246a956ecf842b2",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.compliance.l2.test.ts",
@@ -361,7 +359,6 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
-          "src/lib/node-status/lockfile.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/spec-tree/config.ts",
           "src/lib/spec-tree/context-manifest.ts",
@@ -428,7 +425,7 @@
       },
       "tests/typescript-test.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "7cf4af5893133c8207d335ec5246a956ecf842b2",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.mapping.l1.test.ts",
@@ -502,7 +499,6 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
-          "src/lib/node-status/lockfile.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/spec-tree/config.ts",
           "src/lib/spec-tree/context-manifest.ts",
@@ -569,7 +565,7 @@
       },
       "tests/typescript-test.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "7cf4af5893133c8207d335ec5246a956ecf842b2",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.scenario.l1.test.ts",
@@ -643,7 +639,6 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
-          "src/lib/node-status/lockfile.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/spec-tree/config.ts",
           "src/lib/spec-tree/context-manifest.ts",
@@ -710,7 +705,7 @@
       },
       "tests/typescript-test.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "7cf4af5893133c8207d335ec5246a956ecf842b2",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.scenario.l2.test.ts",
@@ -784,7 +779,6 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
-          "src/lib/node-status/lockfile.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/spec-tree/config.ts",
           "src/lib/spec-tree/context-manifest.ts",
@@ -851,7 +845,7 @@
       },
       "tests/vitest-resolution.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "7cf4af5893133c8207d335ec5246a956ecf842b2",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -926,7 +920,6 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
-          "src/lib/node-status/lockfile.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/spec-tree/config.ts",
           "src/lib/spec-tree/context-manifest.ts",

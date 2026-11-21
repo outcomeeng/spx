@@ -5,7 +5,7 @@
     "test": {
       "tests/inspect.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "7cf4af5893133c8207d335ec5246a956ecf842b2",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-verification-input.enabler/tests/inspect.scenario.l2.test.ts",
@@ -101,7 +101,6 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
-          "src/lib/node-status/lockfile.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/spec-tree/config.ts",
           "src/lib/spec-tree/context-manifest.ts",
@@ -148,7 +147,7 @@
       },
       "tests/read-only.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "7cf4af5893133c8207d335ec5246a956ecf842b2",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-verification-input.enabler/tests/read-only.compliance.l2.test.ts",
@@ -244,7 +243,6 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
-          "src/lib/node-status/lockfile.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/spec-tree/config.ts",
           "src/lib/spec-tree/context-manifest.ts",
@@ -291,7 +289,7 @@
       },
       "tests/rejection.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "7cf4af5893133c8207d335ec5246a956ecf842b2",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-verification-input.enabler/tests/rejection.compliance.l2.test.ts",
@@ -387,7 +385,6 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
-          "src/lib/node-status/lockfile.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/spec-tree/config.ts",
           "src/lib/spec-tree/context-manifest.ts",
