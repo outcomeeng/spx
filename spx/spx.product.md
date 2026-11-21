@@ -26,7 +26,7 @@ Outcome Engineering requires agents that follow the methodology — ingesting sp
 
 ## Agent Adapters
 
-- Coding-agent adapters — launch and resume each coding agent the agent registry lists, with observation and communication capabilities supplied by each adapter's declared contract.
+- Coding-agent adapters — launch each coding agent the agent registry lists, and resume each that declares a session store, with observation and communication capabilities supplied by each adapter's declared contract.
 
 ## Agent Harness Inputs
 
