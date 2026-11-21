@@ -43,31 +43,19 @@ CAN inspect node state, select the next non-passing node, discover relevant subt
 
 - Recorded test evidence maps to each linked reference as follows: a fresh covering outcome maps the reference to its own test file's recorded verdict (`passed`, `failed`, or `not-run`), independent of the verdict of every other file the same run covered; a covered stale outcome keeps the committed entry with its pin; and an uncovered reference maps to `not-run` ([test](tests/spec-status-fold.mapping.l1.test.ts))
 
-### Test.Mapping: [evidence-attribution](tests/evidence-attribution.mapping.l1.test.ts)
+### Test.Mapping: evidence-attribution
 
-A unit of a sealed audit run backs an `evidence` entry only of the Node nearest its subject: the Node whose directory holds the subject while no descendant Node's directory holds it. Each other Node, every ancestor included, takes nothing from that unit, so a Node takes its `evidence` entries from units over its own directory alone.
+A unit of a sealed audit run backs an `evidence` entry only of the Node nearest its subject: the Node whose directory holds the subject while no descendant Node's directory holds it. Each other Node, every ancestor included, takes nothing from that unit, so a Node takes its `evidence` entries from units over its own directory alone. The unit's audit kind names the entry it backs, a tests audit the `test` entry and an eval-evidence audit the `eval` entry, so its subject, the Node's own spec included, names only the Node.
 
-| Case                  | Subject of the audit unit                      | Node folded     | `evidence` entry |
+| Case                  | Subject of the tests audit unit                | Node folded     | `evidence` entry |
 | --------------------- | ---------------------------------------------- | --------------- | ---------------- |
-| own-tests             | a test file under the Node's own `tests/`      | that Node       | yields           |
-| child-tests           | a test file under a child Node's `tests/`      | the child       | yields           |
+| own-tests             | a test file under the Node's own `tests/`      | that Node       | `test`           |
+| child-tests           | a test file under a child Node's `tests/`      | the child       | `test`           |
 | parent-of-child-tests | a test file under a child Node's `tests/`      | the parent      | none             |
 | grandchild-tests      | a test file under a grandchild Node's `tests/` | the grandparent | none             |
-| node-directory        | the Node's own directory                       | that Node       | yields           |
+| node-directory        | the Node's own directory                       | that Node       | `test`           |
 | child-directory       | a child Node's directory                       | the parent      | none             |
-| own-spec              | the Node's own spec                            | that Node       | yields           |
-
-### Test.Mapping: [lockfile-pin](tests/lockfile-pin.mapping.l1.test.ts)
-
-For a language whose dependencies a lockfile resolves, the pin `spx spec status --update` writes holds the lockfile exactly when its result is Deterministic or Attested, so a commit that changes only the lockfile leaves current every Agentic entry whose other read paths it leaves unchanged.
-
-| Case           | Entry                                         | Pin holds the lockfile | After a commit that changes only the lockfile |
-| -------------- | --------------------------------------------- | ---------------------- | --------------------------------------------- |
-| test-entry     | a `test` entry from a sealed test run journal | yes                    | not current                                   |
-| eval-entry     | an `eval` entry from a sealed eval run        | yes                    | not current                                   |
-| probe-entry    | a `probe` entry from an attested run          | yes                    | not current                                   |
-| audit-entry    | an `audit` entry from a sealed audit run      | no                     | current                                       |
-| evidence-entry | an `evidence` entry from a sealed audit run   | no                     | current                                       |
+| own-spec              | the Node's own spec                            | that Node       | `test`           |
 
 ### Compliance
 
