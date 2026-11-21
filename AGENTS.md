@@ -2,7 +2,7 @@
 
 Before any other step, read methodology 4.0 in the main checkout of the methodology repository, `/Users/shz/Code/outcomeeng/methodology/methodology/versions/4.0/methodology/`, starting at `index.md`. Pull that checkout before you read it. Methodology 4.0 governs all work in this repository.
 
-Until further notice, this guide is an emergency measure: the skills do not work for methodology 4.0, so this guide replaces them and departs from methodology 4.0 where its sections say so. Each such departure is deliberate and has nothing to do with the methodology. Where this guide and methodology 4.0 or a skill differ, this guide holds. No Position holder, Verifier or review reports such a difference as a finding, files it in an `ISSUES.md`, or records a Change for it.
+Until further notice, this guide is a temporary measure for the transition to methodology 4.0: the skills do not yet work for 4.0, so this guide replaces them and departs from methodology 4.0 where its sections say so. Each such departure is deliberate and has nothing to do with the methodology. Where this guide and methodology 4.0 or a skill differ, this guide holds. No Position holder, Verifier or review reports such a difference as a finding, files it in an `ISSUES.md`, or records a Change for it.
 
 ## Position holders
 
