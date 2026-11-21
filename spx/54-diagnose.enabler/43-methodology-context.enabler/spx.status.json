@@ -5,7 +5,7 @@
     "test": {
       "tests/methodology-context.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "7cf4af5893133c8207d335ec5246a956ecf842b2",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/43-methodology-context.enabler/methodology-context.md",
@@ -157,7 +157,7 @@
       },
       "tests/methodology-context.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "7cf4af5893133c8207d335ec5246a956ecf842b2",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/43-methodology-context.enabler/methodology-context.md",
