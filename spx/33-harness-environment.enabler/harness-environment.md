@@ -11,12 +11,12 @@ CAN run with explicitly enabled and available coding agents, identify the invoki
 ## Test.Compliance: descriptor
 
 - [registry-resolution](tests/harness-environment-descriptor.compliance.l1.test.ts): ALWAYS: the `harnessEnvironment` descriptor resolves instruction, agent, marketplace, plugin, and skill configuration through the static config registry.
-- [agent-compact-default](tests/harness-environment-descriptor.compliance.l1.test.ts): ALWAYS: each registered agent's config carries `hooks.sessionStart.compactStdout`, defaulting to the compact-stdout default its agent module declares.
-- [registered-agent-references](tests/harness-environment-descriptor.compliance.l1.test.ts): ALWAYS: configured instruction files, marketplaces, plugins, and skills reference agent ids the agent registry module exports.
+- [agent-compact-default](tests/harness-environment-descriptor.compliance.l1.test.ts): ALWAYS: each agent's config carries `hooks.sessionStart.compactStdout` with an agent-specific default, and an explicit boolean in that agent's configuration overrides it.
+- [registered-agent-references](tests/harness-environment-descriptor.compliance.l1.test.ts): ALWAYS: configured instruction files, marketplaces, plugins, and skills reference registered agent ids the descriptor module exports.
 
 ## Test.Compliance: agent registry
 
-- registry-lists-agents: ALWAYS: the agent registry module in `src/lib/agent-environment/` lists every agent module under `src/lib/agent-environment/agents/`, and each agent module declares its agent id, exactly one identity variable, its compact-stdout default, and at most one methodology bundle.
+- registry-lists-agents: ALWAYS: the agent registry module lists every agent module, and each agent module declares its agent id, exactly one identity variable, its compact-stdout default, and at most one methodology bundle.
 - one-default-bundle: ALWAYS: exactly one registered agent module marks its methodology bundle as the default methodology bundle, and methodology selection uses it when two or more registered identity variables are non-empty.
 - agent-names-in-registry-only: NEVER: a file under `src/` outside the agent registry module, its agent modules, and the files the rule's transitional allowlist names holds a string literal exactly equal to a registered agent id or to a variable name an agent module declares; comments, the module specifier of an import declaration, and files under `src/lib/methodology/` are out of scope, and the rule's test rejects each violating fixture.
 

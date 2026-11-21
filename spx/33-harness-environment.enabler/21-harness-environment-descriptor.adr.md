@@ -8,14 +8,11 @@ SO THAT adding or removing a coding agent changes only its agent module and its 
 
 - registry-declarations: ALWAYS: each agent module declares its agent id, exactly one identity variable, its compact-stdout default, and at most one methodology bundle from the bundle set of [spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/21-tree-fetch.adr.md](spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/21-tree-fetch.adr.md), and the agent registry module lists every agent module.
 - default-bundle-mark: ALWAYS: exactly one agent module marks its methodology bundle as the default methodology bundle.
-- registry-exports-ids: ALWAYS: every agent id a consumer references comes from the agent registry module.
-- agent-names-in-registry-only: NEVER: a file under `src/` outside the agent registry module and the agent modules it lists holds a string literal exactly equal to a registered agent id or to a variable name an agent module declares; files under `src/lib/methodology/`, which hold the methodology bundle vocabulary, and the module specifier of an import declaration are exempt.
-- only-registered-identity: NEVER: a variable other than a registered identity variable identifies an agent, identifies a session, or selects a methodology bundle, including a variable a hook mechanism supplies or SPX writes.
-- ambiguous-identity-failure: ALWAYS: a command whose spec declares an agent-session identity failure fails when two or more registered identity variables are non-empty, naming each of them.
+- agent-names-in-registry-only: NEVER: a file under `src/` outside the agent registry module, the agent modules it lists, and the files the rule's transitional allowlist names holds a string literal exactly equal to a registered agent id or to a variable name an agent module declares; files under `src/lib/methodology/`, which hold the methodology bundle vocabulary, and the module specifier of an import declaration are exempt.
 
 ## Test.Mapping: agent-identification
 
-A registered identity variable is non-empty when its value is neither empty nor whitespace-only; agent identification yields at most one agent and one session, no identity variable takes precedence over another, and no agent falls back to another agent's variable.
+A registered identity variable is non-empty when its value is neither empty nor whitespace-only; agent identification through the agent registry's resolver yields at most one agent and one session, no identity variable takes precedence over another, and no agent falls back to another agent's variable.
 
 | Case    | Non-empty registered identity variables | Agent                              | Session id                                                        |
 | ------- | --------------------------------------- | ---------------------------------- | ----------------------------------------------------------------- |
@@ -23,21 +20,11 @@ A registered identity variable is non-empty when its value is neither empty nor 
 | one     | exactly one                             | the agent whose module declares it | that variable's value, normalized to the safe agent session token |
 | several | two or more                             | none                               | none                                                              |
 
-## Test.Mapping: compact-policy
-
-Compact stdout policy follows agent identification, and an explicit `hooks.sessionStart.compactStdout` boolean in the identified agent's configuration overrides the default its agent module declares.
-
-| Case    | Agent identification | Compact stdout                                           |
-| ------- | -------------------- | -------------------------------------------------------- |
-| none    | no agent             | false                                                    |
-| one     | one agent            | that agent's configured value, else its module's default |
-| several | no agent             | false                                                    |
-
 ## Test.Compliance: descriptor resolution
 
 - registry-defaults: ALWAYS: the descriptor resolves `instructions`, `agents`, and `pluginBootstrap` defaults through the static config registry.
-- compact-stdout-default: ALWAYS: each agent config carries `hooks.sessionStart.compactStdout`, whose default and explicit override follow the compact-policy Mapping.
-- registered-agent-references: ALWAYS: every instruction target, marketplace entry, plugin entry, and skill entry references an agent id the agent registry module exports.
+- compact-stdout-default: ALWAYS: each agent config carries `hooks.sessionStart.compactStdout` with an agent-specific default, and an explicit boolean in that agent's configuration overrides it.
+- registered-agent-references: ALWAYS: every instruction target, marketplace entry, plugin entry, and skill entry references a registered agent id the descriptor module exports.
 - strict-shapes: ALWAYS: the descriptor rejects unknown fields and malformed entry shapes before any child reconciler runs.
 - unique-instruction-paths: ALWAYS: instruction file paths are unique within `instructions.files`.
 - instruction-target-lists: ALWAYS: instruction file target-agent lists are non-empty and repeat no agent.
@@ -64,11 +51,6 @@ Equivalent `harnessEnvironment` sections declared in each config file format res
 - child-owned-checks: NEVER: the descriptor validates traversal safety for instruction paths or protocol safety for marketplace sources; the instruction-reconciliation child and the plugin-bootstrap child own those checks.
 - resolved-values-only: NEVER: a child reconciler parses raw `spx.config.*` content instead of consuming the descriptor's resolved values.
 - hook-policy-primitive: NEVER: a hook event runner imports the harness-environment descriptor; the hook CLI transport resolves `hooks.sessionStart.compactStdout` as part of one hook execution context and passes hook infrastructure a primitive policy value.
-- identity-policy-separation: NEVER: `session-start` session identity is inferred from compact stdout policy, or compact stdout policy from `session-start` session identity; compact stdout policy follows the compact-policy Mapping, and session identity follows its event-specific inputs.
 - distinct-source-fields: ALWAYS: marketplace `source` values and skill `source` values are different semantic fields although they share one config field name.
 - explicit-instruction-targets: NEVER: adding an agent makes it an implicit instruction target.
 - child-validation: ALWAYS: the instruction-reconciliation child validates concrete instruction paths before writing files, and the plugin-bootstrap child validates marketplace source formats before resolving external inputs.
-
-## Audit: agent registry
-
-- declaration-completeness: ALWAYS: each agent module declares every agent-specific variable SPX reads or writes for that agent; a variable SPX reads or writes for one agent that its module does not declare is a failure.
