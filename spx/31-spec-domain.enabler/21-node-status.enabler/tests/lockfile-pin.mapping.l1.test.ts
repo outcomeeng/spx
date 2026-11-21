@@ -6,7 +6,7 @@ import {
   NODE_STATUS_EVIDENCE_OUTCOME,
   withoutLockfile,
 } from "@/lib/node-status";
-import { testingRegistry } from "@/test/registry";
+import { lockfileNamesOf, testingRegistry } from "@/test/registry";
 import { lockfileNameDomain, lockfilePinCases, pinHoldsLockfile } from "@testing/generators/node-status/lockfile-pin";
 import { withLockfilePinRepository } from "@testing/harnesses/node-status/lockfile-pin";
 
@@ -54,7 +54,7 @@ describe("the strip of an Agentic pin removes every lockfile name a registered t
   )(
     "removes $lockfileName, declared by the $language language, from a read set",
     ({ lockfileName }) => {
-      expect(withoutLockfile([lockfileName])).toEqual([]);
+      expect(withoutLockfile([lockfileName], lockfileNamesOf(testingRegistry))).toEqual([]);
     },
   );
 });
