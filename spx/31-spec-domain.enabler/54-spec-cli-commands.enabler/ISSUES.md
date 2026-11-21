@@ -36,7 +36,7 @@ Wiring `createNodeStatusProvider` into `spx spec status` adds one synchronous `r
 
 `spec-cli-commands.md` keeps its 3.x name and its tagged `### Mappings` and `### Compliance` groups beside the 4.0-form `### Test.Mapping: evidence-attribution` subsection.
 
-**Evidence:** the file after outcomeeng/changes#1002, whose record writes the 4.0-form subsection into it. The SPX Advisor's record audit run `2026-11-21_00-07-36-116-6779554d5721` reports the mix against the Audit rule of `spx/13-agent-capability-lifecycle.pdr.md`.
+**Evidence:** the file after outcomeeng/changes#1002, whose record writes the 4.0-form subsection into it. The SPX Advisor's record audit run `2026-11-21_00-07-36-116-6779554d5721` reports the mix against the Audit rule of [spx/13-agent-capability-lifecycle.pdr.md](spx/13-agent-capability-lifecycle.pdr.md).
 
 **Impact:** a reader of the spec meets two grammars, and the file breaks root PDR 13's rule that an artifact a coding agent changes leaves in the target methodology version's form.
 

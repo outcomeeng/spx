@@ -64,7 +64,7 @@
 
 `15-status-file-contract.pdr.md` keeps its 3.x form: a prose opening with no GOVERNS, SO THAT and CAN RELY ON lines, `## Rationale` and `## Product properties` sections, an untyped `### Testing` group, and tagged rows with no slug. Beside them it holds the 4.0-form `pin-dependency-tree` row and the `### Test.Mapping: lockfile-pin` subsection. `node-status.md` keeps its 3.x name, no front matter and tagged rows, beside the 4.0-form `### Test.Mapping: lockfile-pin` subsection.
 
-**Evidence:** both files after outcomeeng/changes#1002, whose record writes 4.0-form lines into them. The SPX Advisor's record audit run `2026-11-21_00-07-36-116-6779554d5721` and Review run `2026-11-20_23-59-18-696-cba8dca80590` report the mix against the Audit rule of `spx/13-agent-capability-lifecycle.pdr.md`.
+**Evidence:** both files after outcomeeng/changes#1002, whose record writes 4.0-form lines into them. The SPX Advisor's record audit run `2026-11-21_00-07-36-116-6779554d5721` and Review run `2026-11-20_23-59-18-696-cba8dca80590` report the mix against the Audit rule of [spx/13-agent-capability-lifecycle.pdr.md](spx/13-agent-capability-lifecycle.pdr.md).
 
 **Impact:** a reader of either file meets two grammars, and the files break root PDR 13's rule that an artifact a coding agent changes leaves in the target methodology version's form.
 
