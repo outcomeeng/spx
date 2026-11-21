@@ -15,7 +15,6 @@ import {
   NODE_STATUS_EVIDENCE_OUTCOME,
   type NodeStatusClaimSection,
 } from "@/lib/node-status";
-import { LOCKFILE_NAMES } from "@/test/languages/journal-reporter";
 import { testingRegistry } from "@/test/registry";
 import { arbitraryLockfileContents } from "@testing/generators/node-status/lockfile-pin";
 import { NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
@@ -29,7 +28,6 @@ import {
 import { recordSealedAuditJournal } from "@testing/harnesses/node-status/sealed-audit-journal";
 import { readStatusJsonNode, type ReportedStatusResult } from "@testing/harnesses/spec-tree/spec-cli-commands";
 
-const [LOCKFILE_PATH] = LOCKFILE_NAMES;
 const RUN_INSTANT = new Date(Date.UTC(2026, 0, 1));
 
 /** A committed node and the operations a test drives over its claim. */
@@ -53,14 +51,15 @@ export interface LockfilePinRepository {
   reportedResult(section: NodeStatusClaimSection): Promise<ReportedStatusResult | undefined>;
 }
 
-/** Commit the node and hand it to `callback`. */
+/** Commit the node beside the dependency lockfile `lockfilePath` and hand it to `callback`. */
 export function withLockfilePinRepository(
+  lockfilePath: string,
   callback: (repository: LockfilePinRepository) => Promise<void>,
 ): Promise<void> {
   const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
   const contents = sampleGeneratedValue(arbitraryLockfileContents());
   return withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
-    await repository.env.writeRaw(LOCKFILE_PATH, contents.before);
+    await repository.env.writeRaw(lockfilePath, contents.before);
     await repository.commitAll();
     const [subject = ""] = repository.subjectPaths;
     const [testPath = ""] = repository.testPaths;
@@ -76,7 +75,7 @@ export function withLockfilePinRepository(
       [NODE_STATUS_CLAIM_SECTION.AUDIT]: auditSlug,
       [NODE_STATUS_CLAIM_SECTION.EVIDENCE]: NODE_STATUS_CLAIM_SECTION.TEST,
     };
-    const read = [subject, LOCKFILE_PATH];
+    const read = [subject, lockfilePath];
     const passed = { verdict: NODE_STATUS_EVIDENCE_OUTCOME.PASSED, read };
     const resolvers = repository.resolversOfRecordedRuns({
       tests: { [testPath]: passed, [evalPath]: passed, [probePath]: passed },
@@ -96,7 +95,7 @@ export function withLockfilePinRepository(
           GIT_ROOT_COMMAND.HEAD,
         ]),
         subject: subjectUnderAudit,
-        judgedPaths: [subject, LOCKFILE_PATH],
+        judgedPaths: [subject, lockfilePath],
         at: RUN_INSTANT,
       });
     };
@@ -115,12 +114,12 @@ export function withLockfilePinRepository(
       await repository.commitAll();
     };
     const commitLockfileOnlyChange = async (): Promise<void> => {
-      await repository.env.writeRaw(LOCKFILE_PATH, contents.after);
+      await repository.env.writeRaw(lockfilePath, contents.after);
       await repository.commitAll();
     };
 
     await callback({
-      lockfilePath: LOCKFILE_PATH,
+      lockfilePath,
       projectAndCommit: async () => {
         await recordAuditRun();
         await projectAndCommit();

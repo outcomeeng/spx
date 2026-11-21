@@ -7,7 +7,8 @@
  */
 import * as fc from "fast-check";
 
-import { NODE_STATUS_CLAIM_SECTION, type NodeStatusClaimSection } from "@/lib/node-status";
+import { LOCKFILE_NAMES, NODE_STATUS_CLAIM_SECTION, type NodeStatusClaimSection } from "@/lib/node-status";
+import { testingRegistry } from "@/test/registry";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
 /** How a verification type produces its verdict. */
@@ -27,18 +28,35 @@ const VERDICT_MODE_OF_SECTION: Readonly<Record<NodeStatusClaimSection, ResultVer
   [NODE_STATUS_CLAIM_SECTION.EVIDENCE]: RESULT_VERDICT_MODE.AGENTIC,
 };
 
-/** One result section and the verdict mode of the verification that produces its entries. */
+/**
+ * Every dependency lockfile name a pin can meet: the names the strip removes together with the names each
+ * registered testing language declares, so a language that declares a name the strip omits is a case.
+ */
+export function lockfileNameDomain(): readonly string[] {
+  return [
+    ...new Set([
+      ...LOCKFILE_NAMES,
+      ...testingRegistry.languages.flatMap((language) => language.lockfileNames),
+    ]),
+  ];
+}
+
+/** One lockfile name, one result section, and the verdict mode of the verification that produces its entries. */
 export interface LockfilePinCase {
+  readonly lockfileName: string;
   readonly section: NodeStatusClaimSection;
   readonly mode: ResultVerdictMode;
 }
 
-/** Every result section a claim records, each beside its verdict mode. */
+/** Every result section a claim records, each beside its verdict mode, for every lockfile name of the domain. */
 export function lockfilePinCases(): readonly LockfilePinCase[] {
-  return Object.values(NODE_STATUS_CLAIM_SECTION).map((section) => ({
-    section,
-    mode: VERDICT_MODE_OF_SECTION[section],
-  }));
+  return lockfileNameDomain().flatMap((lockfileName) =>
+    Object.values(NODE_STATUS_CLAIM_SECTION).map((section) => ({
+      lockfileName,
+      section,
+      mode: VERDICT_MODE_OF_SECTION[section],
+    }))
+  );
 }
 
 /** Whether the pin of a result of `mode` holds the lockfile: a Deterministic or Attested result, never an Agentic one. */
