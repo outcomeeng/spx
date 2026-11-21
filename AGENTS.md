@@ -1,6 +1,6 @@
 # Agent guide
 
-Before any other step, pull the methodology checkout `/Users/shz/Code/outcomeeng/methodology/methodology/` and read `versions/<version>/methodology/`, starting at `index.md`. `<version>` is the major and minor of `methodology.version` in this repository's `spx.config.yaml`. Methodology governs all work here, except where this guide departs from it. Each departure is deliberate: no one reports it as a finding, files it in an `ISSUES.md`, or records a Change for it. Where a skill and methodology differ, methodology holds.
+Before any other step, pull the methodology checkout `/Users/shz/Code/outcomeeng/methodology/methodology/` and read the parts in `versions/<version>/parts/` your work needs: `product-tree.md` before you read or change a file under `spx/`, `change.md` before you record, refine, apply, audit or close a Change, and `positions.md` when you hold a Position or oversee one. `<version>` is the major and minor of `methodology.version` in this repository's `spx.config.yaml`. Methodology governs all work here, except where this guide departs from it. Each departure is deliberate: no one reports it as a finding, files it in an `ISSUES.md`, or records a Change for it. Where a skill and methodology differ, methodology holds.
 
 ## Skills
 
