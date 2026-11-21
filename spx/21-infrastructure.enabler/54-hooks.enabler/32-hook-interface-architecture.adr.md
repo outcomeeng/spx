@@ -1,107 +1,32 @@
 # Hook Interface Architecture
 
-Hook handling is a peer interface layer under `src/interfaces/hooks/`, with an
-explicit event registry keyed by agent lifecycle event name. The CLI transport
-for `spx hook run <event>` dispatches into that hook interface, and hook adapters
-own the hook process contract: stdin payload reading, hook runtime environment
-interpretation, bounded native-session metadata reads, stdout context, stderr
-diagnostics, env-file writes, and nonblocking degraded completion. Hook adapters
-call shared domain services directly; they never depend on `src/commands/`
-handlers, and shared operations needed by both commands and hooks live below both
-interface layers. The `session-start` adapter resolves an explicit payload
-session id first; a Pi payload without that id supplies the exact native
-transcript path. The adapter canonicalizes that path and the configured Pi
-session-store root through an injected boundary before reading content, then
-accepts bounded opening metadata only when the canonical path is contained by
-that trusted root and carries a valid Pi header for the resolved product
-directory.
+CONSTRAINS the boundary through which SPX handles agent lifecycle hooks
+TO a peer hook interface layer under `src/interfaces/hooks/`, with an explicit event registry keyed by lifecycle event name into which the `spx hook run <event>` CLI transport dispatches, and hook adapters that own the hook process contract and call shared domain services below both interface layers
+SO THAT host lifecycle semantics stay apart from operator commands while sharing domain logic with them, and a hook's session identity binds to the invocation instead of to a guess
 
-## Rationale
+### Audit: hook layering
 
-Commands represent operator-invoked product actions, while hooks represent
-host-invoked lifecycle events. Reusing command handlers for hook work creates the
-wrong dependency boundary and encourages command names such as
-`spx worktree session-start`; a peer hook interface keeps host lifecycle
-semantics separate while still sharing domain logic with command surfaces.
+- adapters-registered: ALWAYS: hook event adapters live under `src/interfaces/hooks/` and register through an explicit hook event registry.
+- registry-complete: ALWAYS: the hook event registry is the complete set of lowercase hyphenated event operands `spx hook run <event>` accepts.
+- transport-delegates: ALWAYS: the `spx hook run <event>` CLI transport delegates to the hook event registry without embedding event behavior in the CLI command descriptor.
+- shared-occupancy: ALWAYS: shared operations used by both `spx worktree claim` and `spx hook run session-start` live below the command and hook interface layers, so both surfaces call the same worktree occupancy logic and neither depends on the other.
+- no-command-imports: NEVER: a module under `src/interfaces/hooks/` imports from `src/commands/`, or a command handler imports a hook handler.
+- no-lifecycle-subcommands: NEVER: a domain-specific command descriptor exposes an agent lifecycle event as a subcommand.
+- lifecycle-organization: NEVER: hook event behavior is organized by the implementation package that first consumes it; it is organized by lifecycle event and delegates to consuming domains.
+- adapters-own-io: ALWAYS: hook adapters are the only modules that interpret hook payload stdin, the hook runtime environment, hook env-file paths and hook-specific stdout, and they own stderr diagnostics, env-file writes and nonblocking degraded completion.
+- injected-boundaries: ALWAYS: hook adapters isolate hook runtime reads, bounded transcript reads, output writes and env-file writes behind typed boundary functions or injected dependencies, so event logic verifies without replacing modules through a mocking framework.
+- no-module-mocks: NEVER: hook tests use `vi.mock()` or `jest.mock()` to replace hook event modules, command handlers or shared domain services; they exercise real registry dispatch or typed injected boundary objects.
 
-An exact Pi transcript path is a native session fact available at Pi's
-`session_start` lifecycle boundary. Reading that path's bounded header preserves
-Pi's native identity without inventing a second identifier or guessing from
-store recency. Store scanning and latest-file selection are rejected because two
-Pi processes can start in the same product directory, making a recency winner an
-uncertain holder identity. Header validation and product-directory agreement
-bind the supplied path to the hook invocation. Canonical containment under the
-configured Pi session-store root establishes path provenance before content is
-read; lexical containment alone is insufficient because a symlink inside the
-store can resolve outside it. A path outside the trusted root, or malformed or
-mismatched evidence inside it, degrades to no identity and therefore no worktree
-claim.
+### Audit: session-start identity
 
-## Invariants
+- payload-id-precedence: ALWAYS: `session-start` gives a non-empty explicit payload session id precedence over every inferred identity.
+- transcript-path-identity: ALWAYS: when the payload omits a session id and supplies an exact native transcript path, the adapter derives session identity only from a valid session header of the delivering agent at that exact path, after canonical containment under that agent's configured session-store root, with a cwd that matches the hook's resolved product directory; the delivering agent is the coding agent the hook payload names or, when the payload names none, the agent that agent identification under [spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md](spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md) yields.
+- bounded-transcript-read: ALWAYS: transcript metadata reads are bounded independently of transcript size and use a typed injected reader, and canonical path resolution for the configured session-store root and the supplied transcript path enters through the same boundary.
+- canonical-containment: ALWAYS: a supplied transcript path is canonicalized and proven contained by the delivering agent's canonical configured session-store root before its opening metadata is read.
+- no-lexical-containment: NEVER: lexical containment substitutes for canonical containment when a transcript path can traverse a symlink.
+- no-store-scan: NEVER: `session-start` scans a session store, selects a latest transcript, reads a transcript outside the trusted session-store root, or records a worktree claim from untrusted, malformed, missing or product-mismatched transcript metadata.
 
-- Hook event handlers depend on domain services and shared libraries, not on command handlers.
-- Command handlers and hook handlers never import each other.
-- The hook event registry is the complete set of lowercase hyphenated event
-  operands accepted by `spx hook run <event>`.
-- Hook adapters are the only modules that interpret hook payload stdin, hook
-  env-file paths, and hook-specific stdout semantics.
-- Pi native-session identity is accepted only from a valid bounded header at the
-  exact transcript path supplied by the Pi lifecycle adapter, after canonical
-  containment under the configured Pi session-store root, with a cwd that
-  matches the hook's resolved product directory.
+### Audit: session-start effects
 
-## Verification
-
-### Audit
-
-- ALWAYS: hook event adapters live under `src/interfaces/hooks/` and are
-  registered through an explicit hook event registry ([audit])
-- ALWAYS: the `spx hook run <event>` CLI transport delegates to the hook event
-  registry without embedding event behavior in the CLI command descriptor
-  ([audit])
-- ALWAYS: shared operations used by both `spx worktree claim` and
-  `spx hook run session-start` live below the command and hook interface layers,
-  so both surfaces call the same worktree occupancy logic without one depending
-  on the other ([audit])
-- ALWAYS: hook adapters own hook process I/O — stdin payload, hook runtime env,
-  stdout context, stderr diagnostics, and env-file writes — because those are
-  hook interface concerns rather than domain concerns ([audit])
-- ALWAYS: hook adapters isolate hook runtime reads, bounded transcript reads,
-  output writes, and env-file writes behind typed boundary functions or injected
-  dependencies so event logic verifies without replacing modules through a
-  mocking framework ([audit])
-- ALWAYS: `session-start` gives a non-empty explicit payload session id
-  precedence over every inferred identity; when a Pi payload omits that id, the
-  adapter derives identity only from a valid Pi header at the exact supplied
-  transcript path whose cwd matches the resolved product directory ([audit])
-- ALWAYS: Pi transcript metadata reads are bounded independently of transcript
-  size and use a typed injected reader; canonical path resolution for the
-  configured store root and supplied transcript path is injected through the
-  same boundary ([audit])
-- ALWAYS: a Pi transcript path is canonicalized and proven contained by the
-  canonical configured Pi session-store root before its opening metadata is read
-  ([audit])
-- NEVER: lexical containment substitutes for canonical containment when a Pi
-  transcript path can traverse a symlink ([audit])
-- NEVER: `session-start` scans a Pi session store, selects a latest transcript,
-  reads a transcript outside the trusted Pi session-store root, or records a
-  worktree claim from untrusted, malformed, missing, or product-mismatched Pi
-  transcript metadata ([audit])
-- NEVER: hook tests use `vi.mock()` or `jest.mock()` to replace hook event
-  modules, command handlers, or shared domain services; tests exercise real
-  registry dispatch or typed injected boundary objects ([audit])
-- ALWAYS: the `session-start` hook adapter owns worktree occupancy setup for the
-  agent session, and the `PreToolUse` hook adapter does not perform a
-  status-then-claim occupancy repair loop ([audit])
-- ALWAYS: the `session-start` hook adapter writes hook env-file exports for
-  `CLAUDE_SESSION_ID`, `CLAUDE_PROJECT_DIR`, and `PROJECT_DIR` when the hook
-  runtime supplies an env-file path and enough identity and project information
-  to compute each value, writes an absolute `SPX_WORKTREE_CLAIM_PATH` export
-  when the worktree claim succeeds, and writes `unset SPX_WORKTREE_CLAIM_PATH`
-  when the worktree claim is unavailable ([audit])
-- NEVER: a module under `src/interfaces/hooks/` imports from `src/commands/` ([audit])
-- NEVER: a domain-specific command descriptor exposes an agent lifecycle event as
-  a subcommand ([audit])
-- NEVER: hook event behavior is organized by the implementation package that
-  first consumes it; hook behavior is organized by lifecycle event and delegates
-  to consuming domains as needed ([audit])
+- occupancy-setup: ALWAYS: the `session-start` hook adapter owns worktree occupancy setup for the agent session, and the `PreToolUse` hook adapter performs no status-then-claim occupancy repair loop.
+- env-file-exports: ALWAYS: whenever the hook runtime supplies an env-file path, the `session-start` hook adapter writes a `PROJECT_DIR` export and the session and project exports the delivering agent's module declares under [spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md](spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md), each when enough identity and project information exists to compute its value; it writes an absolute `SPX_WORKTREE_CLAIM_PATH` export when the worktree claim succeeds, and `unset SPX_WORKTREE_CLAIM_PATH` when the worktree claim is unavailable.

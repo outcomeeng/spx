@@ -1,33 +1,47 @@
 # Methodology Source
 
-Context ingestion obtains the Outcome Engineering foundation from spx's shipped methodology bundle. The reader selects spx's shipped `methodology/{MAJOR.MINOR}/{coding-agent}/spec-tree/` bundle from the exact methodology version declared by the product and the coding agent selected by `--coding-agent` or, without it, by the invocation markers. Each marker is established by a value that is neither empty nor whitespace-only in the invoking process environment: `CODEX_THREAD_ID` establishes the Codex marker, and `CLAUDE_SESSION_ID` and `CLAUDE_ENV_FILE` each establish a Claude marker. `CODEX_THREAD_ID` takes precedence over `CLAUDE_SESSION_ID`, which takes precedence over `CLAUDE_ENV_FILE`. With no marker established, the single coding agent the line ships is selected, and several shipped agents fail as ambiguous. It reads `skills/understand/manifest.json` at schema version 1 and resolves the singular `core` path through the bundle containment boundary.
+CONSTRAINS how context ingestion obtains the Outcome Engineering foundation
+TO spx's shipped `methodology/{MAJOR.MINOR}/{coding-agent}/spec-tree/` bundle, selected from the exact methodology version the product declares and from the methodology bundle `--coding-agent` names or, without it, the bundle the bundle-by-identity Mapping yields, and read through `skills/understand/manifest.json` at schema version 1 with its singular `core` path resolved through the bundle containment boundary
+SO THAT foundation selection stays offline and deterministic, with no other methodology layout, consumer copy, installed-plugin dependency or network lookup
 
-When `show --methodology` is requested, the core's complete body after skill-runtime front matter is framed as one Full document. Its displayed path is the bundle address followed by the manifest's `core` value, relative to spx's package root; it identifies a shipped resource, never a consumer-product target. `manifest.json`, `source.json`, references, templates, and examples remain internal selection, provenance, and on-demand catalog data and are absent from `show` output. A core-relative reference resolves against the bundle path carried by the core's document frame.
+### Test.Mapping: bundle-by-identity
 
-## Rationale
+Without `--coding-agent`, the methodology bundle follows agent identification under [spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md](spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md); an agent's bundle is the one its agent module declares, and the default methodology bundle is the one an agent module marks as default.
 
-The reviewed, agent-specific foundation ships inside spx. Reusing its manifest preserves offline, deterministic selection and avoids another methodology layout, consumer copy, installed-plugin dependency, or network lookup. Rendering the eager core alone matches the foundation boundary: extended resources remain available when a workflow explicitly asks for them and do not inflate every context load.
+| Case               | Agent identification                                      | Bundle                         |
+| ------------------ | --------------------------------------------------------- | ------------------------------ |
+| one-with-bundle    | one agent, whose module declares a bundle                 | that bundle                    |
+| one-without-bundle | one agent, whose module declares none                     | the default methodology bundle |
+| several            | two or more non-empty identity variables                  | the default methodology bundle |
+| none-single        | no non-empty identity variable; the line ships one bundle | that bundle                    |
+| none-several       | no non-empty identity variable; the line ships several    | fails as ambiguous             |
 
-## Invariants
+### Test.Compliance: projection
 
-- Tree selection is a function only of spx's package root, the declared methodology line, and the coding agent in scope.
-- The core body equals the strict UTF-8 body of the manifest-named resource after its front matter.
-- The displayed resource path is stable across installation locations and is never resolved against the consumer product root.
-- No fallback source exists.
-- `show` emits no methodology manifest, provenance record, or catalog entry.
+- manifest-schema: ALWAYS: the manifest schema is validated before output.
+- core-containment: ALWAYS: core containment is validated before output.
+- strict-utf8: ALWAYS: strict UTF-8 decoding is validated before output.
+- compatibility: ALWAYS: configured `provides` and `supports` compatibility is validated before output.
+- core-body: ALWAYS: the core body equals the strict UTF-8 body of the manifest-named resource after its front matter.
+- show-output: ALWAYS: `show --methodology` frames the core's complete body after skill-runtime front matter as one Full document, whose displayed path is the bundle address followed by the manifest's `core` value relative to spx's package root, and emits no manifest, provenance record, reference, template or catalog entry.
+- stable-display-path: NEVER: the displayed resource path is resolved against the consumer product root.
+- core-relative-references: ALWAYS: a core-relative reference resolves against the bundle path carried by the core's document frame.
 
-## Verification
+### Test.Mapping: methodology-failures
 
-### Testing
+An absent or unsupported part of the selection fails the complete projection with the typed methodology failure.
 
-- ALWAYS: the manifest schema is validated before output ([compliance])
-- ALWAYS: core containment is validated before output ([compliance])
-- ALWAYS: strict UTF-8 decoding is validated before output ([compliance])
-- ALWAYS: configured `provides` and `supports` compatibility is validated before output ([compliance])
-- ALWAYS: an absent line, agent tree, manifest, supported schema, or contained core fails the complete projection with the typed methodology failure ([mapping])
+| Case       | Absent or unsupported               | Result                    |
+| ---------- | ----------------------------------- | ------------------------- |
+| line       | the declared methodology line       | typed methodology failure |
+| agent-tree | the selected bundle's tree          | typed methodology failure |
+| manifest   | `skills/understand/manifest.json`   | typed methodology failure |
+| schema     | a supported manifest schema version | typed methodology failure |
+| core       | a core contained in the bundle      | typed methodology failure |
 
-### Audit
+### Audit: selection
 
-- NEVER: methodology selection scans directories, compares package versions, reaches the network, reads an installed plugin or cache, or reads a consumer-side copy ([audit])
-- ALWAYS: methodology parsing and validation are pure over supplied bytes ([audit])
-- ALWAYS: methodology tree reads enter through the injected methodology reader rooted at spx's package root ([audit])
+- selection-inputs: ALWAYS: tree selection is a function only of spx's package root, the declared methodology line, and either the `--coding-agent` bundle or agent identification with the default bundle mark of [spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md](spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md).
+- no-fallback-source: NEVER: methodology selection falls back to another source, scans directories, compares package versions, reaches the network, reads an installed plugin or cache, or reads a consumer-side copy.
+- pure-parsing: ALWAYS: methodology parsing and validation are pure over supplied bytes.
+- injected-reader: ALWAYS: methodology tree reads enter through the injected methodology reader rooted at spx's package root.
