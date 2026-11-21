@@ -22,7 +22,7 @@ Read the Product Tree by methodology's Walk. Never invoke `product-tree:understa
 - The Advisor reviews every Changeset. Where the repository runs a CI review, merge waits for both.
 - Fix each valid blocking finding. After two rejections of one Audit or Review on a Change, mail your overseer both, and continue as the answer states.
 - In a tree migrating from 3.2, a 3.x kind such as `.enabler` counts as an output Node.
-- In a repository without `spx/`, a Change heads each Declarations subsection by its path from the repository root, may create, delete, move or replace any file, and labels its diff lines in place of slugs. The Operator's review before Sliced binds every line.
+- In a repository without a Product Tree, a Change heads each Declarations subsection by its path from the repository root, may create, delete, move or replace any file, and labels its diff lines in place of slugs. The Operator's review before Sliced binds every line.
 - spx writes no Audit File, so CI keeps each Audit entry without one on its pin.
 - Write each eval and run none. Each Review judges every case of each eval the Changeset writes or reaches.
 
