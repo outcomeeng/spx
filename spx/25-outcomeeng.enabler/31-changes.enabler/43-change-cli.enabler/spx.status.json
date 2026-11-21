@@ -5,7 +5,7 @@
     "test": {
       "tests/change-cli.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-changes.enabler/43-change-cli.enabler/change-cli.md",
@@ -296,6 +296,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -390,7 +391,7 @@
       },
       "tests/packaged-commands.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-changes.enabler/43-change-cli.enabler/change-cli.md",
@@ -681,6 +682,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",

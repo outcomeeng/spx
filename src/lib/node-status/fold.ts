@@ -17,6 +17,7 @@ import {
 import { type ClaimHistoryReader, classifyNodeClaim, governingDeclarationPaths } from "./claim-state";
 import { NODE_STATUS_EVIDENCE_OUTCOME, type NodeStatusEvidenceOutcome } from "./classify";
 import { NODE_STATUS_CURRENCY, type PinChangeReader, resultCurrency } from "./currency";
+import { withoutLockfile } from "./lockfile";
 import { NODE_STATUS_FILENAME } from "./read";
 import type { NodeSpecDeclaration } from "./spec-declaration";
 
@@ -25,6 +26,7 @@ const ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}`;
 const GIT_REV_PARSE = "rev-parse";
 const GIT_HEAD = "HEAD";
 const GIT_SUCCESS = 0;
+const NO_LOCKFILE_NAMES: readonly string[] = [];
 
 /** Who produced a result and in which run. */
 export interface NodeAttribution {
@@ -77,6 +79,8 @@ export interface NodeClaimFoldInput {
   readonly history: ClaimHistoryReader;
   readonly resolveReadPaths?: NodeReadPathResolver;
   readonly resolveAttributedResults?: NodeAttributedResultResolver;
+  /** The dependency lockfile names an Agentic result's pin strips from its read set; none strips nothing. */
+  readonly lockfileNames?: readonly string[];
 }
 
 /**
@@ -137,7 +141,11 @@ export async function foldNodeClaim(input: NodeClaimFoldInput): Promise<NodeStat
     const recorded = section === NODE_STATUS_CLAIM_SECTION.AUDIT ? attributed.audit : attributed.evidence;
     for (const key of keys) {
       const result = recorded?.[key];
-      const { candidate, coverage } = attributedCoverage(result, input.declaration.specPath);
+      const { candidate, coverage } = attributedCoverage(
+        result,
+        input.declaration.specPath,
+        input.lockfileNames ?? NO_LOCKFILE_NAMES,
+      );
       place(section, key, await fold(section, key, candidate, coverage));
     }
   }
@@ -207,10 +215,11 @@ type ReferenceCoverage = (typeof REFERENCE_COVERAGE)[keyof typeof REFERENCE_COVE
 function attributedCoverage(
   result: NodeAttributedResult | undefined,
   specPath: string,
+  lockfileNames: readonly string[],
 ): { readonly candidate: PinCandidate | undefined; readonly coverage: ReferenceCoverage } {
   if (result === undefined) return { candidate: undefined, coverage: REFERENCE_COVERAGE.UNCOVERED };
   return {
-    candidate: candidateOf(result.verdict, result.read, [specPath], result),
+    candidate: candidateOf(result.verdict, withoutLockfile(result.read, lockfileNames), [specPath], result),
     coverage: REFERENCE_COVERAGE.RECORDED,
   };
 }

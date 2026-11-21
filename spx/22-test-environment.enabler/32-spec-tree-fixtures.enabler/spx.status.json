@@ -5,7 +5,7 @@
     "test": {
       "tests/spec-tree-env-lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
@@ -70,6 +70,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -110,7 +111,7 @@
       },
       "tests/spec-tree-env-safety.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
@@ -175,6 +176,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -217,7 +219,7 @@
       },
       "tests/spec-tree-fixture-sources.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
@@ -282,6 +284,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -324,7 +327,7 @@
       },
       "tests/spec-tree-fixtures.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
@@ -629,6 +632,7 @@
           "spx/26-release.enabler/tests/spec-less-node.compliance.l1.test.ts",
           "spx/31-spec-domain.enabler/21-node-status.enabler/32-node-status-test-support.enabler/tests/node-status-test-support.property.l1.test.ts",
           "spx/31-spec-domain.enabler/21-node-status.enabler/tests/claim-comparison.compliance.l1.test.ts",
+          "spx/31-spec-domain.enabler/21-node-status.enabler/tests/lockfile-pin.mapping.l1.test.ts",
           "spx/31-spec-domain.enabler/21-node-status.enabler/tests/node-status.compliance.l1.test.ts",
           "spx/31-spec-domain.enabler/21-node-status.enabler/tests/node-status.mapping.l1.test.ts",
           "spx/31-spec-domain.enabler/21-node-status.enabler/tests/node-status.property.l1.test.ts",
@@ -665,6 +669,7 @@
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/context-ingestion.scenario.l1.test.ts",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/context-walk-fixtures.compliance.l2.test.ts",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/determinism.property.l1.test.ts",
+          "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/tests/evidence-attribution.mapping.l1.test.ts",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/tests/pin-currency.compliance.l1.test.ts",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/tests/spec-cli-commands.compliance.l1.test.ts",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/tests/spec-cli-commands.scenario.l1.test.ts",
@@ -1115,6 +1120,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -1161,9 +1167,8 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "75e6deef6f50afd2ee5a09f7f233928ab9ac12cb",
+        "commit": "50b6b77740a40d43edefc566d29ec9cec97d9176",
         "read": [
-          "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.mapping.l1.test.ts",
           "spx/13-cli.enabler/21-lifecycle-recording-harness.enabler/tests/lifecycle-recording-harness.property.l1.test.ts",
@@ -1466,6 +1471,7 @@
           "spx/26-release.enabler/tests/spec-less-node.compliance.l1.test.ts",
           "spx/31-spec-domain.enabler/21-node-status.enabler/32-node-status-test-support.enabler/tests/node-status-test-support.property.l1.test.ts",
           "spx/31-spec-domain.enabler/21-node-status.enabler/tests/claim-comparison.compliance.l1.test.ts",
+          "spx/31-spec-domain.enabler/21-node-status.enabler/tests/lockfile-pin.mapping.l1.test.ts",
           "spx/31-spec-domain.enabler/21-node-status.enabler/tests/node-status.compliance.l1.test.ts",
           "spx/31-spec-domain.enabler/21-node-status.enabler/tests/node-status.mapping.l1.test.ts",
           "spx/31-spec-domain.enabler/21-node-status.enabler/tests/node-status.property.l1.test.ts",
@@ -1502,6 +1508,7 @@
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/context-ingestion.scenario.l1.test.ts",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/context-walk-fixtures.compliance.l2.test.ts",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/determinism.property.l1.test.ts",
+          "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/tests/evidence-attribution.mapping.l1.test.ts",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/tests/pin-currency.compliance.l1.test.ts",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/tests/spec-cli-commands.compliance.l1.test.ts",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/tests/spec-cli-commands.scenario.l1.test.ts",
@@ -1952,6 +1959,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -1997,7 +2005,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-16_01-40-05-845-bab4c0741776"
+        "run": "2026-11-21_08-55-54-529-5df286990278"
       }
     }
   }

@@ -66,6 +66,8 @@ export interface UpdateNodeStatusOptions {
    * directory is written, so non-git fixtures see every node.
    */
   readonly gitDependencies?: GitDependencies;
+  /** The dependency lockfile names an Agentic result's pin strips; the command edge collects them from the registry. */
+  readonly lockfileNames?: readonly string[];
 }
 
 const NODE_STATUS_TEXT_ENCODING = "utf8";
@@ -168,6 +170,7 @@ async function foldTrackedNodeClaims(options: UpdateNodeStatusOptions): Promise<
     trackedPaths: trackedPaths ?? new Set<string>(),
     pinChanges,
     history,
+    ...(options.lockfileNames === undefined ? {} : { lockfileNames: options.lockfileNames }),
     ...(options.resolveReadPaths === undefined ? {} : { resolveReadPaths: options.resolveReadPaths }),
     ...(options.resolveAttributedResults === undefined
       ? {}

@@ -5,7 +5,7 @@
     "test": {
       "tests/nested-product-layout-git-observation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
@@ -76,7 +76,7 @@
       },
       "tests/nested-product-layout.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
@@ -91,7 +91,7 @@
       },
       "tests/nested-product-layout.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
@@ -165,7 +165,7 @@
       },
       "tests/state-test-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
@@ -195,9 +195,8 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "75e6deef6f50afd2ee5a09f7f233928ab9ac12cb",
+        "commit": "fbb4c9b24aacb2a74cb05dcccbac17a03abe30c1",
         "read": [
-          "pnpm-lock.yaml",
           "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
           "spx/18-state.enabler/15-state-test-harness.enabler/tests/nested-product-layout-git-observation.scenario.l1.test.ts",
           "spx/18-state.enabler/15-state-test-harness.enabler/tests/nested-product-layout.property.l1.test.ts",
@@ -280,7 +279,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-16_01-40-12-966-3068bd583a5b"
+        "run": "2026-11-21_07-22-10-021-97050468a4cc"
       }
     }
   }

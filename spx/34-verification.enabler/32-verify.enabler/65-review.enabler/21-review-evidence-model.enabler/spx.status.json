@@ -5,7 +5,7 @@
     "test": {
       "tests/review-evidence-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/review-evidence-model.md",
@@ -168,7 +168,7 @@
       },
       "tests/review-payload.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/review-evidence-model.md",
@@ -331,7 +331,7 @@
       },
       "tests/review-payload.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/review-evidence-model.md",

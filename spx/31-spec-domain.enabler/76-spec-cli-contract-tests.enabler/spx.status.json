@@ -5,7 +5,7 @@
     "test": {
       "tests/context-failure.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -115,6 +115,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -183,7 +184,7 @@
       },
       "tests/context-success.mapping.l2.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -293,6 +294,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -360,7 +362,7 @@
       },
       "tests/context-target.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -471,6 +473,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -539,7 +542,7 @@
       },
       "tests/spec-cli-contract.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -650,6 +653,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -718,7 +722,7 @@
       },
       "tests/spec-cli-contract.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -829,6 +833,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",

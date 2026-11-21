@@ -30,6 +30,8 @@ import {
   terminal,
   type TerminalText,
 } from "@/lib/terminal-text/terminal-text";
+import { lockfileNamesOf, testingRegistry } from "@/test/registry";
+
 import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
 
 export const OUTPUT_FORMAT = {
@@ -115,6 +117,8 @@ interface StatusUpdateOptions extends Omit<StatusBaseOptions, "source"> {
   resolveReadPathsFor?: (productDir: string) => NodeReadPathResolver;
   /** Builds the resolver of the audit and evidence results sealed audit runs recorded. */
   resolveAttributedResultsFor?: (productDir: string) => NodeAttributedResultResolver;
+  /** The dependency lockfile names an Agentic pin strips; defaults to those the testing registry's languages declare. */
+  lockfileNames?: readonly string[];
   /** Compare the committed claims with the regenerated ones and write nothing. */
   check?: boolean;
 }
@@ -184,6 +188,7 @@ function buildNodeStatusUpdateInput(
     productDir,
     resolveOutcome: options.resolveOutcomeFor(productDir),
     gitDependencies,
+    lockfileNames: options.lockfileNames ?? lockfileNamesOf(testingRegistry),
     ...(options.resolveReadPathsFor === undefined
       ? {}
       : { resolveReadPaths: options.resolveReadPathsFor(productDir) }),

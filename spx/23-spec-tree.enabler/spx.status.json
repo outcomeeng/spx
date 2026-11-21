@@ -5,7 +5,7 @@
     "test": {
       "tests/decision-attachment.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -69,6 +69,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -109,7 +110,7 @@
       },
       "tests/grammar-selection.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -174,6 +175,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -216,7 +218,7 @@
       },
       "tests/link-grammar.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -280,6 +282,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -319,7 +322,7 @@
       },
       "tests/link-grammar.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -383,6 +386,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -422,7 +426,7 @@
       },
       "tests/spec-tree-ownership.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -491,6 +495,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -542,7 +547,7 @@
       },
       "tests/spec-tree-surface.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -578,7 +583,7 @@
       },
       "tests/spec-tree-surface.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -643,6 +648,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",

@@ -5,7 +5,7 @@
     "test": {
       "tests/fixture-classification.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-fixture-classification.enabler/fixture-classification.md",
@@ -98,7 +98,7 @@
       },
       "tests/fixture-classification.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-fixture-classification.enabler/fixture-classification.md",

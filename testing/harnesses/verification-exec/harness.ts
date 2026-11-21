@@ -270,6 +270,7 @@ function createControlledLanguageDescriptor(
     testFilePatterns: [],
     suppliesReadPaths: runTestsStreaming !== undefined,
     productInputPaths: [],
+    lockfileNames: [],
     matchesTestFile: () => false,
     excludeFlag: () => arbitraryDomainLiteralValue(),
     detect: () => true,

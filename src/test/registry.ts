@@ -18,3 +18,8 @@ export interface TestingRegistry {
 export const testingRegistry: TestingRegistry = {
   languages: [typescriptTestingLanguage, pythonTestingLanguage],
 };
+
+/** The dependency lockfile names every registered language declares, in registry order, without duplicates. */
+export function lockfileNamesOf(registry: TestingRegistry): readonly string[] {
+  return [...new Set(registry.languages.flatMap((language) => language.lockfileNames))];
+}
