@@ -7,8 +7,8 @@
  */
 import * as fc from "fast-check";
 
-import { LOCKFILE_NAMES, NODE_STATUS_CLAIM_SECTION, type NodeStatusClaimSection } from "@/lib/node-status";
-import { testingRegistry } from "@/test/registry";
+import { NODE_STATUS_CLAIM_SECTION, type NodeStatusClaimSection } from "@/lib/node-status";
+import { lockfileNamesOf, testingRegistry } from "@/test/registry";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
 /** How a verification type produces its verdict. */
@@ -33,12 +33,7 @@ const VERDICT_MODE_OF_SECTION: Readonly<Record<NodeStatusClaimSection, ResultVer
  * registered testing language declares, so a language that declares a name the strip omits is a case.
  */
 export function lockfileNameDomain(): readonly string[] {
-  return [
-    ...new Set([
-      ...LOCKFILE_NAMES,
-      ...testingRegistry.languages.flatMap((language) => language.lockfileNames),
-    ]),
-  ];
+  return lockfileNamesOf(testingRegistry);
 }
 
 /** One lockfile name, one result section, and the verdict mode of the verification that produces its entries. */

@@ -19,7 +19,6 @@ import { pathToFileURL } from "node:url";
 
 import type { Reporter, TestCase, TestModule, TestRunEndReason } from "vitest/node";
 
-import { JAVASCRIPT_LOCKFILE_NAMES as LOCKFILE_NAMES } from "@/lib/node-status/lockfile";
 import { compareCodeUnits } from "@/outcomeeng/spec-tree/graph/source/order";
 import {
   READ_RECORDER_META_KEY,
@@ -67,7 +66,17 @@ export const DEPENDENCIES_SEGMENT = "node_modules";
 export const PRODUCT_PATH_SEPARATOR = "/";
 /** The parent-directory segment a relative path starts with when it leaves the root it is relative to. */
 export const PARENT_SEGMENT = "..";
-export { LOCKFILE_NAMES };
+/**
+ * The dependency lockfiles a JavaScript product root may hold, in the order a run prefers them: the first one
+ * present is the product's dependency lockfile.
+ */
+export const LOCKFILE_NAMES = [
+  "pnpm-lock.yaml",
+  "package-lock.json",
+  "yarn.lock",
+  "bun.lock",
+  "bun.lockb",
+] as const;
 /**
  * The import-diagnostic collection limit of a journal-streaming run: Vitest records the import
  * diagnostic of a module only up to this many imports, so the limit is lifted to cover every import.

@@ -9,7 +9,6 @@
 import { readFile, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path/posix";
 
-import { PYTHON_LOCKFILE_NAMES } from "@/lib/node-status/lockfile";
 import { compareAsciiStrings, domainDir, generateRunId, STATE_STORE_DOMAIN, worktreeScopeDir } from "@/lib/state-store";
 import type {
   TestingLanguageDescriptor,
@@ -34,6 +33,8 @@ import {
 } from "./python-pytest-contract";
 
 const PYTHON_TESTING_LANGUAGE_NAME = "python";
+/** The dependency lockfiles a Python product root may hold. */
+const PYTHON_LOCKFILE_NAMES = ["uv.lock"] as const;
 export const PYTHON_PRODUCT_INPUT_PATH = {
   CONFTEST: "conftest.py",
   HIDDEN_PYTEST_INI: ".pytest.ini",

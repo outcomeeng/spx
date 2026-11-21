@@ -43,6 +43,7 @@ import { createFilesystemSpecTreeSource, readSpecTree, SPEC_TREE_CONFIG } from "
 import { resolveVerificationBranchSlug, type StateStoreFileSystem } from "@/lib/state-store";
 import { SPX_VERIFY_ENV } from "@/lib/verification-env";
 import { type TestingLanguageDescriptor } from "@/test/languages/types";
+import { lockfileNamesOf } from "@/test/registry";
 import { TEST_PATH_VERDICT, type TestPathVerdictValue } from "@/test/run-state";
 
 import { createNodeOutcomeResolver, type NodeOutcomeResolverDependencies } from "./node-outcome-resolver";
@@ -172,6 +173,7 @@ export function createNodeStatusResolvers(deps: NodeStatusResolverDependencies):
         nodeId,
         request,
         (await nodeIds()).filter((candidate) => candidate.startsWith(`${nodeId}${PATH_SEPARATOR}`)),
+        lockfileNamesOf(deps.registry),
       ),
   };
 }
@@ -326,6 +328,7 @@ async function evidenceResults(
   nodeId: string,
   request: NodeAttributedRequest,
   descendantIds: readonly string[],
+  lockfileNames: readonly string[],
 ): Promise<NodeAttributedResults> {
   const linkedEvidenceKinds = request.evidenceKinds.filter((kind): kind is ClaimEvidenceKind =>
     LINKED_EVIDENCE_KINDS.has(kind)
@@ -346,7 +349,7 @@ async function evidenceResults(
       { malleability: NODE_STATUS_MALLEABILITY.IMPLEMENTATION, linkedEvidenceKinds },
     ).filter((entry) => entry.section === AUDIT_CLAIM_ENTRY_SECTION.EVIDENCE && !(entry.key in results));
     if (entries.length === 0) continue;
-    const read = withoutLockfile(runJudgedPathsOf(run.events));
+    const read = withoutLockfile(runJudgedPathsOf(run.events), lockfileNames);
     if (!(await unchangedSince(pinChanges, run.headCommit, read))) continue;
     for (const entry of entries) {
       results[entry.key] = { verdict: entry.verdict, read, actor: entry.actor, run: entry.run };
