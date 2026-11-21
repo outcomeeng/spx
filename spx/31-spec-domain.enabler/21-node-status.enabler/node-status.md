@@ -17,7 +17,7 @@ CAN read a node's last-recorded verification projection, each result's verdict, 
 - Given a node whose claim recorded `passing` and whose committed claim now carries no Test, Eval or Probe result while a current passed Audit result remains, when node status is read, then the node derives `failing`, the state `spx spec status --update` records for the same claim ([test](tests/node-status.scenario.l1.test.ts))
 - Given a parent whose variants' claims carry its entries, when node status is read, then the parent is `passing` only when every variant's copies pass, and its own claim carries no results ([test](tests/node-status.scenario.l1.test.ts))
 
-### Test.Mapping: lockfile-pin
+### Test.Mapping: [lockfile-pin](tests/lockfile-pin.mapping.l1.test.ts)
 
 For a language whose dependencies a lockfile resolves, `spx spec status --update` writes the pin of an Agentic result without any lockfile and the pin of a Deterministic or Attested result with every lockfile its run read, so a commit that changes only a lockfile the run read leaves current every Agentic entry whose other read paths it leaves unchanged.
 

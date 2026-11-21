@@ -43,7 +43,7 @@ CAN inspect node state, select the next non-passing node, discover relevant subt
 
 - Recorded test evidence maps to each linked reference as follows: a fresh covering outcome maps the reference to its own test file's recorded verdict (`passed`, `failed`, or `not-run`), independent of the verdict of every other file the same run covered; a covered stale outcome keeps the committed entry with its pin; and an uncovered reference maps to `not-run` ([test](tests/spec-status-fold.mapping.l1.test.ts))
 
-### Test.Mapping: evidence-attribution
+### Test.Mapping: [evidence-attribution](tests/evidence-attribution.mapping.l1.test.ts)
 
 A unit of a sealed audit run backs an `evidence` entry only of the Node nearest its subject: the Node whose directory holds the subject while no descendant Node's directory holds it. Each other Node, every ancestor included, takes nothing from that unit, so a Node takes its `evidence` entries from units over its own directory alone. The unit's audit kind names the entry it backs, a tests audit the `test` entry and an eval-evidence audit the `eval` entry, so its subject, the Node's own spec included, names only the Node.
 
