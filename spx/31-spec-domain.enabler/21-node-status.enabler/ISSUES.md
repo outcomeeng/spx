@@ -60,12 +60,22 @@
 
 **Settlement condition:** the node-status modules read the order pattern and the variant suffix from the filename-grammar exports of `spx/23-spec-tree.enabler/29-filename-grammar.enabler`, and no module under `src/` declares them again.
 
-## The status-file-contract PDR and the node-status spec mix 3.x and 4.0 form
+## The status-file-contract PDR mixes 3.x and 4.0 form
 
-`15-status-file-contract.pdr.md` keeps its 3.x form: a prose opening with no GOVERNS, SO THAT and CAN RELY ON lines, `## Rationale` and `## Product properties` sections, an untyped `### Testing` group, and tagged rows with no slug. Beside them it holds the 4.0-form `pin-dependency-tree` row and the `### Test.Mapping: lockfile-pin` subsection. `node-status.md` keeps its 3.x name, no front matter and tagged rows, beside the 4.0-form `### Test.Mapping: lockfile-pin` subsection.
+`15-status-file-contract.pdr.md` keeps its 3.x form: a prose opening with no GOVERNS, SO THAT and CAN RELY ON lines, `## Rationale` and `## Product properties` sections, an untyped `### Testing` group, and tagged rows with no slug. Beside them it holds the 4.0-form `pin-dependency-tree` row and the `### Test.Mapping: lockfile-pin` subsection.
 
-**Evidence:** both files after outcomeeng/changes#1002, whose record writes 4.0-form lines into them. The SPX Advisor's record audit run `2026-11-21_00-07-36-116-6779554d5721` and Review run `2026-11-20_23-59-18-696-cba8dca80590` report the mix against the Audit rule of [spx/13-agent-capability-lifecycle.pdr.md](spx/13-agent-capability-lifecycle.pdr.md).
+**Evidence:** the file after outcomeeng/changes#1002, whose record writes 4.0-form lines into it. The SPX Advisor's record audit run `2026-11-21_00-07-36-116-6779554d5721` and Review run `2026-11-20_23-59-18-696-cba8dca80590` report the mix against the Audit rule of [spx/13-agent-capability-lifecycle.pdr.md](spx/13-agent-capability-lifecycle.pdr.md).
 
-**Impact:** a reader of either file meets two grammars, and the files break root PDR 13's rule that an artifact a coding agent changes leaves in the target methodology version's form.
+**Impact:** a reader of the PDR meets two grammars, and the file breaks root PDR 13's rule that an artifact a coding agent changes leaves in the target methodology version's form.
 
-**Settlement condition:** both files stand in 4.0 form: the PDR as a 4.0 Decision Record, and the spec as `node-status.spec.md` with its front matter and slugged rows.
+**Settlement condition:** the PDR stands in 4.0 form as a Decision Record with its GOVERNS, SO THAT and CAN RELY ON opening and slugged rules in typed groups.
+
+## The node-status spec mixes 3.x and 4.0 form
+
+`node-status.md` keeps its 3.x name, no front matter and tagged rows, beside the 4.0-form `### Test.Mapping: lockfile-pin` subsection.
+
+**Evidence:** the file after outcomeeng/changes#1002, whose record writes the 4.0-form subsection into it. The SPX Advisor's record audit run `2026-11-21_00-07-36-116-6779554d5721` reports the mix against the Audit rule of [spx/13-agent-capability-lifecycle.pdr.md](spx/13-agent-capability-lifecycle.pdr.md).
+
+**Impact:** a reader of the spec meets two grammars, and the file breaks root PDR 13's rule that an artifact a coding agent changes leaves in the target methodology version's form.
+
+**Settlement condition:** the spec stands in 4.0 form as `node-status.spec.md`, with its front matter and slugged rows.
