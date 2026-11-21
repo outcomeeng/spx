@@ -5,7 +5,7 @@
     "test": {
       "tests/lifecycle-recording-harness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-lifecycle-recording-harness.enabler/lifecycle-recording-harness.md",
@@ -27,7 +27,7 @@
       },
       "tests/lifecycle-recording-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-lifecycle-recording-harness.enabler/lifecycle-recording-harness.md",

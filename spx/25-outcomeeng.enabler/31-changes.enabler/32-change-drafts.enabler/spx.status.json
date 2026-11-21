@@ -5,7 +5,7 @@
     "test": {
       "tests/drafts.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/change-drafts.md",
@@ -296,6 +296,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -390,7 +391,7 @@
       },
       "tests/storage-safety.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/change-drafts.md",
@@ -681,6 +682,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -777,9 +779,8 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "75e6deef6f50afd2ee5a09f7f233928ab9ac12cb",
+        "commit": "50b6b77740a40d43edefc566d29ec9cec97d9176",
         "read": [
-          "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/change-drafts.md",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/drafts.property.l1.test.ts",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/storage-safety.property.l1.test.ts",
@@ -1069,6 +1070,7 @@
           "src/lib/node-status/fold.ts",
           "src/lib/node-status/index.ts",
           "src/lib/node-status/link-format.ts",
+          "src/lib/node-status/lockfile.ts",
           "src/lib/node-status/provider.ts",
           "src/lib/node-status/read.ts",
           "src/lib/node-status/report.ts",
@@ -1164,7 +1166,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-16_01-40-08-172-7052d5ba5980"
+        "run": "2026-11-21_08-55-56-799-aabdc6698b58"
       }
     }
   }

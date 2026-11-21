@@ -5,7 +5,7 @@
     "test": {
       "tests/property-harness.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -18,7 +18,7 @@
       },
       "tests/property-harness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -32,7 +32,7 @@
       },
       "tests/property-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -47,7 +47,7 @@
       },
       "tests/sampler.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "5ef6921514ef676b12896cecaf71471305614598",
+        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -63,9 +63,8 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "75e6deef6f50afd2ee5a09f7f233928ab9ac12cb",
+        "commit": "fbb4c9b24aacb2a74cb05dcccbac17a03abe30c1",
         "read": [
-          "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
           "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.mapping.l1.test.ts",
           "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.property.l1.test.ts",
@@ -82,7 +81,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-16_01-40-03-535-f009a70020e3"
+        "run": "2026-11-21_07-25-37-885-8af5e36408a0"
       }
     }
   }

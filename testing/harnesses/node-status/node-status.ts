@@ -629,10 +629,13 @@ export const PINNED_SPEC_FIXTURE = {
   VERIFICATION_MALLEABLE: join(NODE_STATUS_FIXTURE_DIRECTORY, "linked-spec-verification-malleability.md.fixture"),
   /** The default spec's links plus a linked eval. */
   EVAL_LINKED: join(NODE_STATUS_FIXTURE_DIRECTORY, "linked-spec-eval.md.fixture"),
+  /** One linked test, eval, and probe, and one audit rule. */
+  ALL_EVIDENCE: join(NODE_STATUS_FIXTURE_DIRECTORY, "linked-spec-all-evidence.md.fixture"),
 } as const;
 
 const SPEC_LINK_PATTERN = new RegExp(
-  String.raw`\[(${SPEC_TREE_EVIDENCE_LINK_TEXT.TEST}|${SPEC_TREE_EVIDENCE_LINK_TEXT.EVAL})\]\(([^)\s]+)\)`,
+  String
+    .raw`\[(${SPEC_TREE_EVIDENCE_LINK_TEXT.TEST}|${SPEC_TREE_EVIDENCE_LINK_TEXT.EVAL}|${SPEC_TREE_EVIDENCE_LINK_TEXT.PROBE})\]\(([^)\s]+)\)`,
   "g",
 );
 const SPEC_LINK_TEXT_GROUP = 1;
@@ -657,7 +660,9 @@ export type PinnedNodeRepository = {
   readonly testPaths: readonly string[];
   /** Product-relative paths of the evals the spec links. */
   readonly evalPaths: readonly string[];
-  /** The kinds of evidence the spec links, by link text, in ascending order. */
+  /** Product-relative paths of the probes the spec links. */
+  readonly probePaths: readonly string[];
+  /** The kinds of audited evidence the spec links, by link text, in ascending order; a probe is attested, never audited. */
   readonly evidenceKinds: readonly string[];
   /** The malleability the spec's front matter declares; the implementation layer when it declares none. */
   readonly declaredMalleability: NodeStatusMalleability;
@@ -750,6 +755,7 @@ export async function withPinnedNodeRepository(
     const pathsLinkedAs = (text: string) => links.filter((link) => link.text === text).map((link) => link.path);
     const testPaths = pathsLinkedAs(SPEC_TREE_EVIDENCE_LINK_TEXT.TEST);
     const evalPaths = pathsLinkedAs(SPEC_TREE_EVIDENCE_LINK_TEXT.EVAL);
+    const probePaths = pathsLinkedAs(SPEC_TREE_EVIDENCE_LINK_TEXT.PROBE);
     const declaredMalleability = (SPEC_MALLEABILITY_PATTERN.exec(specContent)?.at(SPEC_MALLEABILITY_GROUP)
       ?? NODE_STATUS_DEFAULT_MALLEABILITY) as NodeStatusMalleability;
     if (fixture.ancestor !== undefined) {
@@ -759,7 +765,7 @@ export async function withPinnedNodeRepository(
       );
     }
     await env.writeNode(specPath, specContent);
-    for (const linkedPath of [...testPaths, ...evalPaths]) await env.writeNode(linkedPath, testContent);
+    for (const linkedPath of [...testPaths, ...evalPaths, ...probePaths]) await env.writeNode(linkedPath, testContent);
     for (const subjectPath of fixture.subjectPaths) await env.writeRaw(subjectPath, testContent);
     const nodeOrder = Number(fixture.dirName.split(SPEC_TREE_GRAMMAR.ORDER.SEPARATOR).at(0));
     const decisionPaths = decisionPathsAround(fixture, nodeOrder);
@@ -826,7 +832,11 @@ export async function withPinnedNodeRepository(
       specPath,
       testPaths,
       evalPaths,
-      evidenceKinds: [...new Set(links.map((link) => link.text))].sort(compareAsciiStrings),
+      probePaths,
+      evidenceKinds: [
+        ...new Set(links.map((link) => link.text).filter((text) => text !== SPEC_TREE_EVIDENCE_LINK_TEXT.PROBE)),
+      ]
+        .sort(compareAsciiStrings),
       declaredMalleability,
       testKeys,
       testKey: (path) => posix.relative(nodePath, path),

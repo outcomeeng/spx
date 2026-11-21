@@ -27,3 +27,13 @@ The failing run of `tests/verifier.compliance.l1.test.ts` under `spx/60-surfaces
 **Settlement condition:** the message of a thrown `PropertyFailureError` names the shrunk counterexample in a bounded, escaped form beside the seed, and a scenario in `tests/property-harness.scenario.l1.test.ts` proves that the message of a failing property contains the counterexample the failure carries.
 
 **Evidence:** `testing/harnesses/property/property.ts` `PropertyFailureError` and `failureFrom`; `spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.scenario.l1.test.ts`; the recorded failure of seed 728871692 in verification run `run-2026-10-25_18-26-30-799-aef9d27204a3.jsonl`.
+
+## No linked test fails when a run ignores the seed it reports
+
+`assertProperty` in `testing/harnesses/property/property.ts` resolves a seed and reports it on failure, and no linked test checks that fast-check runs under that seed. Passing a fixed seed of 42 to both `fc.check` calls leaves all 19 tests of the four linked test files passing. The replay test compares counterexamples of an always-false predicate over `fc.integer()`, which shrink to `[0]` under every seed. The fixed-seed property compares two runs that share the mutated constant. The reported seed field carries the value `resolveSeed` returns, not the seed fast-check used.
+
+**Evidence:** the SPX Advisor's Evidence Audit run `2026-11-21_07-22-12-704-9fec7ec3d21a`, sealed at `4e763f0fbfc4c56fc9c1ea9a9f4f721b0f75497c`, with the fixed-seed mutation above.
+
+**Impact:** the Scenario "Given `SPX_PROPERTY_SEED` holds an integer, when the harness runs, then the run uses that seed" and the invariant of [spx/22-test-environment.enabler/32-property-harness.enabler/21-property-runner.adr.md](spx/22-test-environment.enabler/32-property-harness.enabler/21-property-runner.adr.md) that the seed passed to a run is the seed reported when it fails stand without falsifying evidence, so a run that ignores its seed would reproduce no failure while every test passes.
+
+**Settlement condition:** a linked test fails when the run ignores the resolved seed, for example by showing that the case sequence under `SPX_PROPERTY_SEED=s` equals fast-check's own sequence for seed `s`.

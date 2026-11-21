@@ -33,6 +33,8 @@ import {
 } from "./python-pytest-contract";
 
 const PYTHON_TESTING_LANGUAGE_NAME = "python";
+/** The dependency lockfiles a Python product root may hold. */
+const PYTHON_LOCKFILE_NAMES = ["uv.lock"] as const;
 export const PYTHON_PRODUCT_INPUT_PATH = {
   CONFTEST: "conftest.py",
   HIDDEN_PYTEST_INI: ".pytest.ini",
@@ -43,7 +45,7 @@ export const PYTHON_PRODUCT_INPUT_PATH = {
   SETUP_CFG: "setup.cfg",
   SETUP_PY: "setup.py",
   TOX_INI: "tox.ini",
-  UV_LOCK: "uv.lock",
+  UV_LOCK: PYTHON_LOCKFILE_NAMES[0],
 } as const;
 const PYTHON_PRODUCT_INPUT_PATHS = Object.values(PYTHON_PRODUCT_INPUT_PATH);
 
@@ -213,6 +215,7 @@ export const pythonTestingLanguage: TestingLanguageDescriptor = {
   testFilePatterns: PYTHON_TEST_FILE_PATTERNS,
   suppliesReadPaths: false,
   productInputPaths: PYTHON_PRODUCT_INPUT_PATHS,
+  lockfileNames: PYTHON_LOCKFILE_NAMES,
   coveredProductInputPaths,
   matchesTestFile,
   excludeFlag,

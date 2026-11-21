@@ -37,11 +37,13 @@ import {
   type NodeStatusEvidenceOutcome,
   type PinChangeReader,
   readNodeSpecDeclaration,
+  withoutLockfile,
 } from "@/lib/node-status";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { createFilesystemSpecTreeSource, readSpecTree, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { resolveVerificationBranchSlug, type StateStoreFileSystem } from "@/lib/state-store";
 import { SPX_VERIFY_ENV } from "@/lib/verification-env";
 import { type TestingLanguageDescriptor } from "@/test/languages/types";
+import { lockfileNamesOf } from "@/test/registry";
 import { TEST_PATH_VERDICT, type TestPathVerdictValue } from "@/test/run-state";
 
 import { createNodeOutcomeResolver, type NodeOutcomeResolverDependencies } from "./node-outcome-resolver";
@@ -119,6 +121,12 @@ export function createNodeStatusResolvers(deps: NodeStatusResolverDependencies):
     trackedInclusion ??= listTrackedPaths(deps.productDir, git).then(createTrackedPathInclusion);
     return (await trackedInclusion)(path);
   };
+  let treeNodeIds: Promise<readonly string[]> | undefined;
+  const nodeIds = (): Promise<
+    readonly string[]
+  > => (treeNodeIds ??= readSpecTree({ source: createFilesystemSpecTreeSource({ productDir: deps.productDir }) }).then(
+    (snapshot) => snapshot.allNodes.map((node) => node.id),
+  ));
   const lastRunOutcomes = createNodeOutcomeResolver(deps);
   const journals = (evidencePath: string): boolean =>
     owningLanguages(deps, evidencePath).some((language) => language.suppliesReadPaths);
@@ -158,9 +166,15 @@ export function createNodeStatusResolvers(deps: NodeStatusResolverDependencies):
       const admitted = await Promise.all(readPaths.map(isTracked));
       return readPaths.filter((_, index) => admitted[index]);
     },
-    resolveAttributedResults: async (nodeId, request) => ({
-      evidence: await evidenceResults(await sealedRuns(VERIFY_VERIFICATION_TYPE.AUDIT), pinChanges, nodeId, request),
-    }),
+    resolveAttributedResults: async (nodeId, request) =>
+      evidenceResults(
+        await sealedRuns(VERIFY_VERIFICATION_TYPE.AUDIT),
+        pinChanges,
+        nodeId,
+        request,
+        (await nodeIds()).filter((candidate) => candidate.startsWith(`${nodeId}${PATH_SEPARATOR}`)),
+        lockfileNamesOf(deps.registry),
+      ),
   };
 }
 
@@ -298,19 +312,24 @@ function failedModulesOf(events: readonly JournalEvent[]): ReadonlySet<string> {
 
 const LINKED_EVIDENCE_KINDS: ReadonlySet<string> = new Set(Object.values(CLAIM_EVIDENCE_KIND));
 
-/** Whether a unit's subject lies in the node's directory. */
+/** Whether a unit's subject lies in the directory of the node at `nodeId`. */
 function subjectInNode(subject: string, nodeId: string): boolean {
   const nodePath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}${nodeId}`;
   return subject === nodePath || subject.startsWith(`${nodePath}${PATH_SEPARATOR}`);
 }
 
-/** The `evidence` results the node's requested kinds take from the newest sealed audit run that yields each. */
+/**
+ * The `evidence` results the node's requested kinds take from the newest sealed audit run that yields each. A
+ * unit backs the node only when its subject lies in the node's directory and in no descendant node's directory.
+ */
 async function evidenceResults(
   runs: readonly SealedRun[],
   pinChanges: PinChangeReader,
   nodeId: string,
   request: NodeAttributedRequest,
-): Promise<NonNullable<NodeAttributedResults["evidence"]>> {
+  descendantIds: readonly string[],
+  lockfileNames: readonly string[],
+): Promise<NodeAttributedResults> {
   const linkedEvidenceKinds = request.evidenceKinds.filter((kind): kind is ClaimEvidenceKind =>
     LINKED_EVIDENCE_KINDS.has(kind)
   );
@@ -321,18 +340,20 @@ async function evidenceResults(
       {
         runId: run.runToken,
         sealed: projection.sealed,
-        auditScopeUnits: projection.auditScopeUnits.filter((unit) => subjectInNode(unit.subject, nodeId)),
+        auditScopeUnits: projection.auditScopeUnits.filter((unit) =>
+          subjectInNode(unit.subject, nodeId) && !descendantIds.some((id) => subjectInNode(unit.subject, id))
+        ),
         ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),
         ...(projection.verifier === undefined ? {} : { verifier: projection.verifier }),
       },
       { malleability: NODE_STATUS_MALLEABILITY.IMPLEMENTATION, linkedEvidenceKinds },
     ).filter((entry) => entry.section === AUDIT_CLAIM_ENTRY_SECTION.EVIDENCE && !(entry.key in results));
     if (entries.length === 0) continue;
-    const read = runJudgedPathsOf(run.events);
+    const read = withoutLockfile(runJudgedPathsOf(run.events), lockfileNames);
     if (!(await unchangedSince(pinChanges, run.headCommit, read))) continue;
     for (const entry of entries) {
       results[entry.key] = { verdict: entry.verdict, read, actor: entry.actor, run: entry.run };
     }
   }
-  return results;
+  return { evidence: results };
 }
