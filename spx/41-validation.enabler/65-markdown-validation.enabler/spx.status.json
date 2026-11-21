@@ -758,10 +758,11 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "e9e492767d03b86dbfd0b8e9994e35597cb9d6c8",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
+          "spx/11-command-guarantees.pdr.md",
           "spx/12-agent-harness.pdr.md",
           "spx/12-node-runtime.adr.md",
           "spx/12-test-infrastructure.adr.md",
@@ -871,6 +872,7 @@
           "spx/21-infrastructure.enabler/43-code-quality-analysis.enabler/PLAN.md",
           "spx/21-infrastructure.enabler/43-code-quality-analysis.enabler/code-quality-analysis.md",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler/21-artifact-journal-store-architecture.adr.md",
+          "spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler/ISSUES.md",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler/artifact-journal-store.md",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler/21-snapshot-adapter-architecture.adr.md",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler/ISSUES.md",

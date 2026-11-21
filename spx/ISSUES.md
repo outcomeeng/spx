@@ -195,11 +195,11 @@ One concern remains:
 
 ## Product-level audit assertions need testability review
 
-PR #138 migrates product-level assertions in [spx.product.md](spx.product.md) from the legacy `[review]` marker to `[audit]`. Review identified product-level compliance assertions whose mechanism may be deterministic `[test]` evidence instead: CLI latency after process startup, deterministic spec-tree context ingestion, `spx.config.{toml,json,yaml}` governance, persisted execution state, product-root resolution via `git rev-parse` with `$PWD` fallback, and no network access for core operations.
+The product-level guarantees stand as Audit rules in [spx/11-command-guarantees.pdr.md](spx/11-command-guarantees.pdr.md). Review identified guarantees whose mechanism may be deterministic `[test]` evidence instead: CLI latency after process startup, deterministic spec-tree context ingestion, `spx.config.{toml,json,yaml}` governance, persisted execution state, `product-root-resolution`, and no network access for core operations.
 
 **Impact:** Keeping testable product behavior under `[audit]` weakens the spec-test map and conflicts with the rule that `[audit]` is judgment evidence, not a placeholder for behavior the product can verify.
 
-**Resolution:** Revisit each product-level `[audit]` assertion and reclassify any deterministic behavior to `[test]` with co-located product-root evidence. Start with the CLI latency, deterministic context ingestion, config governance, persisted execution state, `git rev-parse` fallback, and no-network core-operations assertions. Keep judgment-only product properties as `[audit]`.
+**Resolution:** Each deterministic rule of the PDR is reclassified into a Test group, and its evidence lives in the Nodes that derive an Assertion from it. Start with `command-latency`, `deterministic-context`, `config-governed-execution`, `persisted-results`, `product-root-resolution` and `offline-core`. Judgment-only rules stay under Audit.
 
 ## Test assertion flow lives in harnesses instead of executed test files
 

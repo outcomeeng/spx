@@ -1,74 +1,82 @@
 # Agent Search Adapters
 
-Agent-native session search uses a static, typed adapter set that maps each supported agent kind to its native store collector, its transcript metadata reader, and the evidence forms its transcript contract declares. Selector candidacy comes from a native transcript locator: a `TranscriptLocator` port takes store roots and one literal needle and returns the transcript paths whose text contains it, and its production adapter is ripgrep invoked through the ripgrep runner library under `src/lib/ripgrep/`, which the search command layer wires and injects. One locator serves every selector that reads recorded content — a content literal, a pickup marker, and a session id are each located as a needle across every store, and a branch name across every store whose adapter declares transcript-borne branch evidence — and a locator-dependent selector reads no transcript past its metadata head unless the locator named it. A transcript records working directory and branch as a sequence of per-record values rather than one session-opening value, so search resolves a session's product scope and branch association from every recorded value in a transcript whose adapter declares a record reader, from the opening value where an adapter declares none, and reports the working directory recorded alongside the matching value. A session id names one session rather than a region of the store, so the invocation's product scope selects which recorded working directory a session-id result carries rather than whether the session is returned, and head-metadata identity decides which located transcript is that session. Ripgrep is a required dependency of the locator-dependent selectors: when its executable cannot be started, those selectors fail with a diagnostic naming the install before any transcript is read, and a selector-free listing, which reads opening metadata only, is unaffected. Pi sessions carry no inferred transcript branch identity or command-evidence grammar; their null-branch association uses same-product worktree roots, while Codex-specific subagent attribution remains confined to Codex transcripts.
+CONSTRAINS how SPX searches agent-native sessions
+TO one static, typed search adapter per agent module the agent registry module of [spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md](spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md) lists, mapping its agent to its native store collector, its transcript metadata reader and the evidence forms its transcript contract declares, with selector candidacy from a `TranscriptLocator` port whose production adapter is ripgrep through the runner library under `src/lib/ripgrep/`, which the search command layer wires and injects
+SO THAT search answers which session touched a branch or recorded a literal at the native locator's I/O cost, and reads no transcript past its metadata head that the locator did not name
 
-## Rationale
+## Test.Mapping: adapter-declarations
 
-A closed adapter vocabulary keeps store discovery, session classification, filtering, and result rendering exhaustive as agent support expands.
+Each search adapter takes its declarations from its agent module, and an evidence form applies to an agent's transcripts only where its module declares that form.
 
-A coding-agent session outlives one working directory and one branch. A session moves between worktrees and between products, and its transcript records each move, so session-opening metadata identifies where a session began rather than where it worked. [spx/46-agent.enabler/21-resume.enabler](spx/46-agent.enabler/21-resume.enabler/resume.md) reads opening metadata because resume continues the conversation a user just left, and the opening record identifies that conversation adequately inside its window. Search answers the opposite question — which session touched this branch — which a contract reading only the opening record cannot answer. One store therefore serves two consumers under two identity contracts, and each consumer declares its own.
+| Case            | Declaration                                                                             | Source                                     |
+| --------------- | --------------------------------------------------------------------------------------- | ------------------------------------------ |
+| store-collector | the native store collector                                                              | the agent module                           |
+| metadata-reader | the transcript metadata reader                                                          | the agent module                           |
+| evidence-forms  | record reader, transcript-borne branch evidence, command evidence, subagent attribution | the agent module, each only where declared |
 
-A store-directory name derived from a working directory encodes exactly one recorded value. Treating that name as a scope gate reimposes opening-record identity through the filesystem layout and excludes sessions whose matching evidence the transcript holds. A selector-free listing scopes by that same opening working directory, so there the name and the scope check keep exactly the same sessions.
+## Test.Mapping: locator-exit-status
 
-Locating a literal across a transcript store is the one operation whose cost scales with the store, and the store grows without limit and spans every product its user works on. A memory-mapped, SIMD-searching, file-parallel locator that exits each file at its first hit names the transcripts carrying a needle at I/O cost alone; an in-process scan copies every transcript into the heap and searches it on one thread, and no reach window makes that acceptable, because a branch selector's evidence reaches past the window by declared behavior. Delegating candidacy to the native locator bounds every spx-owned judgment — session identity, per-record scope, dedupe, subagent attribution, match reasons — to the transcripts the locator names, so structural parsing runs over hits and the rest of the store is never read past its head. [spx/spx.product.md](spx/spx.product.md) bounds a command that reads repository state at 100 milliseconds once the process is running and bounds a command that scans an agent-native transcript store by the native locator's time over that store; this decision is what makes the second bound the locator's time and nothing more.
+The locator interprets a ripgrep run from its exit status.
 
-The locator is line-oriented: a needle carrying a line terminator can never match, where a substring search over the whole text would. Every needle spx composes — a branch name, a pickup marker, a session id — is line-free, and a caller-supplied literal is rejected when it carries a line terminator or is empty, because an empty needle names every transcript and a multi-line needle names none, and neither is the search the caller asked for.
+| Case        | Ripgrep outcome                  | Locator result                                   |
+| ----------- | -------------------------------- | ------------------------------------------------ |
+| matches     | matches found                    | the printed paths                                |
+| no-match    | no match                         | the empty set                                    |
+| error       | an error                         | a locator failure carrying the diagnostic output |
+| unstartable | the executable cannot be started | the unavailable diagnostic                       |
 
-Candidacy is set algebra over locator results. A content selector yields one path set per needle, and a row lies in every set. A branch selector yields the set of transcripts naming the branch, and that set alone drives command evidence, per-record association, and sibling association; a transcript in the branch set but outside the content set is never a row, yet its recorded branch is what associates a sibling transcript of the same session that is a row, so rejecting it on the content needle alone loses the association. Worktree-root association is declared for a session whose transcript never names the branch, so a branch query still lists the in-window transcripts and reads their opening metadata; the branch candidate set is the union of the locator's hits and the in-window listing, and only the hits are read past their head. A session id located as a needle names every transcript mentioning the id, most of them other sessions that refer to it, so head-metadata identity decides which located transcript is the session; the locator bounds the read, and identity remains the head's.
+## Test.Mapping: locator-unavailable
 
-One mechanism for every selector trades the store-address lookup a session id could answer through the filesystem — a stat probe per project directory, which reads no transcript and is independent of the page cache — for one locator whose session-id query reads the store and is slower on a cold cache by whatever the disk costs. The trade is accepted: a session id then resolves for every adapter rather than only the one whose store files transcripts under their id, and no session id ever forms a filesystem path, so an identifier reaching the store cannot address a path outside it and the store is never listed to answer it.
+When the ripgrep executable cannot be started, each selector kind behaves as its row states.
 
-Ripgrep is required rather than optional with an in-process fallback because a fallback whose cost is the one this decision removes is not a fallback, it is the slow path with a second code path to keep correct. A standard developer tool on the same footing as git is a dependency the product can name in a diagnostic.
+| Case              | Selector                                                     | Result                                                         |
+| ----------------- | ------------------------------------------------------------ | -------------------------------------------------------------- |
+| locator-dependent | a content literal, a pickup marker, a session id or a branch | fails with a diagnostic naming ripgrep and reads no transcript |
+| selector-free     | none                                                         | returns its results                                            |
 
-Rejected: giving the session-id selector the per-record product scope that content selectors carry. It keeps scope in the decision path and lets the store's filing decide whether an identified session exists, so a caller standing in one product holding the id of a session that worked there reads an empty result that no signal distinguishes from an unrecorded id.
+## Test.Property: search results
 
-Rejected: widening the branch-associated worktree-root set while preserving opening-record identity. A session that begins inside one product and moves to another records no opening value that any worktree root of the invocation product covers, so the wider root set leaves it unreachable.
+- record-branch-match: ALWAYS: a session whose agent module declares a record reader, and whose transcript records the requested branch in any record, matches a branch search and reports the working directory recorded alongside that branch, whichever field path that record carries it under.
+- reach-window-independence: ALWAYS: the reach window search applies to its default candidate set bounds transcript file modification time and is independent of the window a resume consumer applies, so changing one leaves the other's candidate set unchanged.
+- session-id-any-adapter: ALWAYS: a session-id selector returns the session whose opening metadata carries that id, whichever agent adapter holds it, whichever recorded working directories its transcript carries, and whichever product the invocation addresses.
+- session-id-working-directory: ALWAYS: a session-id result reports a recorded working directory inside the invocation product when the transcript records one, and the opening working directory otherwise.
+- session-id-never-path: NEVER: a session id reaches the store as a path component; the store receives it only as the locator's needle, whatever characters it carries.
+- needle-validation: NEVER: a selector needle that is empty or carries a line terminator reaches the locator or the store; the invocation fails with a diagnostic before any store read.
+- nul-path-parsing: ALWAYS: the NUL-separated path list ripgrep prints parses to exactly the paths it printed, for every path set, paths carrying line terminators included.
 
-## Invariants
+## Test.Compliance: candidacy
 
-- Where an adapter declares a record reader, a transcript's contribution to product scope and branch association is a function of its whole recorded value sequence, independent of any single record's position in that sequence; where an adapter declares none, it is the opening value alone.
-- For a locator-dependent selector, the set of transcripts read past their metadata head is a subset of the union of the locator's result sets for that invocation.
-- For a content selector, every result row's transcript lies in the locator's result set for every content needle.
-- For a branch selector, transcript-borne branch evidence — recorded branch values and accepted commands — is drawn only from transcripts in the branch needle's result set; worktree-root association reads opening metadata only.
-- For a branch selector, the locator runs only over stores whose adapters declare transcript-borne branch evidence; a store declaring none is never located for a branch name.
-- For a session-id selector, every result row's transcript lies in the id's result set, and its opening metadata carries that id.
-- A session-id selector's result set is a function of the session id and the store alone, independent of the invocation's product scope.
-- For a content or session-id selector without a branch selector, candidate transcripts are drawn from the locator's result sets, and no session-store project directory is listed.
-- A selector needle reaches the locator only when it is non-empty and carries no line terminator; a session id reaches the store only as a locator needle, never as a path component.
-- The candidate set a store collector yields is a superset of the set any selector matches; no collector decision removes a session whose transcript contents the selector would match.
-- When the locator executable cannot be started, no locator-dependent invocation reads a transcript, and a selector-free listing's result is unchanged.
+- directory-name-not-scope: ALWAYS: a session-store directory name whose encoded working directory lies outside the invocation product scope still yields its transcripts as candidates when the selector's evidence is transcript-borne.
+- locator-named-reads: NEVER: a locator-dependent selector reads a transcript past its metadata head that the locator did not name for that invocation, in candidate scanning or in branch-evidence collection.
+- selector-free-head-only: NEVER: a selector-free search reads any transcript past its metadata head.
+- branch-locator-stores: NEVER: a branch selector runs the locator over a store whose agent module declares no transcript-borne branch evidence.
+- no-directory-listing: NEVER: a content or session-id selector without a branch selector lists a session-store project directory; its candidates come from the locator's result sets and the store root alone.
+- null-branch-worktree-root: ALWAYS: a session of an agent whose module declares no transcript-borne branch evidence matches a branch search only when its recorded working directory is inside a same-product worktree root associated with that branch.
+- no-incidental-branch: NEVER: branch existence alone, or incidental transcript content, associates with a branch a session of an agent whose module declares no transcript-borne branch evidence.
+- declared-evidence-only: ALWAYS: transcript command evidence and subagent attribution apply only to the transcripts of an agent whose module declares those evidence forms.
 
-## Verification
+## Test.Scenario: production locator
 
-### Testing
+- production-locator:
+  - Given a temporary store holding one transcript whose text carries the needle and one whose text does not
+  - When the production ripgrep locator runs over that store
+  - Then it names exactly the first transcript
 
-- ALWAYS: each supported search agent kind maps to its declared native store collector, transcript metadata reader, and declared evidence forms ([mapping])
-- ALWAYS: a session whose adapter declares a record reader and whose transcript records the requested branch in any record matches a branch search and reports the working directory recorded alongside that branch, whichever field path that record carries its working directory under ([property])
-- ALWAYS: a session-store directory name whose encoded working directory lies outside the invocation product scope still yields its transcripts as candidates when the selector's evidence is transcript-borne ([compliance])
-- NEVER: a locator-dependent selector reads a transcript past its metadata head that the locator did not name for that invocation, in candidate scanning or in branch-evidence collection ([compliance])
-- NEVER: a selector-free search reads any transcript past its metadata head ([compliance])
-- NEVER: a branch selector runs the locator over a store whose adapter declares no transcript-borne branch evidence ([compliance])
-- NEVER: a content or session-id selector without a branch selector lists a session-store project directory; its candidates come from the locator's result sets and the store root alone ([compliance])
-- ALWAYS: the reach window search applies to its default candidate set bounds transcript file modification time and is independent of the window a resume consumer applies, so changing one leaves the other's candidate set unchanged ([property])
-- ALWAYS: a Pi session without branch metadata matches a branch search only when its recorded working directory is inside a same-product worktree root associated with that branch ([compliance])
-- ALWAYS: a session-id selector returns the session whose opening metadata carries that id, whichever agent adapter holds it, whichever recorded working directories its transcript carries, and whichever product the invocation addresses ([property])
-- ALWAYS: a session-id result reports a recorded working directory inside the invocation product when the transcript records one, and the opening working directory otherwise ([property])
-- NEVER: a session id reaches the store as a path component; the store receives it only as the locator's needle, whatever characters it carries ([property])
-- NEVER: a selector needle that is empty or carries a line terminator reaches the locator or the store; the invocation fails with a diagnostic before any store read ([property])
-- ALWAYS: when the locator executable cannot be started, each locator-dependent selector fails with a diagnostic naming ripgrep and reads no transcript, and a selector-free listing returns its results ([mapping])
-- ALWAYS: the locator interprets a ripgrep run from its exit status — matches found yields the printed paths, no match yields the empty set, an error yields a locator failure carrying the diagnostic output, and an unstartable executable yields the unavailable diagnostic ([mapping])
-- ALWAYS: the NUL-separated path list ripgrep prints parses to exactly the paths it printed, for every path set including paths carrying line terminators ([property])
-- Given a temporary store holding one transcript whose text carries the needle and one whose text does not, when the production ripgrep locator runs over that store, then it names exactly the first transcript ([scenario])
-- NEVER: branch existence alone or incidental transcript content associates a Pi session with a branch ([compliance])
-- ALWAYS: transcript command evidence and subagent attribution are applied only to agent transcript contracts that declare those evidence forms ([compliance])
+## Audit: candidacy invariants
 
-### Audit
+- content-needle-intersection: ALWAYS: for a content selector, every result row's transcript lies in the locator's result set for every content needle.
+- worktree-root-head-only: ALWAYS: worktree-root association reads opening metadata only.
+- collector-superset: ALWAYS: the candidate set a store collector yields is a superset of the set any selector matches; no collector decision removes a session whose transcript contents the selector would match.
+- record-sequence-contribution: ALWAYS: where an agent module declares a record reader, a transcript's contribution to product scope and branch association is a function of its whole recorded value sequence, independent of any single record's position in it; where it declares none, the contribution is the opening value alone.
+- head-identity: ALWAYS: head-metadata identity decides which located transcript is the session a session id names.
 
-- ALWAYS: the supported search-agent vocabulary and adapter selection are static, typed, and exhaustive ([audit])
-- ALWAYS: the locator invocation names files only, treats the needle as a fixed string, treats every file as text, searches hidden and ignored paths, ignores user ripgrep configuration, suppresses messages, NUL-terminates paths, restricts the search to transcript files, and passes the needle as a pattern option and the roots after an end-of-options marker ([audit])
-- ALWAYS: the locator's argument composition, output parsing, and exit-status interpretation are pure functions in the search domain; the ripgrep executable is started only inside the ripgrep runner library under `src/lib/ripgrep/`, which owns the process outcome mapping behind an injected process dependency, and the search command layer wires that runner into the locator without constructing process mechanics itself, per [spx/14-cli-composition.adr.md](spx/14-cli-composition.adr.md) ([audit])
-- ALWAYS: session-store filesystem operations — metadata-head reads and transcript-text reads alike — the transcript locator, and worktree association dependencies cross typed dependency-injection boundaries ([audit])
-- NEVER: a product-scope check decides whether a session-id selector yields a result; scope reaches only which recorded working directory the located session reports ([audit])
-- NEVER: a store-collector filter derived from a directory name, path encoding, or any other store-layout signal decides whether a session matches a selector ([audit])
-- NEVER: an in-process scan of transcript bytes or text decides selector candidacy ([audit])
-- NEVER: tests replace session-store, locator, or worktree-association boundaries through module mocking ([audit])
+## Audit: search boundaries
+
+- static-adapter-set: ALWAYS: the search adapters and adapter selection are static, typed and exhaustive, enumerated by the agent registry module.
+- locator-invocation: ALWAYS: the locator invocation names files only, treats the needle as a fixed string, treats every file as text, searches hidden and ignored paths, ignores user ripgrep configuration, suppresses messages, NUL-terminates paths, restricts the search to transcript files, and passes the needle as a pattern option and the roots after an end-of-options marker.
+- pure-locator-logic: ALWAYS: the locator's argument composition, output parsing and exit-status interpretation are pure functions in the search domain; the ripgrep executable starts only inside the ripgrep runner library under `src/lib/ripgrep/`, which owns the process outcome mapping behind an injected process dependency, and the search command layer wires that runner into the locator per [spx/14-cli-composition.adr.md](spx/14-cli-composition.adr.md).
+- injected-boundaries: ALWAYS: session-store filesystem operations, the transcript locator and worktree association dependencies cross typed dependency-injection boundaries.
+- scope-not-identity: NEVER: a product-scope check decides whether a session-id selector yields a result; scope reaches only which recorded working directory the located session reports.
+- no-layout-filter: NEVER: a store-collector filter derived from a directory name, a path encoding or any other store-layout signal decides whether a session matches a selector.
+- no-in-process-scan: NEVER: an in-process scan of transcript bytes or text decides selector candidacy.
+- no-module-mocks: NEVER: tests replace session-store, locator, or worktree-association boundaries through module mocking.
