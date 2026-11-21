@@ -53,3 +53,11 @@ evidence from the same row pass, and bound the row parse to the rows a selector 
 
 **Revisit condition:** before the next changeset touching transcript record or command
 evidence parsing.
+
+## The session-identity property composes its domain inline
+
+**Evidence:** the needle case of the session-identity property builds `fc.tuple`, `fc.constant` and `fc.oneof` over `arbitrarySessionIdentityScenario` inside the test file.
+
+**Impact:** the composed value space lives in one test, so other evidence of the session-id selector cannot draw from the same domain, and the domain is not visible from the generator that owns the scenario.
+
+**Settlement condition:** `testing/generators/agent/search.ts` exports the composed arbitrary, and the property draws from it.

@@ -17,3 +17,11 @@ This node's terminal output path passes values that originated outside the produ
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 
 **Revisit condition:** before the next changeset touching this node's terminal output path.
+
+## The hook CLI scenario declares its I/O doubles inline
+
+**Evidence:** `RecordingHookIo`, `ErroringHookInput` and `readErroringStdin` are declared in `tests/hook-cli.scenario.l1.test.ts` itself.
+
+**Impact:** the doubles that decide what the scenario observes live beside its assertions, so another test of the hook process contract cannot share them and the observation seam belongs to no harness.
+
+**Settlement condition:** a harness supplies the doubles, and the test receives their observations.
