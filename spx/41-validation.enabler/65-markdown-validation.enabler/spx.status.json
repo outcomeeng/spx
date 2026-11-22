@@ -5,13 +5,7 @@
     "test": {
       "tests/markdown-validation-command.scenario.l2.test.ts": {
         "verdict": "passed",
-<<<<<<< HEAD
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
-||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
-=======
-        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
->>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -406,13 +400,7 @@
       },
       "tests/markdown-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-<<<<<<< HEAD
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
-||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
-=======
-        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
->>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -565,13 +553,7 @@
       },
       "tests/markdown-validation.mapping.l1.test.ts": {
         "verdict": "passed",
-<<<<<<< HEAD
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
-||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
-=======
-        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
->>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -677,13 +659,7 @@
       },
       "tests/markdown-validation.property.l1.test.ts": {
         "verdict": "passed",
-<<<<<<< HEAD
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
-||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
-=======
-        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
->>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -783,13 +759,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-<<<<<<< HEAD
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
-||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
-        "commit": "45a463abc21e5a608944348818ecc5e66b4b5c58",
-=======
-        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
->>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",

@@ -3,20 +3,18 @@
   "malleability": "implementation",
   "verification": {
     "test": {
-      "tests/drafts.property.l1.test.ts": {
+      "tests/drafts.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/change-drafts.md",
-          "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/drafts.property.l1.test.ts",
+          "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/drafts.compliance.l1.test.ts",
           "src/agent/agent-runner.ts",
           "src/agent/claude-agent-runner.ts",
           "src/commands/agent/index.ts",
           "src/commands/agent/resume.ts",
           "src/commands/agent/search.ts",
-          "src/commands/change/contract.ts",
-          "src/commands/change/draft.ts",
           "src/commands/compact/index.ts",
           "src/commands/compact/retrieve.ts",
           "src/commands/compact/store.ts",
@@ -26,6 +24,8 @@
           "src/commands/diagnose/index.ts",
           "src/commands/diagnose/probes.ts",
           "src/commands/diagnose/spx-reachability-probe.ts",
+          "src/commands/draft/contract.ts",
+          "src/commands/draft/draft.ts",
           "src/commands/journal/cli.ts",
           "src/commands/journal/github-pr-sink.ts",
           "src/commands/journal/runtime.ts",
@@ -197,11 +197,11 @@
           "src/interfaces/cli/agent/resume/AgentResumePicker.tsx",
           "src/interfaces/cli/agent/resume/launch-agent-resume.ts",
           "src/interfaces/cli/agent/resume/run-picker.tsx",
-          "src/interfaces/cli/change.ts",
           "src/interfaces/cli/coding-agent.ts",
           "src/interfaces/cli/compact.ts",
           "src/interfaces/cli/config.ts",
           "src/interfaces/cli/diagnose.ts",
+          "src/interfaces/cli/draft.ts",
           "src/interfaces/cli/foreground-launch.ts",
           "src/interfaces/cli/hook.ts",
           "src/interfaces/cli/invocation.ts",
@@ -390,20 +390,18 @@
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
-      "tests/storage-safety.property.l1.test.ts": {
+      "tests/drafts.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/change-drafts.md",
-          "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/storage-safety.property.l1.test.ts",
+          "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/drafts.property.l1.test.ts",
           "src/agent/agent-runner.ts",
           "src/agent/claude-agent-runner.ts",
           "src/commands/agent/index.ts",
           "src/commands/agent/resume.ts",
           "src/commands/agent/search.ts",
-          "src/commands/change/contract.ts",
-          "src/commands/change/draft.ts",
           "src/commands/compact/index.ts",
           "src/commands/compact/retrieve.ts",
           "src/commands/compact/store.ts",
@@ -413,6 +411,8 @@
           "src/commands/diagnose/index.ts",
           "src/commands/diagnose/probes.ts",
           "src/commands/diagnose/spx-reachability-probe.ts",
+          "src/commands/draft/contract.ts",
+          "src/commands/draft/draft.ts",
           "src/commands/journal/cli.ts",
           "src/commands/journal/github-pr-sink.ts",
           "src/commands/journal/runtime.ts",
@@ -584,11 +584,11 @@
           "src/interfaces/cli/agent/resume/AgentResumePicker.tsx",
           "src/interfaces/cli/agent/resume/launch-agent-resume.ts",
           "src/interfaces/cli/agent/resume/run-picker.tsx",
-          "src/interfaces/cli/change.ts",
           "src/interfaces/cli/coding-agent.ts",
           "src/interfaces/cli/compact.ts",
           "src/interfaces/cli/config.ts",
           "src/interfaces/cli/diagnose.ts",
+          "src/interfaces/cli/draft.ts",
           "src/interfaces/cli/foreground-launch.ts",
           "src/interfaces/cli/hook.ts",
           "src/interfaces/cli/invocation.ts",
@@ -781,18 +781,16 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/change-drafts.md",
+          "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/drafts.compliance.l1.test.ts",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/drafts.property.l1.test.ts",
-          "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/storage-safety.property.l1.test.ts",
           "src/agent/agent-runner.ts",
           "src/agent/claude-agent-runner.ts",
           "src/commands/agent/index.ts",
           "src/commands/agent/resume.ts",
           "src/commands/agent/search.ts",
-          "src/commands/change/contract.ts",
-          "src/commands/change/draft.ts",
           "src/commands/compact/index.ts",
           "src/commands/compact/retrieve.ts",
           "src/commands/compact/store.ts",
@@ -802,6 +800,8 @@
           "src/commands/diagnose/index.ts",
           "src/commands/diagnose/probes.ts",
           "src/commands/diagnose/spx-reachability-probe.ts",
+          "src/commands/draft/contract.ts",
+          "src/commands/draft/draft.ts",
           "src/commands/journal/cli.ts",
           "src/commands/journal/github-pr-sink.ts",
           "src/commands/journal/runtime.ts",
@@ -973,11 +973,11 @@
           "src/interfaces/cli/agent/resume/AgentResumePicker.tsx",
           "src/interfaces/cli/agent/resume/launch-agent-resume.ts",
           "src/interfaces/cli/agent/resume/run-picker.tsx",
-          "src/interfaces/cli/change.ts",
           "src/interfaces/cli/coding-agent.ts",
           "src/interfaces/cli/compact.ts",
           "src/interfaces/cli/config.ts",
           "src/interfaces/cli/diagnose.ts",
+          "src/interfaces/cli/draft.ts",
           "src/interfaces/cli/foreground-launch.ts",
           "src/interfaces/cli/hook.ts",
           "src/interfaces/cli/invocation.ts",
@@ -1169,7 +1169,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-22_03-43-17-049-147f257cc1d6"
+        "run": "2026-11-22_05-05-36-763-ff5b2631cbec"
       }
     }
   }

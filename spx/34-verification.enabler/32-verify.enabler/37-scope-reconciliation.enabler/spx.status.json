@@ -5,13 +5,7 @@
     "test": {
       "tests/reconciliation-determinism.property.l1.test.ts": {
         "verdict": "passed",
-<<<<<<< HEAD
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
-||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
-=======
-        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
->>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
@@ -413,13 +407,7 @@
       },
       "tests/reconciliation-expectations.property.l1.test.ts": {
         "verdict": "passed",
-<<<<<<< HEAD
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
-||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
-=======
-        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
->>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
@@ -523,13 +511,7 @@
       },
       "tests/reconciliation-read-only.compliance.l1.test.ts": {
         "verdict": "passed",
-<<<<<<< HEAD
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
-||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
-=======
-        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
->>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
@@ -931,13 +913,7 @@
       },
       "tests/reconciliation-rejection.compliance.l1.test.ts": {
         "verdict": "passed",
-<<<<<<< HEAD
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
-||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
-=======
-        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
->>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
@@ -1340,13 +1316,7 @@
       },
       "tests/reconciliation-result.property.l1.test.ts": {
         "verdict": "passed",
-<<<<<<< HEAD
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
-||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
-=======
-        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
->>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
