@@ -5,7 +5,7 @@
     "test": {
       "tests/reconciliation-determinism.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "455a5426dd6724890b4a26c835ef02468428cdb4",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
@@ -511,7 +511,7 @@
       },
       "tests/reconciliation-read-only.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "455a5426dd6724890b4a26c835ef02468428cdb4",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
@@ -913,7 +913,7 @@
       },
       "tests/reconciliation-rejection.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "455a5426dd6724890b4a26c835ef02468428cdb4",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
