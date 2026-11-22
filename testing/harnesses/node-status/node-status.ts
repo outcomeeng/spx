@@ -633,6 +633,8 @@ export const PINNED_SPEC_FIXTURE = {
   ALL_EVIDENCE: join(NODE_STATUS_FIXTURE_DIRECTORY, "linked-spec-all-evidence.md.fixture"),
   /** One linked test and two 4.0 Audit rows under an `### Audit` heading. */
   AUDIT_ROWS: join(NODE_STATUS_FIXTURE_DIRECTORY, "audit-rows-spec.md.fixture"),
+  /** The 4.0 Audit-row spec with its Audit group heading at level 2. */
+  AUDIT_ROWS_LEVEL_TWO: join(NODE_STATUS_FIXTURE_DIRECTORY, "audit-rows-level-two-spec.md.fixture"),
 } as const;
 
 const SPEC_LINK_PATTERN = new RegExp(
@@ -651,7 +653,7 @@ const UNRELATED_FILE_PATH = "unrelated.txt";
 const AUDIT_RULE_TAG_PATTERN = /\[audit:([a-z0-9-]+)\]/g;
 const AUDIT_RULE_TAG_GROUP = 1;
 /** The heading of a 4.0 group of Audit rows in a spec fixture, and one row's slug. */
-const AUDIT_ROW_GROUP_HEADING = /^###\s+Audit(?::|\s*$)/;
+const AUDIT_ROW_GROUP_HEADING = /^#{2,3}\s+Audit(?::|\s*$)/;
 const AUDIT_ROW_SLUG = /^- ([a-z\d][a-z\d-]*):\s/;
 const AUDIT_ROW_SLUG_GROUP = 1;
 const VARIANT_SUBJECT_DIRECTORY = "src";

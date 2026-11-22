@@ -357,6 +357,8 @@ async function attributedResults(
   const requestedSlugs = new Set(request.auditRuleSlugs);
   const evidence: Record<string, NodeAttributedResult> = {};
   const audit: Record<string, NodeAttributedResult> = {};
+  // A unit that judged no path proves nothing a pin holds: it stands only when no run yields its slug with a pin.
+  const unpinned: Record<string, NodeAttributedResult> = {};
   const fold: RunFoldContext = { pinChanges, lockfileNames };
   for (const run of runs) {
     const projection = projectVerifyRun(run.events);
@@ -379,8 +381,15 @@ async function attributedResults(
       blockingUnitIds: blockingUnitIdsOf(projection),
       judgedPathsByUnit: scopeJudgedPathsByUnitOf(run.events),
     }).filter((entry) => requestedSlugs.has(entry.slug) && !(entry.slug in audit));
-    Object.assign(audit, await foldAssertionEntries(fold, run, assertionEntries));
+    for (const entry of assertionEntries.filter((candidate) => candidate.judgedPaths.length === 0)) {
+      unpinned[entry.slug] ??= { verdict: entry.verdict, read: [], actor: entry.actor, run: entry.run };
+    }
+    Object.assign(
+      audit,
+      await foldAssertionEntries(fold, run, assertionEntries.filter((entry) => entry.judgedPaths.length > 0)),
+    );
   }
+  for (const [slug, result] of Object.entries(unpinned)) audit[slug] ??= result;
   return { audit, evidence };
 }
 
@@ -404,10 +413,7 @@ async function foldEvidenceEntries(
   );
 }
 
-/**
- * The `audit` results a run's Assertion entries take: each pinned to its spec and its unit's judged paths, none
- * from a unit whose pin is stale, and `not-run` with no pin from a unit that judged no path.
- */
+/** The `audit` results a run's judged Assertion entries take: each pinned to its spec and its unit's judged paths, none from a unit whose pin is stale. */
 async function foldAssertionEntries(
   fold: RunFoldContext,
   run: SealedRun,
@@ -415,10 +421,8 @@ async function foldAssertionEntries(
 ): Promise<Readonly<Record<string, NodeAttributedResult>>> {
   const results: Record<string, NodeAttributedResult> = {};
   for (const entry of entries) {
-    const read = entry.judgedPaths.length === 0
-      ? []
-      : withoutLockfile([entry.specPath, ...entry.judgedPaths], fold.lockfileNames);
-    if (read.length > 0 && !(await unchangedSince(fold.pinChanges, run.headCommit, read))) continue;
+    const read = withoutLockfile([entry.specPath, ...entry.judgedPaths], fold.lockfileNames);
+    if (!(await unchangedSince(fold.pinChanges, run.headCommit, read))) continue;
     results[entry.slug] = { verdict: entry.verdict, read, actor: entry.actor, run: entry.run };
   }
   return results;

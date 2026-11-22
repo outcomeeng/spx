@@ -17,8 +17,8 @@ const AUDIT_RULE_TAG = /\[audit:([^\]\s]+)\]/g;
 const AUDIT_RULE_SLUG_GROUP = 1;
 const LINE_BREAK = /\r?\n/;
 const HEADING_PREFIX = "#";
-/** The heading of a 4.0 group of Audit rows: `### Audit`, optionally followed by `: {subject}`. */
-const AUDIT_GROUP_HEADING = /^###\s+Audit(?::|\s*$)/;
+/** The heading of a 4.0 group of Audit rows at level 2 or 3: `## Audit` or `### Audit`, optionally followed by `: {subject}`. */
+const AUDIT_GROUP_HEADING = /^#{2,3}\s+Audit(?::|\s*$)/;
 /** A 4.0 Audit row: a top-level bullet that opens with its slug and a colon. */
 const AUDIT_ROW = /^- ([a-z\d][a-z\d-]*):\s/;
 const TEXT_ENCODING = "utf8";
