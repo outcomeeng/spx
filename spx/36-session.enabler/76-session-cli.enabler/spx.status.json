@@ -60,7 +60,7 @@
       },
       "tests/session-cli.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/76-session-cli.enabler/session-cli.md",
@@ -122,6 +122,7 @@
           "src/interfaces/cli/session/pick/SessionPicker.tsx",
           "src/interfaces/cli/session/pick/launch-agent.ts",
           "src/interfaces/cli/session/pick/run-picker.tsx",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/config/cwd.ts",
           "src/lib/error-message.ts",

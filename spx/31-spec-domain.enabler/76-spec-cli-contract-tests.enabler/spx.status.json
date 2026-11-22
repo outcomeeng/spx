@@ -1,11 +1,11 @@
 {
-  "state": "specified",
+  "state": "passing",
   "malleability": "spec",
   "verification": {
     "test": {
       "tests/context-failure.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -66,6 +66,7 @@
           "src/interfaces/cli/product-context.ts",
           "src/interfaces/cli/spec-context-contract.ts",
           "src/interfaces/cli/spec.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
@@ -184,7 +185,7 @@
       },
       "tests/context-success.mapping.l2.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -245,6 +246,7 @@
           "src/interfaces/cli/product-context.ts",
           "src/interfaces/cli/spec-context-contract.ts",
           "src/interfaces/cli/spec.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
@@ -362,7 +364,7 @@
       },
       "tests/context-target.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -424,6 +426,7 @@
           "src/interfaces/cli/product-context.ts",
           "src/interfaces/cli/spec-context-contract.ts",
           "src/interfaces/cli/spec.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
@@ -542,7 +545,7 @@
       },
       "tests/spec-cli-contract.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -604,6 +607,7 @@
           "src/interfaces/cli/product-context.ts",
           "src/interfaces/cli/spec-context-contract.ts",
           "src/interfaces/cli/spec.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
@@ -722,7 +726,7 @@
       },
       "tests/spec-cli-contract.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -784,6 +788,7 @@
           "src/interfaces/cli/product-context.ts",
           "src/interfaces/cli/spec-context-contract.ts",
           "src/interfaces/cli/spec.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",

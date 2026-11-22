@@ -5,7 +5,7 @@
     "test": {
       "tests/agent-identification.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45a463abc21e5a608944348818ecc5e66b4b5c58",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -26,7 +26,6 @@
           "src/domains/diagnose/config.ts",
           "src/domains/diagnose/facts.ts",
           "src/domains/release/config.ts",
-          "src/domains/session/agent-session.ts",
           "src/domains/spec/fixture-writer-methods.ts",
           "src/domains/validation/literal-problem-kind.ts",
           "src/lib/agent-environment/agent-module.ts",
@@ -34,6 +33,7 @@
           "src/lib/agent-environment/agents/claude-code.ts",
           "src/lib/agent-environment/agents/codex.ts",
           "src/lib/agent-environment/index.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/config/cwd.ts",
           "src/lib/error-message.ts",
@@ -104,7 +104,7 @@
       },
       "tests/agent-names.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45a463abc21e5a608944348818ecc5e66b4b5c58",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -349,6 +349,7 @@
           "src/lib/agent-environment/agents/claude-code.ts",
           "src/lib/agent-environment/agents/codex.ts",
           "src/lib/agent-environment/index.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
@@ -537,7 +538,7 @@
       },
       "tests/agent-registry.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45a463abc21e5a608944348818ecc5e66b4b5c58",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -558,7 +559,6 @@
           "src/domains/diagnose/config.ts",
           "src/domains/diagnose/facts.ts",
           "src/domains/release/config.ts",
-          "src/domains/session/agent-session.ts",
           "src/domains/spec/fixture-writer-methods.ts",
           "src/domains/validation/literal-problem-kind.ts",
           "src/lib/agent-environment/agent-module.ts",
@@ -566,6 +566,7 @@
           "src/lib/agent-environment/agents/claude-code.ts",
           "src/lib/agent-environment/agents/codex.ts",
           "src/lib/agent-environment/index.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/config/cwd.ts",
           "src/lib/error-message.ts",

@@ -5,7 +5,7 @@
     "test": {
       "tests/session-environment-probe.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/43-session-environment.enabler/session-environment.md",
@@ -37,6 +37,7 @@
           "src/domains/worktree/controlling-process.ts",
           "src/domains/worktree/occupancy-store.ts",
           "src/domains/worktree/worktree-name.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/atomic-file-write.ts",
           "src/lib/config/cwd.ts",
@@ -98,7 +99,7 @@
       },
       "tests/session-environment-snapshot.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/43-session-environment.enabler/session-environment.md",
@@ -137,6 +138,7 @@
           "src/domains/worktree/controlling-process.ts",
           "src/domains/worktree/occupancy-store.ts",
           "src/domains/worktree/worktree-name.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/atomic-file-write.ts",
           "src/lib/config/cwd.ts",
@@ -201,7 +203,7 @@
       },
       "tests/session-environment.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/43-session-environment.enabler/session-environment.md",
@@ -217,6 +219,7 @@
           "src/domains/diagnose/types.ts",
           "src/domains/hooks/session-start.ts",
           "src/domains/session/agent-session.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/file-system/pathContainment.ts",
           "src/lib/methodology/declaration-fields.ts",
           "src/test/languages/read-recorder-install.ts",
