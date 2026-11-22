@@ -28,7 +28,6 @@ Read the Product Tree by methodology's Walk. Never invoke `product-tree:understa
 
 ## Asking
 
-- While the Operator writes in your session, ask the Operator through `request_user_input`.
 - When the orchestration file sets `operator_available = true`, the Director and the Maintainer ask the Operator through `request_user_input`. Otherwise the Maintainer mails the Director, and the Director, or the Maintainer where no Director is declared, asks on the page that holds the subject.
 - An Applier writes a reopened product or architecture judgment into its Change and submits the Change. Every other question goes to your overseer by mail.
 - Only the highest-ranking declared Position writes `operator_available`, and sets it to `true` only on the Operator's yes.
