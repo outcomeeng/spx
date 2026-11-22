@@ -1,6 +1,6 @@
-PROVIDES composable `.spx/` scope addressing — branch (`.spx/branch/{slug}`), per-worktree (`.spx/worktree/`), shared changes (`.spx/changes/`), shared sessions (`.spx/sessions/`), and shared worktree-occupancy claims (`.spx/worktrees/`) — with source-owned branch identity and slugging, per [`spx/18-state.enabler/11-state.pdr.md`](spx/18-state.enabler/11-state.pdr.md) and [`spx/17-state.adr.md`](spx/17-state.adr.md)
-SO THAT the verification, testing, compact, change, session, and worktree-occupancy consumers
-CAN address shared branch-scoped, per-worktree, shared change, shared session, and shared worktree-occupancy state without composing `.spx/` paths or duplicating branch slugging
+PROVIDES composable local state scope addressing, with branch, per-worktree, shared change, shared draft, shared session, and shared worktree-occupancy scopes, and source-owned branch identity and slugging
+SO THAT the verification, testing, compact, change, draft, session, and worktree-occupancy consumers
+CAN address shared branch-scoped, per-worktree, shared change, shared draft, shared session, and shared worktree-occupancy state without composing state directory paths or duplicating branch slugging
 
 ## Assertions
 
@@ -12,6 +12,17 @@ CAN address shared branch-scoped, per-worktree, shared change, shared session, a
 - Given any worktree of a repository, when changes scope is resolved, then it is `.spx/changes` under the Git common-dir product root, the same directory from every worktree ([test](tests/scope-addressing.scenario.l1.test.ts))
 - Given any worktree of a repository, when worktrees scope is resolved, then it is `.spx/worktrees` under the Git common-dir product root, the same directory from every worktree ([test](tests/scope-addressing.scenario.l1.test.ts))
 - Given a broader scope and a session token, when the scope is composed, then the session token appears inside the broader scope before the domain directory ([test](tests/scope-addressing.scenario.l1.test.ts))
+
+### Test.Scenario: drafts scope
+
+- drafts-scope-shared:
+  - Given a Git repository with its main worktree and one linked worktree
+  - When the drafts scope is resolved once from the main worktree and once from the linked worktree
+  - Then both resolutions return the same one directory, `.spx/drafts` under the Git common-dir product root, and neither returns a directory under a worktree's `.spx/worktree/`
+
+### Audit: drafts scope
+
+- shared-drafts-scope: ALWAYS: scope addressing resolves repository-shared drafts to `.spx/drafts` under the Git common-dir product root, never to a branch-scoped or worktree-scoped directory
 
 ### Properties
 

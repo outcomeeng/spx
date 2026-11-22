@@ -1,6 +1,6 @@
 # Local State Store
 
-spx stores local execution state under composable `.spx/` scopes: changeset state under `.spx/branch/{branch-slug}/`, repository-shared change state under `.spx/changes/`, checkout-local state under `.spx/worktree/`, and narrower agent-session state inside the broader validity scope such as `.spx/worktree/{session-token}/compact/stash.jsonl`. Machine-owned records are line-delimited JSON histories so commands can append observations and recover the latest complete record. User-facing session files remain Markdown at `.spx/sessions/{todo,doing,archive}/{timestamp-token}.md`.
+spx stores local execution state under composable `.spx/` scopes: changeset state under `.spx/branch/{branch-slug}/`, repository-shared change state under `.spx/changes/`, repository-shared drafts of caller-named kinds under `.spx/drafts/`, checkout-local state under `.spx/worktree/`, and narrower agent-session state inside the broader validity scope such as `.spx/worktree/{session-token}/compact/stash.jsonl`. Machine-owned records are line-delimited JSON histories so commands can append observations and recover the latest complete record. User-facing session files remain Markdown at `.spx/sessions/{todo,doing,archive}/{timestamp-token}.md`.
 
 ## Rationale
 
@@ -10,7 +10,7 @@ Line-delimited JSON is the default store format because local execution state is
 
 ## Product properties
 
-- Shared repository state lives under `.spx/branch/{branch-slug}/` for reviewable changeset observations and `.spx/changes/` for repository-wide change records, visible from every worktree whose validity scope matches the stored artifact.
+- shared-repository-state: Shared repository state lives under `.spx/branch/{branch-slug}/` for reviewable changeset observations, `.spx/changes/` for repository-wide change records, and `.spx/drafts/<kind>/` for drafts of caller-named kinds, visible from every worktree whose validity scope matches the stored artifact.
 - Worktree-scoped state lives under `.spx/worktree/` and is private to the checkout whose dirty files produced the observation.
 - Session-scoped state composes inside the broader branch or worktree state whose validity it refines, including compact stash records at `.spx/worktree/{session-token}/compact/stash.jsonl`.
 
@@ -28,6 +28,7 @@ Line-delimited JSON is the default store format because local execution state is
 - ALWAYS: include only the scope facts required for state validity; a changeset artifact does not add a worktree scope unless dirty checkout state participates ([audit])
 - ALWAYS: compose narrower isolation inside the broader validity scope ([audit])
 - ALWAYS: store repository-shared change state under `.spx/changes/` rather than branch-scoped or worktree-scoped state ([audit])
+- shared-drafts-scope: ALWAYS: store repository-shared drafts of every kind under `.spx/drafts/<kind>/` rather than branch-scoped or worktree-scoped state
 - ALWAYS: use line-delimited JSON for machine-owned store records unless the artifact is a single structured document that requires whole-document replacement ([audit])
 - ALWAYS: use Markdown for session files and other artifacts meant for direct user reading or editing, including `.spx/sessions/{todo,doing,archive}/{timestamp-token}.md` ([audit])
 - NEVER: make session identity the outer validity boundary for state whose meaning depends on a branch or worktree ([audit])
