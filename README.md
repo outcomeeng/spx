@@ -2,7 +2,7 @@
 
 Developer CLI for code validation and session management.
 
-Current release: 0.10.0
+Current release: 0.11.0
 
 ## What is spx?
 
@@ -96,6 +96,21 @@ spx verification run list --change <owner/repo#N>
 # Compare two runs of a Change file by file
 spx verification run compare --change <owner/repo#N> --run <token> --run <token>
 ```
+
+Pin a run to the exact bytes of its input:
+
+```bash
+# Report one product file's canonical path and content digests as JSON, before any run exists
+spx verification input inspect <path>
+
+# Open the run only when the input's bytes have this SHA-256 under the named normalization
+spx verification run start ... --expect-content-sha256 <sha256> --content-normalization utf8-universal-newlines
+
+# Compare a file with the digest recorded at start: exit 0 equal, 1 different, 2 unavailable
+spx verification run input ... --run <token> --check-file <file>
+```
+
+Each run owns a payload directory from `start` until it is sealed. `start` reports it as `payloadDirectory`, `scope add`, `finding add` and `finish` read a file inside it through `--run-payload <name>`, and the sealing `finish` removes it.
 
 Operands resolve from the product root using the same vocabulary as `spx test`; a product-root operand selects the whole tree. The run is rooted at the worktree, warns when that root lies outside a repository, and reports a verification type without a runner instead of opening a run.
 
