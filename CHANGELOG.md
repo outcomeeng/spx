@@ -11,9 +11,10 @@
 - `spx draft create --kind <kind>`, `spx draft list --kind <kind>` and `spx draft delete --kind <kind> <draft-id>` keep drafts of caller-named kinds under `.spx/drafts/<kind>/`, which every worktree of the repository shares. `create` takes no text: it returns the path of one empty file for the caller to write, with a UUIDv7 draft id. `list` shows the newest drafts first, 50 by default, and takes `--limit` and `--all`. Deleting a draft that does not exist fails.
 - `spx verification input inspect <path>` reports one product file's canonical path and its content digests, raw bytes and universal-newline text, as JSON, before any run exists.
 - `spx verification run start --expect-content-sha256 <sha256>` with `--content-normalization none|utf8-universal-newlines` opens the run only when the input's bytes have that digest. The run records the input's content digests.
-- `spx verification run input --check-file <file>` compares a file's content identity with the digest recorded at start. It exits 0 when they are equal and 1 when they differ. It exits 2, with one JSON result on standard output, when the identity is unavailable, the normalization fails or the file is unreadable.
+- `spx verification run input --check-file <file>`, with `--content-normalization none|utf8-universal-newlines`, compares a file's content identity with the digest recorded at start. It exits 0 when they are equal and 1 when they differ. It exits 2, with one JSON result on standard output, when the identity is unavailable, the normalization fails or the file is unreadable.
 - Each verification run owns a payload directory from start until it is sealed. `start` reports `payloadDirectory`. `scope add`, `finding add` and `finish` take `--run-payload <name>` for a file inside that directory. `finish` removes the directory when it seals the run, and `start` sweeps the directories of runs already sealed.
 - `spx test` reports the verdicts of a recorded passed run that covers every selected file and still matches the checkout, instead of running the tests again. The checks are the head commit, a clean worktree and the recorded staleness digests. The report names the recorded run and lists each file's verdict, the compact agent summary shows it, and no run file is written.
+- The package ships, for the 4.0 methodology line, each coding agent's migration entry and instructions under `migration/4.0/claude/` and `migration/4.0/codex/`, beside `methodology/`.
 - Markdown validation of `spx/` reports a node spec whose `id` is absent, is not a canonical lowercase UUIDv7, or repeats another spec's `id`, and a `malleability` value spx does not support.
 
 ### Changed
@@ -23,14 +24,13 @@
 - Reading the spec tree checks every parent and child against the kinds the parent admits, and fails once, naming each inadmissible child and its parent by path and kind. A product admits the 3.x enabler and outcome kinds beside the 4.0 output kinds and a nested product. A pair that no single grammar version accepts is not judged, so a tree in migration still reads.
 - The spec-tree snapshot carries each node's evidence references, one per tagged Assertion, keyed by its node-local link or its audit rule slug, with the link's target resolved or dangling. A spec that repeats an audit slug fails the read, naming the spec and the slug.
 - spx identifies the invoking coding agent and its session from exactly one non-empty identity variable, from a single registry of the agents it supports.
+- `spx verification run scope add` and `finding add` resolve a relative `--payload` path from the effective invocation directory, so with `-C <path>` the file is named from `<path>`. `--payload` is no longer required: each of these commands takes exactly one of `--payload` and `--run-payload`.
 
 ### Fixed
 
 - `spx spec status --update` writes no `spx.status.json` whose content would not change.
 - The pin of an Agentic result strips every supported language's lockfile, `uv.lock` included, not only JavaScript lockfiles.
-- `finish` on a run whose earlier `finish` recorded completion without sealing it now seals the run and removes its payload directory.
-- `--terminal-metadata` resolves its path from the process directory.
-- A verification input file whose name starts with two dots stays inside the product root.
+- Git commands spx launches keep `GIT_CEILING_DIRECTORIES`, so repository discovery stops at the ceiling a caller sets.
 
 ## [0.10.0]
 
