@@ -1,6 +1,6 @@
 # Evidence Append
 
-PROVIDES evidence-payload validation, verification-type scope and finding validation, judged-path validation against the run's head commit, judged-deletion validation against the run's recorded change inventory, and caller-supplied idempotency for verification-run evidence operations
+PROVIDES evidence-payload validation, run-relative payload resolution contained in the run's payload directory, verification-type scope and finding validation, judged-path validation against the run's head commit, judged-deletion validation against the run's recorded change inventory, and caller-supplied idempotency for verification-run evidence operations
 SO THAT a started verification run
 CAN record inspected scope, the files and deletions it judged, and typed findings exactly once per caller intent before terminal projection renders the run
 
@@ -18,3 +18,11 @@ CAN record inspected scope, the files and deletions it judged, and typed finding
 - ALWAYS: scope evidence and finding evidence reject a run carrying a terminal-completion event ([test](tests/verify-terminal-rejection.compliance.l1.test.ts))
 - ALWAYS: an evidence append rejects when the run's recorded drive mode is spx-driven, so a caller holding the run token cannot add scope or finding evidence to a run spx opens, streams, and seals ([test](tests/verify-drive-mode.compliance.l1.test.ts))
 - ALWAYS: scope evidence that names judged files records each product-relative path, rejects a path the run's head commit does not hold, and rejects every judged path in a run that recorded no head commit ([test](tests/verify-judged-paths.compliance.l1.test.ts))
+
+### Test.Compliance: run-relative payloads
+
+- [run-relative-evidence-payload](tests/verify-run-payload.compliance.l1.test.ts): ALWAYS: scope evidence and finding evidence whose payload a run-relative name selects read the file of that name in the run's payload directory, from whichever worktree the run is continued, and reject a name whose path, resolved through symbolic links, lies outside that directory before any read or journal append
+
+### Audit: payload directory
+
+- payload-directory-addressing: ALWAYS: scope evidence and finding evidence resolve a run-relative payload name against the run's payload directory, which they obtain from the state module's branch scope addressing under the run's opening namespace, and reject a name whose path, resolved through symbolic links by the injected filesystem, lies outside that directory before any read; an evidence operation that composes the payload directory's path itself, or reads before that check, fails.

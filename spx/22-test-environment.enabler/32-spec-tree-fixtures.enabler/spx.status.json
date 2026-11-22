@@ -5,7 +5,7 @@
     "test": {
       "tests/spec-tree-env-lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
@@ -111,7 +111,7 @@
       },
       "tests/spec-tree-env-safety.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
@@ -219,7 +219,7 @@
       },
       "tests/spec-tree-fixture-sources.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
@@ -327,7 +327,7 @@
       },
       "tests/spec-tree-fixtures.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
@@ -712,6 +712,7 @@
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-input-check.mapping.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-input.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-input.scenario.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-payload-directory.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-scope.mapping.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-scope.property.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-start-content-identity.property.l1.test.ts",
@@ -726,6 +727,7 @@
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-judged-deletions.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-judged-paths.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-payload.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-run-payload.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-terminal-rejection.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/tests/reconciliation-determinism.property.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/tests/reconciliation-expectations.property.l1.test.ts",
@@ -739,6 +741,7 @@
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-finish-sealing.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-lifecycle.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-lifecycle.scenario.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-payload-removal.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-render.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-render.scenario.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-status.compliance.l1.test.ts",
@@ -1053,6 +1056,7 @@
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-finish-unaccounted.scenario.l2.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-paths.compliance.l2.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-paths.scenario.l2.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-payload.compliance.l2.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-reconcile.compliance.l2.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-reconcile.scenario.l2.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/verifier.compliance.l1.test.ts",
@@ -1174,7 +1178,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "5719299ca4ab3a5bcc9cb8942ac1eff3431df0e3",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.mapping.l1.test.ts",
@@ -1558,6 +1562,7 @@
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-input-check.mapping.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-input.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-input.scenario.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-payload-directory.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-scope.mapping.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-scope.property.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-start-content-identity.property.l1.test.ts",
@@ -1572,6 +1577,7 @@
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-judged-deletions.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-judged-paths.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-payload.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-run-payload.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-terminal-rejection.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/tests/reconciliation-determinism.property.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/tests/reconciliation-expectations.property.l1.test.ts",
@@ -1585,6 +1591,7 @@
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-finish-sealing.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-lifecycle.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-lifecycle.scenario.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-payload-removal.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-render.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-render.scenario.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-status.compliance.l1.test.ts",
@@ -1899,6 +1906,7 @@
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-finish-unaccounted.scenario.l2.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-paths.compliance.l2.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-paths.scenario.l2.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-payload.compliance.l2.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-reconcile.compliance.l2.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-reconcile.scenario.l2.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/verifier.compliance.l1.test.ts",
@@ -2019,7 +2027,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-22_03-50-09-702-42c69f2ae565"
+        "run": "2026-11-22_05-05-33-016-791d3aa8081c"
       }
     }
   }

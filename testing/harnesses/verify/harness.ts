@@ -140,8 +140,6 @@ import {
   sampleVerifyTestValue,
   type VerifierIdentity,
   VERIFY_TEST_GENERATOR,
-  type VerifyEvidenceRequiredOptionCase,
-  verifyEvidenceRequiredOptionCases,
   type VerifyNonNounLocalEvidenceCase,
   verifyNonNounLocalEvidenceCases,
   type VerifyScopeMappingCase,
@@ -671,43 +669,6 @@ export async function observeNonNounLocalEvidenceRejection(
 
 export function observeNonNounLocalEvidenceRejections(): Promise<readonly VerifyCliRejectionObservation[]> {
   return Promise.all(verifyNonNounLocalEvidenceCases().map(observeNonNounLocalEvidenceRejection));
-}
-
-export async function observeMissingEvidenceRequiredOptionRejection(
-  testCase: VerifyEvidenceRequiredOptionCase,
-): Promise<VerifyCliRejectionObservation> {
-  const scenario = createVerifyRunContextScenario();
-  const runToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
-  const payloadSource = sampleLiteralTestValue(arbitrarySourceFilePath());
-  const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.argvIdempotencyKey());
-  const options = [
-    requiredFlag(VERIFY_CLI.verificationTypeOption),
-    scenario.verificationType,
-    requiredFlag(VERIFY_CLI.scopeTypeOption),
-    VERIFY_SCOPE_TYPE.CHANGESET,
-    requiredFlag(VERIFY_CLI.scopeOption),
-    scenario.scope,
-    requiredFlag(VERIFY_CLI.runOption),
-    runToken,
-    ...(testCase.omittedOption === VERIFY_CLI.payloadOption
-      ? []
-      : [requiredFlag(VERIFY_CLI.payloadOption), payloadSource]),
-    ...(testCase.omittedOption === VERIFY_CLI.idempotencyKeyOption
-      ? []
-      : [requiredFlag(VERIFY_CLI.idempotencyKeyOption), idempotencyKey]),
-  ];
-  return observeRejectedVerificationArgs(
-    verificationRunArgs(
-      [testCase.resourceCommandName, VERIFICATION_RUN_CLI_SURFACE.addCommandName],
-      options,
-    ),
-    requiredFlag(testCase.omittedOption),
-    scenario.productDir,
-  );
-}
-
-export function observeMissingEvidenceRequiredOptionRejections(): Promise<readonly VerifyCliRejectionObservation[]> {
-  return Promise.all(verifyEvidenceRequiredOptionCases().map(observeMissingEvidenceRequiredOptionRejection));
 }
 
 /**

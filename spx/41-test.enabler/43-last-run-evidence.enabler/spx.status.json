@@ -5,7 +5,7 @@
     "test": {
       "tests/passing-scope.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -146,7 +146,7 @@
       },
       "tests/recorded-run-reuse.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -558,7 +558,7 @@
       },
       "tests/recorded-run-satisfaction.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -972,7 +972,7 @@
       },
       "tests/run-state.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -1072,7 +1072,7 @@
       },
       "tests/run-state.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -1171,7 +1171,7 @@
       },
       "tests/staleness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",

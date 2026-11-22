@@ -4,7 +4,7 @@ id: 01a115e6-be87-7cd9-b001-39f73f7bdd6d
 
 # Run Context
 
-PROVIDES start-time verification context creation, run-token selection, run-locator and resolved-scope reporting, changeset and file scope resolution, recorded-input content digests and the content-identity expectation and check against them, recorded-input replay, and recording of the run's head commit when the product is a Git repository whose HEAD names a commit, of the Change a run serves, and of the Verifier that judges the run for typed verification runs, the change inventory of every changeset-scoped run, and the expectations a changeset-scoped run is bound to
+PROVIDES start-time verification context creation, the run's payload directory created after its journal and the sweep of sealed runs' payload directories, run-token selection, run-locator and resolved-scope reporting, changeset and file scope resolution, recorded-input content digests and the content-identity expectation and check against them, recorded-input replay, and recording of the run's head commit when the product is a Git repository whose HEAD names a commit, of the Change a run serves, and of the Verifier that judges the run for typed verification runs, the change inventory of every changeset-scoped run, and the expectations a changeset-scoped run is bound to
 SO THAT evidence append, scope reconciliation, and terminal projection lifecycle operations
 CAN operate on one scoped verification run with a stable subject, recorded input and its content identity, unambiguous run identity, the head commit the run judges whenever the product is a Git repository whose HEAD names a commit, the Change identity the run was started for, the Verifier the run was started with, the change inventory the run started over, and the expectations the run is bound to
 
@@ -47,3 +47,13 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 - ALWAYS: recorded-input replay requires a run token and rejects ambiguous type/scope-only selection ([test](tests/verify-input.compliance.l1.test.ts))
 - ALWAYS: when `input` cannot locate a run, the diagnostic names the requested run token, verification type, scope type, scope identity, backend identity, storage namespace, searched target, and selector inputs needed to address it ([test](tests/verify-input.compliance.l1.test.ts))
 - NEVER: recorded-input replay reads a fresh input value instead of replaying the input recorded at start ([test](tests/verify-input.compliance.l1.test.ts))
+
+### Test.Compliance: payload directory
+
+- [payload-directory-created](tests/verify-payload-directory.compliance.l1.test.ts): ALWAYS: `start` of a run, whichever party drives it, creates the run's payload directory `.spx/branch/<branch-slug>/<verification-type>/payloads/run-<run-token>/` under the branch key its journal opened in after that journal exists, and reports it as `payloadDirectory`
+- [payload-sweep-at-start](tests/verify-payload-directory.compliance.l1.test.ts): ALWAYS: before `start` creates its run's payload directory, it removes the payload directory of every run whose journal carries a terminal-completion event or a seal, and keeps every other payload directory
+
+### Audit: payload directory
+
+- payload-directory-addressing: ALWAYS: `start` obtains the run's payload directory from the state module's branch scope addressing under the run's opening namespace, keyed by the verification type and the run token, and creates it after the run's journal exists for every run whichever party drives it; a `start` that composes the payload directory's path itself, or creates the directory before the journal, fails.
+- payload-directory-sweep: ALWAYS: `start` sweeps before its own run's directory exists: it lists the payload directories under every verification type's payload root, finds each run token's journal across every branch scope of the repository-shared store, and removes through the injected filesystem only the directories whose journal carries a terminal-completion event or a seal; a sweep that removes through any other filesystem access, or removes the directory of a run whose journal carries neither, fails.

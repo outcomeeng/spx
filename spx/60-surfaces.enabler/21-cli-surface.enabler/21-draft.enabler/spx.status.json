@@ -5,7 +5,7 @@
     "test": {
       "tests/change-cli.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/draft.md",
@@ -392,7 +392,7 @@
       },
       "tests/draft-commands.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/draft.md",
@@ -779,7 +779,7 @@
       },
       "tests/draft-commands.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/draft.md",
@@ -1167,7 +1167,7 @@
       },
       "tests/list-selection-bound.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/draft.md",
@@ -1555,7 +1555,7 @@
       },
       "tests/listing.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/draft.md",
@@ -1942,7 +1942,7 @@
       },
       "tests/packaged-commands.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/draft.md",
@@ -2332,7 +2332,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "5719299ca4ab3a5bcc9cb8942ac1eff3431df0e3",
+        "commit": "9f660bb7054ae5634cb37379bf06dcd12af6d269",
         "read": [
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/draft.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/tests/change-cli.property.l1.test.ts",
@@ -2726,7 +2726,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-22_03-50-04-373-fa9bd6caabda"
+        "run": "2026-11-22_05-15-12-240-13226ff2c2f6"
       }
     }
   }

@@ -5,7 +5,7 @@
     "test": {
       "tests/output-modes.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/54-output-modes.enabler/output-modes.md",
@@ -102,7 +102,7 @@
       },
       "tests/output-modes.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/54-output-modes.enabler/output-modes.md",
@@ -199,7 +199,7 @@
       },
       "tests/output-modes.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/54-output-modes.enabler/output-modes.md",
@@ -293,7 +293,7 @@
       },
       "tests/output-modes.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/54-output-modes.enabler/output-modes.md",

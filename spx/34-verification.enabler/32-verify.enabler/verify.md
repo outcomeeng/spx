@@ -6,9 +6,18 @@ CAN learn the directories a run will write before it starts, start one scoped ru
 
 ## Assertions
 
+### Test.Mapping: [write-path-report](tests/write-paths.mapping.l1.test.ts)
+
+For a verification type and a changeset or file scope, the write-path report returns the canonical scope identity and the branch key, and reports for each directory role the directory, at the Git common-dir product root, into which a run started for that type, scope, and branch key writes.
+
+| Case                 | Reported directory                                         |
+| -------------------- | ---------------------------------------------------------- |
+| journal-runs         | `.spx/branch/<branch-slug>/<verification-type>/runs/`      |
+| verification-context | `.spx/branch/<branch-slug>/verification-context/contexts/` |
+| payloads             | `.spx/branch/<branch-slug>/<verification-type>/payloads/`  |
+
 ### Mapping
 
-- Given a verification type and a changeset or file scope, when the write-path report runs, then it returns the canonical scope identity, the branch key, and the journal runs directory and verification-context directory, at the Git common-dir product root, into which a run started for that type, scope, and branch key writes ([test](tests/write-paths.mapping.l1.test.ts))
 - Given a reported directory below a symbolic link, or a directory that does not exist, when the write-path report runs, then the directory's path resolves the link of its nearest existing ancestor, and a missing directory reports itself absent with the missing directories from that ancestor down ([test](tests/write-paths.mapping.l1.test.ts))
 
 ### Compliance
@@ -17,3 +26,7 @@ CAN learn the directories a run will write before it starts, start one scoped ru
 - NEVER: a caller hand-formats the journal event envelope for a verification run; verification-run lifecycle operations construct journal events from typed lifecycle inputs ([audit])
 - ALWAYS: verification-run lifecycle operations record and render a run whichever party drives it — an agent, a launcher, or spx executing a runner ([audit])
 - NEVER: verification-run lifecycle operations launch, configure, or select a verification agent — an agentic verification is judged by an agent the agent harness launches, per [`spx/12-agent-harness.pdr.md`](spx/12-agent-harness.pdr.md) ([audit])
+
+### Audit: payloads
+
+- payload-working-input: NEVER: a payload source staged in a run's payload directory is committed; a tracked file under `.spx/`, or a repository ignore rule that admits a file under `.spx/branch/`, fails.

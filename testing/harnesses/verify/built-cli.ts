@@ -6,7 +6,7 @@
  * @module testing/harnesses/verify/built-cli
  */
 
-import { access, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
 import { execa } from "execa";
@@ -35,8 +35,14 @@ import { CLI_PATH, NODE_EXECUTABLE, PRODUCT_ROOT } from "@testing/harnesses/cons
 import { buildGitTestEnvironment, GIT_TEST_ENVIRONMENT_KEYS } from "@testing/harnesses/git-test-constants";
 import { type StartedChangeRun, withChangeRunsRepository } from "@testing/harnesses/verify/change-runs";
 import {
+  sampleDirectoryName,
+  sampleIdempotencyKey,
+  samplePayloadFileName,
+} from "@testing/harnesses/verify/payload-directory";
+import {
   initializeVerifyRepository,
   type RepositoryStateEntry,
+  snapshotRepositoryState,
   withVerifyHeadCommitRepository,
 } from "@testing/harnesses/verify/repository";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -47,6 +53,7 @@ const BUILT_CLI_MISSING_EXIT_CODE = 1;
 const HEADLESS_RUN_TEMP_PREFIX = "verify-built-headless-run-";
 const HEADLESS_RUN_PRODUCT_DIRECTORY = "product";
 const EXPECTATIONS_FILE_NAME = "expectations.json";
+const RUN_PATHS_TEMP_PREFIX = "verify-built-run-paths-";
 
 /** Captured streams and exit code of one built-executable run. */
 export interface BuiltVerificationCliRun {
@@ -558,14 +565,24 @@ export async function observeBuiltRunPaths(
 }
 
 /**
- * The built `paths` run for a file scope, then the built `start` for the same verification type,
- * scope, and branch in the same repository: the file scope and verification type both ran with, the
- * built runs' outputs, and the checkout's files and directories before `paths`, after `paths`, and
- * after `start`, so a test compares the reported directories with the ones `start` actually creates.
+ * The repository and invocations a `paths`-against-`start` observation runs: the product-relative
+ * file the repository's HEAD commit holds and both runs scope, the verification type both runs name,
+ * and the run input `start` reads from standard input.
  */
-export interface BuiltRunPathsAgainstStartObservation {
+export interface BuiltRunPathsAgainstStartScenario {
   readonly filePath: string;
   readonly verificationType: string;
+  readonly input: string;
+}
+
+/**
+ * The built `paths` run for a file scope, then the built `start` for the same verification type,
+ * scope, and branch in the same repository: the repository's canonical root, the built runs'
+ * outputs, and the checkout's files and directories before `paths`, after `paths`, and after
+ * `start`, so a test compares the reported directories with the ones `start` actually creates.
+ */
+export interface BuiltRunPathsAgainstStartObservation {
+  readonly productDir: string;
   readonly paths: BuiltVerificationCliRun;
   readonly start: BuiltVerificationCliRun;
   readonly stateBeforePaths: readonly RepositoryStateEntry[];
@@ -574,42 +591,38 @@ export interface BuiltRunPathsAgainstStartObservation {
 }
 
 /**
- * In a real Git repository with a base and a head commit, run the built `spx verification run paths`
- * for a file scope of a drawn verification type, then the built `spx verification run start` for the
- * same type and scope with generated input on stdin, capturing the checkout's state before `paths`,
- * after `paths`, and after `start`.
+ * In a fresh Git repository whose HEAD commit adds the scenario's file and whose root holds no
+ * state store, run the built `spx verification run paths` for that file scope and the scenario's
+ * verification type, then the built `spx verification run start` for the same type and scope with
+ * the scenario's input on stdin, capturing the checkout's state before `paths`, after `paths`, and
+ * after `start`. The repository and every run recorded under its `.spx/` store are removed when the
+ * observation returns.
  */
-export async function observeBuiltRunPathsAgainstStart(): Promise<BuiltRunPathsAgainstStartObservation> {
-  const verificationType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.verificationType());
-  return withVerifyHeadCommitRepository(async (repository) => {
+export async function observeBuiltRunPathsAgainstStart(
+  scenario: BuiltRunPathsAgainstStartScenario,
+): Promise<BuiltRunPathsAgainstStartObservation> {
+  return withTempDir(RUN_PATHS_TEMP_PREFIX, async (tempDir) => {
+    const productDir = await realpath(tempDir);
+    await initializeVerifyRepository(productDir, scenario.filePath);
     const selectors = [
       flagOf(VERIFY_CLI.verificationTypeOption),
-      verificationType,
+      scenario.verificationType,
       flagOf(VERIFY_CLI.scopeTypeOption),
       VERIFY_SCOPE_TYPE.FILE,
       flagOf(VERIFY_CLI.scopeOption),
-      repository.filePath,
+      scenario.filePath,
     ];
-    const input = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload()));
-    const stateBeforePaths = await repository.snapshotState();
-    const paths = await runBuiltVerificationRun(repository.productDir, [VERIFY_CLI.pathsCommandName], selectors);
-    const stateAfterPaths = await repository.snapshotState();
+    const stateBeforePaths = await snapshotRepositoryState(productDir);
+    const paths = await runBuiltVerificationRun(productDir, [VERIFY_CLI.pathsCommandName], selectors);
+    const stateAfterPaths = await snapshotRepositoryState(productDir);
     const start = await runBuiltVerificationRun(
-      repository.productDir,
+      productDir,
       [VERIFY_CLI.startCommandName],
       [...selectors, flagOf(VERIFY_CLI.inputOption), VERIFY_INPUT_SOURCE.STDIN],
-      input,
+      scenario.input,
     );
-    const stateAfterStart = await repository.snapshotState();
-    return {
-      filePath: repository.filePath,
-      verificationType,
-      paths,
-      start,
-      stateBeforePaths,
-      stateAfterPaths,
-      stateAfterStart,
-    };
+    const stateAfterStart = await snapshotRepositoryState(productDir);
+    return { productDir, paths, start, stateBeforePaths, stateAfterPaths, stateAfterStart };
   });
 }
 
@@ -942,4 +955,130 @@ export async function observeBuiltInputCheckOfUnknownRun(
         checkedFilePath,
       ]),
   );
+}
+
+/**
+ * A review run of the repository's file started through the built executable, with what a payload-source
+ * case needs: the captured `start`, its report when it succeeded, the run's command-line selectors, a
+ * generated scope unit the run accepts, and the runner for the run's later command paths. The harness
+ * returns every captured run without a verdict; the caller judges it.
+ */
+export interface BuiltPayloadRun {
+  readonly productDir: string;
+  readonly start: BuiltVerificationCliRun;
+  readonly report: VerifyStartReport | undefined;
+  readonly runSelectors: readonly string[];
+  readonly scopeUnit: string;
+  /** A generated review finding the run accepts as finding evidence. */
+  readonly finding: string;
+  /** Generated review terminal metadata that agrees with a `rejected` seal of a run holding one scope unit. */
+  readonly terminalMetadata: string;
+  /** The `--idempotency-key` option with a generated key distinct from every earlier one. */
+  idempotencyOption(): readonly string[];
+  /**
+   * The payload directory `start` reported. A run whose `start` reported none fails here as a setup error
+   * carrying the `start` standard error, so no step stages or locks a directory outside the store.
+   */
+  payloadDirectory(): string;
+  /**
+   * Write `content`, the scope unit when none is given, as a generated file name in the run's payload
+   * directory, and return that run-relative name.
+   */
+  stageRunPayload(content?: string): Promise<string>;
+  /**
+   * Write the scope unit as `name` in a new directory of the checkout, and return that directory, so a
+   * command run from it names the file by a relative path.
+   */
+  stageInvocationDirectoryPayload(name: string): Promise<string>;
+  /**
+   * Write `content`, the scope unit when none is given, as a generated file name at the checkout root,
+   * and return that name, so a command whose process runs from the checkout names it by a relative path.
+   */
+  stageCheckoutPayload(content?: string): Promise<string>;
+  /**
+   * Write the scope unit to a generated file of the checkout outside the run's payload directory, plus a
+   * symbolic link to it inside the payload directory, and return the outside file's absolute path and the
+   * link's run-relative name.
+   */
+  stageEscapingPayload(): Promise<{ readonly outsidePath: string; readonly linkName: string }>;
+  /** Run a command path of the run from `cwd`, the checkout when none is named, piping `input` to stdin. */
+  run(
+    commandPath: readonly string[],
+    options: readonly string[],
+    input?: string,
+    cwd?: string,
+  ): Promise<BuiltVerificationCliRun>;
+}
+
+/**
+ * In a real Git repository, start a review run of the repository's file through the built executable and
+ * hand the started run to the callback. The repository and every run under its `.spx/` store are removed
+ * when the callback settles.
+ */
+export async function withBuiltPayloadRun<T>(callback: (run: BuiltPayloadRun) => Promise<T>): Promise<T> {
+  return withVerifyHeadCommitRepository(async (repository) => {
+    const verificationType = VERIFY_VERIFICATION_TYPE.REVIEW;
+    const selectors = [
+      flagOf(VERIFY_CLI.verificationTypeOption),
+      verificationType,
+      flagOf(VERIFY_CLI.scopeTypeOption),
+      VERIFY_SCOPE_TYPE.FILE,
+      flagOf(VERIFY_CLI.scopeOption),
+      repository.filePath,
+    ];
+    const start = await runBuiltVerificationRun(
+      repository.productDir,
+      [VERIFY_CLI.startCommandName],
+      [...selectors, flagOf(VERIFY_CLI.inputOption), VERIFY_INPUT_SOURCE.STDIN],
+      repository.filePath,
+    );
+    const report = start.exitCode === VERIFY_CLI_EXIT_CODE.OK
+      ? (JSON.parse(start.stdout) as VerifyStartReport)
+      : undefined;
+    const scopeUnit = JSON.stringify(
+      sampleVerifyTestValue(VERIFY_TEST_GENERATOR.unjudgedScopeUnit(verificationType, repository.filePath)),
+    );
+    const payloadDirectory = (): string => {
+      if (report === undefined) throw new Error(`start reported no payload directory: ${start.stderr}`);
+      return report.payloadDirectory;
+    };
+    return callback({
+      productDir: repository.productDir,
+      start,
+      report,
+      runSelectors: [...selectors, flagOf(VERIFY_CLI.runOption), report?.runToken ?? ""],
+      scopeUnit,
+      finding: JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewFinding())),
+      terminalMetadata: JSON.stringify(
+        sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewChangesRequestedTerminalMetadata()),
+      ),
+      stageRunPayload: async (content = scopeUnit) => {
+        const name = samplePayloadFileName();
+        await writeFile(join(payloadDirectory(), name), content);
+        return name;
+      },
+      stageEscapingPayload: async () => {
+        const outsidePath = join(repository.productDir, samplePayloadFileName());
+        await writeFile(outsidePath, scopeUnit);
+        const linkName = samplePayloadFileName();
+        await symlink(outsidePath, join(payloadDirectory(), linkName));
+        return { outsidePath, linkName };
+      },
+      stageInvocationDirectoryPayload: async (name) => {
+        const directory = join(repository.productDir, sampleDirectoryName());
+        await mkdir(directory);
+        await writeFile(join(directory, name), scopeUnit);
+        return directory;
+      },
+      stageCheckoutPayload: async (content = scopeUnit) => {
+        const name = samplePayloadFileName();
+        await writeFile(join(repository.productDir, name), content);
+        return name;
+      },
+      idempotencyOption: () => [flagOf(VERIFY_CLI.idempotencyKeyOption), sampleIdempotencyKey()],
+      payloadDirectory,
+      run: async (commandPath, options, input, cwd = repository.productDir) =>
+        runBuiltVerificationRun(cwd, commandPath, options, input),
+    });
+  });
 }
