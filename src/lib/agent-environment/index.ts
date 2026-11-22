@@ -6,11 +6,11 @@
  * @module lib/agent-environment
  */
 
-import { nonEmptyEnvValue, normalizeAgentSessionToken } from "@/domains/session/agent-session";
 import type { AgentModule } from "@/lib/agent-environment/agent-module";
 import { ANTIGRAVITY_AGENT } from "@/lib/agent-environment/agents/antigravity";
 import { CLAUDE_CODE_AGENT } from "@/lib/agent-environment/agents/claude-code";
 import { CODEX_AGENT } from "@/lib/agent-environment/agents/codex";
+import { nonEmptyEnvValue, normalizeAgentSessionToken } from "@/lib/agent-environment/session-token";
 import type { MethodologyCodingAgent } from "@/lib/methodology";
 
 export type { AgentModule } from "@/lib/agent-environment/agent-module";
