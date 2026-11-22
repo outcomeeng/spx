@@ -1,16 +1,30 @@
-import { join } from "node:path";
+import { existsSync, realpathSync } from "node:fs";
+import { join, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { handoffCommand } from "@/commands/session/handoff";
 import { resolveSessionConfig } from "@/commands/session/resolve-config";
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { GIT_DIR_BASENAME } from "@/lib/git/root";
+import { detectGitCommonDirProductRoot, GIT_DIR_BASENAME } from "@/lib/git/root";
 import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
-import { createScriptedGitDeps } from "@testing/harnesses/state/git-deps";
+import {
+  arbitraryBarePoolLayoutCase,
+  sampleMainCheckoutTestValue,
+} from "@testing/generators/main-checkout/main-checkout";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import { arbitraryHandoffHeader } from "@testing/generators/session/session";
+import { buildHandoffStdin } from "@testing/harnesses/session/harness";
+import { extractSessionFile } from "@testing/harnesses/session/session-store";
+import { createFailingGitDeps, createScriptedGitDeps, STATE_GIT_FAILURE_MODE } from "@testing/harnesses/state/git-deps";
+import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 describe("resolveSessionConfig", () => {
-  it("GIVEN explicit sessionsDir WHEN resolving THEN uses provided path", async () => {
+  it("GIVEN explicit sessionsDir WHEN resolving THEN uses provided path and skips git detection", async () => {
     const sessionsDir = join("/", "custom-session-root");
-    const result = await resolveSessionConfig({ sessionsDir });
+    // A git invocation through these dependencies rejects, which the resolver turns into a cwd fallback and a
+    // warning; the explicit paths with no warning therefore show that no git command ran.
+    const deps = createFailingGitDeps(STATE_GIT_FAILURE_MODE.GIT_ERROR);
+    const result = await resolveSessionConfig({ sessionsDir, deps });
 
     expect(result.config.todoDir).toBe(join(sessionsDir, DEFAULT_CONFIG.sessions.statusDirs.todo));
     expect(result.config.doingDir).toBe(join(sessionsDir, DEFAULT_CONFIG.sessions.statusDirs.doing));
@@ -69,5 +83,26 @@ describe("resolveSessionConfig", () => {
       ),
     );
     expect(result.config.todoDir).not.toContain(worktreeRoot);
+  });
+
+  it("GIVEN a worktree of a bare-repository pool WHEN handoff writes a session THEN no .spx directory appears in the worktree and the session lands under the common-dir product root", async () => {
+    // Every checkout of a pool is a linked worktree of its bare repository; the main checkout is the one the
+    // handoff gate admits, so a write there exercises the rule without a branch-state precondition.
+    const layoutCase = sampleMainCheckoutTestValue(arbitraryBarePoolLayoutCase());
+    const header = sampleGeneratedValue(arbitraryHandoffHeader());
+
+    await withWorktreeLayoutEnv(layoutCase.spec, async (layout) => {
+      const worktree = layout.worktree(layoutCase.mainCheckoutName);
+      const { output } = await handoffCommand({ content: buildHandoffStdin(header, header.goal), cwd: worktree });
+
+      expect(existsSync(join(worktree, STATE_STORE_SCOPE_PATH.SPX_DIR))).toBe(false);
+      const commonRoot = await detectGitCommonDirProductRoot(worktree);
+      const sessionsRoot = join(
+        realpathSync(commonRoot.productDir),
+        STATE_STORE_SCOPE_PATH.SPX_DIR,
+        STATE_STORE_SCOPE_PATH.SESSIONS_SCOPE,
+      );
+      expect(realpathSync(extractSessionFile(output)).startsWith(sessionsRoot + sep)).toBe(true);
+    });
   });
 });

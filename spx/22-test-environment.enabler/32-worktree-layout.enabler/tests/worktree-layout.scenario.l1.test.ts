@@ -1,6 +1,9 @@
+import { realpathSync } from "node:fs";
 import { isAbsolute } from "node:path";
 
 import { describe, expect, it } from "vitest";
+
+import { detectWorktreeProductRoot } from "@/lib/git/root";
 
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
@@ -16,8 +19,12 @@ describe("worktree layout test harness", () => {
     const missing = name.toUpperCase();
 
     await withWorktreeLayoutEnv({ bare: false, worktrees: [{ name }] }, async (env) => {
-      expect(env.worktree(name)).toBe(env.worktrees[name]);
-      expect(isAbsolute(env.worktree(name))).toBe(true);
+      const resolved = env.worktree(name);
+      expect(isAbsolute(resolved)).toBe(true);
+      // Git, not the harness's own map, decides whether the returned path is a worktree's top level.
+      const located = await detectWorktreeProductRoot(resolved);
+      expect(located.isGitRepo).toBe(true);
+      expect(realpathSync(located.productDir)).toBe(realpathSync(resolved));
       expect(() => env.worktree(missing)).toThrow();
     });
   });

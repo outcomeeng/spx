@@ -1,5 +1,5 @@
 {
-  "state": "specified",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -2026,7 +2026,22 @@
     },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "f47f509b23f2116c7491cd1cde9d3a793611ce03",
+        "read": [
+          "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/ISSUES.md",
+          "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/change-runs.md",
+          "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/tests/change-runs.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/tests/change-runs.conformance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/tests/change-runs.mapping.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/tests/change-runs.scenario.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/tests/run-comparison.mapping.l1.test.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-22_13-00-37-821-e482c515df1a"
       }
     }
   }

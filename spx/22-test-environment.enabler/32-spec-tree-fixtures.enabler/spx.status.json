@@ -327,7 +327,7 @@
       },
       "tests/spec-tree-fixtures.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
+        "commit": "f47f509b23f2116c7491cd1cde9d3a793611ce03",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
@@ -1180,7 +1180,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
+        "commit": "f47f509b23f2116c7491cd1cde9d3a793611ce03",
         "read": [
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.mapping.l1.test.ts",
@@ -2031,7 +2031,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-22_07-24-49-098-734bc08b0aaf"
+        "run": "2026-11-22_13-29-25-399-054026a1aeb3"
       }
     }
   }
