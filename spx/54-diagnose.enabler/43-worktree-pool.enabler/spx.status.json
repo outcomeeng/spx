@@ -5,7 +5,7 @@
     "test": {
       "tests/worktree-pool-snapshot.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/43-worktree-pool.enabler/tests/worktree-pool-snapshot.mapping.l1.test.ts",
@@ -37,6 +37,7 @@
           "src/domains/worktree/controlling-process.ts",
           "src/domains/worktree/occupancy-store.ts",
           "src/domains/worktree/worktree-name.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/atomic-file-write.ts",
           "src/lib/config/cwd.ts",
@@ -101,7 +102,7 @@
       },
       "tests/worktree-pool-snapshot.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/43-worktree-pool.enabler/tests/worktree-pool-snapshot.property.l1.test.ts",
@@ -133,6 +134,7 @@
           "src/domains/worktree/controlling-process.ts",
           "src/domains/worktree/occupancy-store.ts",
           "src/domains/worktree/worktree-name.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/atomic-file-write.ts",
           "src/lib/config/cwd.ts",
@@ -197,7 +199,7 @@
       },
       "tests/worktree-pool.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/43-worktree-pool.enabler/tests/worktree-pool.mapping.l1.test.ts",
@@ -229,6 +231,7 @@
           "src/domains/worktree/controlling-process.ts",
           "src/domains/worktree/occupancy-store.ts",
           "src/domains/worktree/worktree-name.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/atomic-file-write.ts",
           "src/lib/config/cwd.ts",

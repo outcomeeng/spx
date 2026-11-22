@@ -5,7 +5,7 @@
     "test": {
       "tests/markdown-validation-command.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -233,6 +233,7 @@
           "src/interfaces/hooks/cli-runner.ts",
           "src/interfaces/hooks/registry.ts",
           "src/interfaces/hooks/session-start.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
@@ -758,7 +759,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "45a463abc21e5a608944348818ecc5e66b4b5c58",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
@@ -1022,6 +1023,9 @@
           "spx/33-harness-environment.enabler/21-agent-instructions.enabler/PLAN.md",
           "spx/33-harness-environment.enabler/21-agent-instructions.enabler/agent-instructions.md",
           "spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md",
+          "spx/33-harness-environment.enabler/26-antigravity.enabler/antigravity.md",
+          "spx/33-harness-environment.enabler/26-claude-code.enabler/claude-code.md",
+          "spx/33-harness-environment.enabler/26-codex.enabler/codex.md",
           "spx/33-harness-environment.enabler/32-agent-config.enabler/21-test-harness.enabler/test-harness.md",
           "spx/33-harness-environment.enabler/32-agent-config.enabler/ISSUES.md",
           "spx/33-harness-environment.enabler/32-agent-config.enabler/PLAN.md",

@@ -327,7 +327,7 @@
       },
       "tests/spec-tree-fixtures.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
@@ -687,6 +687,9 @@
           "spx/33-harness-environment.enabler/32-agent-config.enabler/21-test-harness.enabler/tests/test-harness.scenario.l1.test.ts",
           "spx/33-harness-environment.enabler/32-agent-config.enabler/tests/agent-config.compliance.l1.test.ts",
           "spx/33-harness-environment.enabler/32-agent-config.enabler/tests/agent-config.scenario.l1.test.ts",
+          "spx/33-harness-environment.enabler/tests/agent-identification.mapping.l1.test.ts",
+          "spx/33-harness-environment.enabler/tests/agent-names.compliance.l1.test.ts",
+          "spx/33-harness-environment.enabler/tests/agent-registry.compliance.l1.test.ts",
           "spx/33-harness-environment.enabler/tests/harness-environment-descriptor.compliance.l1.test.ts",
           "spx/33-harness-environment.enabler/tests/harness-environment-descriptor.mapping.l1.test.ts",
           "spx/34-verification.enabler/21-verification-context.enabler/tests/verification-context-cli-registry.scenario.l1.test.ts",
