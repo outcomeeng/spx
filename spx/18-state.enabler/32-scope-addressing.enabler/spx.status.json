@@ -1,5 +1,5 @@
 {
-  "state": "failing",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -74,7 +74,17 @@
     },
     "audit": {
       "shared-drafts-scope": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
+        "read": [
+          "spx/18-state.enabler/32-scope-addressing.enabler/scope-addressing.md",
+          "src/lib/state-store/index.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-22_07-25-18-538-264834bc963f"
       }
     },
     "evidence": {
