@@ -5,7 +5,7 @@
     "test": {
       "tests/worktree-pool-snapshot.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/43-worktree-pool.enabler/tests/worktree-pool-snapshot.mapping.l1.test.ts",
@@ -102,7 +102,7 @@
       },
       "tests/worktree-pool-snapshot.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/43-worktree-pool.enabler/tests/worktree-pool-snapshot.property.l1.test.ts",
@@ -199,7 +199,7 @@
       },
       "tests/worktree-pool.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/43-worktree-pool.enabler/tests/worktree-pool.mapping.l1.test.ts",

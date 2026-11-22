@@ -18,7 +18,7 @@
       },
       "tests/github-cli.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -68,7 +68,7 @@
       },
       "tests/github-pr-sink.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -96,7 +96,7 @@
       },
       "tests/journal-cli-registry.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -106,8 +106,6 @@
           "src/commands/agent/index.ts",
           "src/commands/agent/resume.ts",
           "src/commands/agent/search.ts",
-          "src/commands/change/contract.ts",
-          "src/commands/change/draft.ts",
           "src/commands/compact/index.ts",
           "src/commands/compact/retrieve.ts",
           "src/commands/compact/store.ts",
@@ -117,6 +115,8 @@
           "src/commands/diagnose/index.ts",
           "src/commands/diagnose/probes.ts",
           "src/commands/diagnose/spx-reachability-probe.ts",
+          "src/commands/draft/contract.ts",
+          "src/commands/draft/draft.ts",
           "src/commands/journal/cli.ts",
           "src/commands/journal/github-pr-sink.ts",
           "src/commands/journal/runtime.ts",
@@ -288,11 +288,11 @@
           "src/interfaces/cli/agent/resume/AgentResumePicker.tsx",
           "src/interfaces/cli/agent/resume/launch-agent-resume.ts",
           "src/interfaces/cli/agent/resume/run-picker.tsx",
-          "src/interfaces/cli/change.ts",
           "src/interfaces/cli/coding-agent.ts",
           "src/interfaces/cli/compact.ts",
           "src/interfaces/cli/config.ts",
           "src/interfaces/cli/diagnose.ts",
+          "src/interfaces/cli/draft.ts",
           "src/interfaces/cli/foreground-launch.ts",
           "src/interfaces/cli/hook.ts",
           "src/interfaces/cli/invocation.ts",
@@ -483,7 +483,7 @@
       },
       "tests/journal-cli.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -528,7 +528,7 @@
       },
       "tests/journal-environment.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -634,7 +634,7 @@
       },
       "tests/journal-inspection-namespace.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -725,7 +725,7 @@
       },
       "tests/journal-inspection.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -765,7 +765,7 @@
       },
       "tests/journal-inspection.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -804,7 +804,7 @@
       },
       "tests/journal-inspection.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -896,7 +896,7 @@
       },
       "tests/journal-seal-ordering.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -931,7 +931,7 @@
       },
       "tests/journal-verbs.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -973,7 +973,7 @@
       },
       "tests/projection.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -1049,7 +1049,7 @@
       },
       "tests/run-scope.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -1089,7 +1089,7 @@
       },
       "tests/run-state-namespace.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -1180,7 +1180,7 @@
       },
       "tests/run-state.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -1256,7 +1256,7 @@
       },
       "tests/streaming.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
