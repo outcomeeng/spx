@@ -11,7 +11,7 @@ import {
   arbitraryInvalidDraftKind,
   arbitraryKindBatch,
 } from "@testing/generators/change-drafts";
-import { fixedIdDependencies, uuidFacts, withChangeDraftEnv } from "@testing/harnesses/change-drafts";
+import { fixedIdDependencies, uuidFields, withChangeDraftEnv } from "@testing/harnesses/change-drafts";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 
 describe("draft creation and listing", () => {
@@ -98,12 +98,12 @@ describe("draft creation and listing", () => {
     await assertProperty(arbitraryDistinctMilliseconds(), async (milliseconds) => {
       const ids = milliseconds.map((millisecond) => generateUuidV7(() => millisecond));
       ids.forEach((id, index) => {
-        const facts = uuidFacts(id);
-        expect(facts.lowercase).toBe(true);
-        expect(facts.hexDigits).toBe(32);
-        expect(facts.version).toBe(7);
-        expect(facts.variantBits).toBe(2);
-        expect(facts.timestampMs).toBe(milliseconds[index]);
+        const fields = uuidFields(id);
+        expect(id).toBe(id.toLowerCase());
+        expect(/^[\da-f]{32}$/u.test(fields.hex)).toBe(true);
+        expect(fields.versionNibble).toBe(7);
+        expect(fields.variantBits).toBe(2);
+        expect(fields.timestampMs).toBe(milliseconds[index]);
         if (index > 0) expect(ids[index - 1] < id).toBe(true);
       });
     }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });

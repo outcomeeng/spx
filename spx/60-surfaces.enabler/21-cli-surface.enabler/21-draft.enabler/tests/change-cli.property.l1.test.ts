@@ -12,7 +12,7 @@ import {
   arbitraryInvalidDraftKind,
   arbitraryKindBatch,
 } from "@testing/generators/change-drafts";
-import { printableCharacters, uuidFacts, withChangeDraftEnv } from "@testing/harnesses/change-drafts";
+import { codePoints, uuidFields, withChangeDraftEnv } from "@testing/harnesses/change-drafts";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 
 const { name, operations, kindOption, allOption } = DRAFT_COMMAND;
@@ -29,8 +29,8 @@ describe("draft command results", () => {
         expect(result.status, result.stderr).toBe(0);
         const draft = changeDraftDescriptorSchema.parse(JSON.parse(result.stdout));
         expect(draft.kind).toBe(kind);
-        expect(uuidFacts(draft.draftId).lowercase).toBe(true);
-        expect(uuidFacts(draft.draftId).version).toBe(7);
+        expect(draft.draftId).toBe(draft.draftId.toLowerCase());
+        expect(uuidFields(draft.draftId).versionNibble).toBe(7);
         expect(await env.read(draft)).toHaveLength(0);
         expect(await env.store.list()).toEqual([draft]);
       });
@@ -122,7 +122,10 @@ describe("draft command results", () => {
         const created = await env.runCli([name, operations.create, kindOption, kind]);
         expect(JSON.parse(created.stdout).kind).toBe(kind);
         const rejected = await env.runCli([name, operations.create, kindOption, invalid]);
-        expect(printableCharacters(rejected.stderr).every(Boolean)).toBe(true);
+        const unprintable = codePoints(rejected.stderr).filter((code) =>
+          code !== 0x0a && (code < 0x20 || code === 0x7f)
+        );
+        expect(unprintable).toEqual([]);
       });
     }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });
   });

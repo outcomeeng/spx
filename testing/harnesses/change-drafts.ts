@@ -291,32 +291,27 @@ export function failingDraftCloseDependencies(env: ChangeDraftEnv): ChangeDraftD
   };
 }
 
-/** The facts a UUID string carries; the executed test judges them. */
-export interface UuidFacts {
-  readonly lowercase: boolean;
-  readonly hexDigits: number;
-  readonly version: number;
+/** The fields a UUID string carries, read by position; the executed test judges them. */
+export interface UuidFields {
+  readonly hex: string;
+  readonly versionNibble: number;
   readonly variantBits: number;
   readonly timestampMs: number;
 }
 
 const UUID_LAYOUT = { timestampDigits: 12, versionDigit: 12, variantDigit: 16, variantShift: 2, radix: 16 } as const;
 
-export function uuidFacts(id: string): UuidFacts {
+export function uuidFields(id: string): UuidFields {
   const hex = id.replaceAll("-", "");
   return {
-    lowercase: id === id.toLowerCase(),
-    hexDigits: [...hex].filter((digit) => Number.isInteger(Number.parseInt(digit, UUID_LAYOUT.radix))).length,
-    version: Number.parseInt(hex[UUID_LAYOUT.versionDigit] ?? "", UUID_LAYOUT.radix),
+    hex,
+    versionNibble: Number.parseInt(hex[UUID_LAYOUT.versionDigit] ?? "", UUID_LAYOUT.radix),
     variantBits: Number.parseInt(hex[UUID_LAYOUT.variantDigit] ?? "", UUID_LAYOUT.radix) >> UUID_LAYOUT.variantShift,
     timestampMs: Number.parseInt(hex.slice(0, UUID_LAYOUT.timestampDigits), UUID_LAYOUT.radix),
   };
 }
 
-/** Whether every character of a diagnostic is printable or a line break. */
-export function printableCharacters(text: string): boolean[] {
-  return [...text].map((character) => {
-    const code = character.codePointAt(0) ?? 0;
-    return character === "\n" || (code >= 0x20 && code !== 0x7f);
-  });
+/** The code point of each character of a text, in order. */
+export function codePoints(text: string): number[] {
+  return [...text].map((character) => character.codePointAt(0) ?? 0);
 }
