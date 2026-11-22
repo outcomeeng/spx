@@ -15,7 +15,7 @@ CAN address shared branch-scoped, per-worktree, shared change, shared draft, sha
 
 ### Test.Scenario: drafts scope
 
-- drafts-scope-shared:
+- [drafts-scope-shared](tests/scope-addressing.scenario.l1.test.ts):
   - Given a Git repository with its main worktree and one linked worktree
   - When the drafts scope is resolved once from the main worktree and once from the linked worktree
   - Then both resolutions return the same one directory, `.spx/drafts` under the Git common-dir product root, and neither returns a directory under a worktree's `.spx/worktree/`

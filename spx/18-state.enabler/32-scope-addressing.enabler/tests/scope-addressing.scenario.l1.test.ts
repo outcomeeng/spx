@@ -6,6 +6,7 @@ import {
   composeScopeDir,
   resolveBranchScopeDir,
   resolveChangesScopeDir,
+  resolveDraftsScopeDir,
   resolveSessionsScopeDir,
   resolveWorktreeScopeDir,
   resolveWorktreesScopeDir,
@@ -105,6 +106,26 @@ describe("scope addressing", () => {
       STATE_STORE_SCOPE_PATH.WORKTREES_SCOPE,
     ));
     expect(nonMain.worktreesDir).toBe(mainCheckout.worktreesDir);
+  });
+
+  it("drafts-scope-shared: resolves drafts scope to one shared Git common-dir directory from main and linked worktrees", async () => {
+    const mainCheckout = await resolveDraftsScopeDir({
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT }),
+    });
+    const linked = await resolveDraftsScopeDir({
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.NON_MAIN }),
+    });
+
+    expect(mainCheckout).toBe(join(
+      SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.DRAFTS_SCOPE,
+    ));
+    expect(linked).toBe(mainCheckout);
+    for (const toplevel of [SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL, SESSION_GIT_DEPS_PATHS.NON_MAIN_TOPLEVEL]) {
+      const worktreeScope = join(toplevel, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE);
+      expect(linked.startsWith(worktreeScope)).toBe(false);
+    }
   });
 
   it("composes a session token inside the broader scope before the domain directory", () => {
