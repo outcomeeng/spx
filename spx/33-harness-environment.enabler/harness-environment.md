@@ -16,11 +16,11 @@ CAN run with explicitly enabled and available coding agents, identify the invoki
 
 ## Test.Compliance: agent registry
 
-- registry-lists-agents: ALWAYS: the agent registry module lists every agent module, and each agent module declares its agent id, exactly one identity variable, its compact-stdout default, and at most one methodology bundle.
-- one-default-bundle: ALWAYS: exactly one registered agent module marks its methodology bundle as the default methodology bundle, and methodology selection uses it when two or more registered identity variables are non-empty.
-- agent-names-in-registry-only: NEVER: a file under `src/` outside the agent registry module, its agent modules, and the files the rule's transitional allowlist names holds a string literal exactly equal to a registered agent id or to a variable name an agent module declares; comments, the module specifier of an import declaration, and files under `src/lib/methodology/` are out of scope, and the rule's test rejects each violating fixture.
+- [registry-lists-agents](tests/agent-registry.compliance.l1.test.ts): ALWAYS: the agent registry module lists every agent module, and each agent module declares its agent id, exactly one identity variable, its compact-stdout default, and at most one methodology bundle.
+- [one-default-bundle](tests/agent-registry.compliance.l1.test.ts): ALWAYS: exactly one registered agent module marks its methodology bundle as the default methodology bundle, and methodology selection uses it when two or more registered identity variables are non-empty.
+- [agent-names-in-registry-only](tests/agent-names.compliance.l1.test.ts): NEVER: a file under `src/` outside the agent registry module, its agent modules, and the files the rule's transitional allowlist names holds a string literal exactly equal to a registered agent id or to a variable name an agent module declares; comments, the module specifier of an import declaration, and files under `src/lib/methodology/` are out of scope, and the rule's test rejects each violating fixture.
 
-## Test.Mapping: agent-identification
+## Test.Mapping: [agent-identification](tests/agent-identification.mapping.l1.test.ts)
 
 Every subset of the registered identity variables, generated from the agent registry module, with its members non-empty and every other registered identity variable empty, whitespace-only, or absent, maps through the registry's resolver to the identified agent and session by the subset's size and membership alone; no variable takes precedence over another.
 
