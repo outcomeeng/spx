@@ -5,7 +5,7 @@
     "test": {
       "tests/write-paths.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "455a5426dd6724890b4a26c835ef02468428cdb4",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.compliance.l1.test.ts",
@@ -407,7 +407,7 @@
       },
       "tests/write-paths.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "455a5426dd6724890b4a26c835ef02468428cdb4",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.mapping.l1.test.ts",
@@ -807,6 +807,11 @@
           "testing/harnesses/verify/repository.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
+      }
+    },
+    "audit": {
+      "payload-working-input": {
+        "verdict": "not-run"
       }
     },
     "evidence": {

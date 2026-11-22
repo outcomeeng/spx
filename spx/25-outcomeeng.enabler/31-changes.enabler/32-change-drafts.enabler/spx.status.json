@@ -5,7 +5,7 @@
     "test": {
       "tests/drafts.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "455a5426dd6724890b4a26c835ef02468428cdb4",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/change-drafts.md",
@@ -392,7 +392,7 @@
       },
       "tests/drafts.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "455a5426dd6724890b4a26c835ef02468428cdb4",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/change-drafts.md",
@@ -776,6 +776,38 @@
           "testing/harnesses/property/property.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
+      }
+    },
+    "audit": {
+      "draft-addressing": {
+        "verdict": "not-run"
+      },
+      "draft-test-infrastructure": {
+        "verdict": "not-run"
+      },
+      "injected-effects": {
+        "verdict": "not-run"
+      },
+      "module-layout": {
+        "verdict": "not-run"
+      },
+      "no-backend-identity": {
+        "verdict": "not-run"
+      },
+      "no-implicit-removal": {
+        "verdict": "not-run"
+      },
+      "real-storage-in-tests": {
+        "verdict": "not-run"
+      },
+      "single-declaration": {
+        "verdict": "not-run"
+      },
+      "stateless-identifier-generator": {
+        "verdict": "not-run"
+      },
+      "storage-private": {
+        "verdict": "not-run"
       }
     },
     "evidence": {

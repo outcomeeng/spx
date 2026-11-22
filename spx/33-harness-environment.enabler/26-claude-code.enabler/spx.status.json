@@ -1,5 +1,38 @@
 {
   "state": "declared",
   "malleability": "implementation",
-  "verification": {}
+  "verification": {
+    "audit": {
+      "agent-home": {
+        "verdict": "not-run"
+      },
+      "compact-stdout-default": {
+        "verdict": "not-run"
+      },
+      "identity-variable": {
+        "verdict": "not-run"
+      },
+      "marketplace-listing": {
+        "verdict": "not-run"
+      },
+      "methodology-bundle": {
+        "verdict": "not-run"
+      },
+      "plugin-listing": {
+        "verdict": "not-run"
+      },
+      "process-name": {
+        "verdict": "not-run"
+      },
+      "session-id": {
+        "verdict": "not-run"
+      },
+      "session-store": {
+        "verdict": "not-run"
+      },
+      "transcript-records": {
+        "verdict": "not-run"
+      }
+    }
+  }
 }

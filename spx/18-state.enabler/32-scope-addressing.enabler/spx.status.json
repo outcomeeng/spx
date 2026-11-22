@@ -1,5 +1,5 @@
 {
-  "state": "passing",
+  "state": "failing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -70,6 +70,11 @@
           "src/test/languages/read-recorder.ts",
           "testing/generators/state-store/state-store.ts"
         ]
+      }
+    },
+    "audit": {
+      "shared-drafts-scope": {
+        "verdict": "not-run"
       }
     },
     "evidence": {

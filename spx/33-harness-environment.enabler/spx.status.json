@@ -104,7 +104,7 @@
       },
       "tests/agent-names.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "455a5426dd6724890b4a26c835ef02468428cdb4",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -639,7 +639,7 @@
       },
       "tests/harness-environment-descriptor.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "455a5426dd6724890b4a26c835ef02468428cdb4",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -750,7 +750,7 @@
       },
       "tests/harness-environment-descriptor.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "455a5426dd6724890b4a26c835ef02468428cdb4",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -857,6 +857,26 @@
           "testing/harnesses/spec-tree/spec-tree.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
+      }
+    },
+    "audit": {
+      "coding-agent-inputs": {
+        "verdict": "not-run"
+      },
+      "deterministic-reconciliation": {
+        "verdict": "not-run"
+      },
+      "isolated-verification-state": {
+        "verdict": "not-run"
+      },
+      "no-agent-named": {
+        "verdict": "not-run"
+      },
+      "offline-core-reconciliation": {
+        "verdict": "not-run"
+      },
+      "parent-descriptor-effects": {
+        "verdict": "not-run"
       }
     },
     "evidence": {
