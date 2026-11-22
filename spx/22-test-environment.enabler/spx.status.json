@@ -5,7 +5,7 @@
     "test": {
       "tests/env-generators.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -113,7 +113,7 @@
       },
       "tests/generators.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -222,7 +222,7 @@
       },
       "tests/helpers.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -329,7 +329,7 @@
       },
       "tests/isolation.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -437,7 +437,7 @@
       },
       "tests/lifecycle.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -545,7 +545,7 @@
       },
       "tests/lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -652,7 +652,7 @@
       },
       "tests/nesting.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -758,7 +758,7 @@
       },
       "tests/safety.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -977,7 +977,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
         "read": [
           "spx/22-test-environment.enabler/test-environment.md",
           "spx/22-test-environment.enabler/tests/env-generators.property.l1.test.ts",
@@ -1112,7 +1112,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-22_05-05-29-270-57aef0c03cfd"
+        "run": "2026-11-22_07-24-46-673-fee093b9446b"
       }
     }
   }

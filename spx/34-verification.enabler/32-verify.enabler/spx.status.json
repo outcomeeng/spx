@@ -5,7 +5,7 @@
     "test": {
       "tests/write-paths.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.compliance.l1.test.ts",
@@ -407,7 +407,7 @@
       },
       "tests/write-paths.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.mapping.l1.test.ts",
@@ -809,10 +809,25 @@
         ]
       }
     },
+    "audit": {
+      "payload-working-input": {
+        "verdict": "passed",
+        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
+        "read": [
+          ".gitignore",
+          "spx/34-verification.enabler/32-verify.enabler/verify.md"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-22_07-25-35-818-bf685f4971c2"
+      }
+    },
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.mapping.l1.test.ts",
@@ -1216,7 +1231,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-22_05-05-02-513-331a9628f5de"
+        "run": "2026-11-22_07-25-01-346-1213ee1348be"
       }
     }
   }

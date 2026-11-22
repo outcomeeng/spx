@@ -1,0 +1,16 @@
+# Fixture
+
+PROVIDES fixture infrastructure
+SO THAT node-status tests
+CAN fold Assertion audit results into a claim
+
+## Assertions
+
+### Scenarios
+
+- Given a first input, when it is processed, then the first output is produced ([test](tests/first.scenario.l1.test.ts))
+
+## Audit: lifecycle
+
+- no-implicit-removal: NEVER: a draft is removed without an explicit deletion.
+- real-storage-in-tests: ALWAYS: the tests use real temporary repositories and files.

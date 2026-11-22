@@ -1,5 +1,35 @@
 {
   "state": "declared",
   "malleability": "implementation",
-  "verification": {}
+  "verification": {
+    "audit": {
+      "compact-stdout-default": {
+        "verdict": "not-run"
+      },
+      "identity-variable": {
+        "verdict": "not-run"
+      },
+      "no-installs": {
+        "verdict": "not-run"
+      },
+      "no-methodology-bundle": {
+        "verdict": "not-run"
+      },
+      "no-session-store": {
+        "verdict": "not-run"
+      },
+      "plugin-listing": {
+        "verdict": "not-run"
+      },
+      "process-name": {
+        "verdict": "not-run"
+      },
+      "session-id": {
+        "verdict": "not-run"
+      },
+      "user-scope-only": {
+        "verdict": "not-run"
+      }
+    }
+  }
 }

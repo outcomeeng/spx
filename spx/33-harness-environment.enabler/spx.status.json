@@ -104,7 +104,7 @@
       },
       "tests/agent-names.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -639,7 +639,7 @@
       },
       "tests/harness-environment-descriptor.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -750,7 +750,7 @@
       },
       "tests/harness-environment-descriptor.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -859,10 +859,103 @@
         ]
       }
     },
+    "audit": {
+      "coding-agent-inputs": {
+        "verdict": "passed",
+        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
+        "read": [
+          "spx/33-harness-environment.enabler/harness-environment.md",
+          "src/domains/agent-environment/config.ts",
+          "src/domains/agent-environment/runtime-config.ts",
+          "src/lib/harness-environment-section.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-22_07-25-50-150-b9a288653096"
+      },
+      "deterministic-reconciliation": {
+        "verdict": "passed",
+        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
+        "read": [
+          "spx/33-harness-environment.enabler/harness-environment.md",
+          "src/domains/agent-environment/config.ts",
+          "src/domains/agent-environment/runtime-config.ts",
+          "src/lib/harness-environment-section.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-22_07-25-50-150-b9a288653096"
+      },
+      "isolated-verification-state": {
+        "verdict": "passed",
+        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
+        "read": [
+          "spx/33-harness-environment.enabler/harness-environment.md",
+          "src/domains/agent-environment/config.ts",
+          "src/domains/agent-environment/runtime-config.ts",
+          "src/lib/harness-environment-section.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-22_07-25-50-150-b9a288653096"
+      },
+      "no-agent-named": {
+        "verdict": "passed",
+        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
+        "read": [
+          "spx/33-harness-environment.enabler/harness-environment.md",
+          "src/lib/agent-environment/agents/antigravity.ts",
+          "src/lib/agent-environment/agents/claude-code.ts",
+          "src/lib/agent-environment/agents/codex.ts",
+          "src/lib/agent-environment/index.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-22_07-33-54-359-080c48d38925"
+      },
+      "offline-core-reconciliation": {
+        "verdict": "passed",
+        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
+        "read": [
+          "spx/33-harness-environment.enabler/harness-environment.md",
+          "src/domains/agent-environment/config.ts",
+          "src/domains/agent-environment/runtime-config.ts",
+          "src/lib/harness-environment-section.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-22_07-25-50-150-b9a288653096"
+      },
+      "parent-descriptor-effects": {
+        "verdict": "passed",
+        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
+        "read": [
+          "spx/33-harness-environment.enabler/harness-environment.md",
+          "src/domains/agent-environment/config.ts",
+          "src/domains/agent-environment/runtime-config.ts",
+          "src/lib/harness-environment-section.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-22_07-25-50-150-b9a288653096"
+      }
+    },
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
         "read": [
           "spx/33-harness-environment.enabler/harness-environment.md",
           "spx/33-harness-environment.enabler/tests/agent-identification.mapping.l1.test.ts",
@@ -1314,7 +1407,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-22_05-05-46-814-37a388f7986f"
+        "run": "2026-11-22_07-24-58-849-39b68f50131e"
       }
     }
   }

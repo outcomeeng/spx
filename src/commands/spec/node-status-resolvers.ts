@@ -5,12 +5,17 @@ import { JOURNAL_RUN_SEALED_FILTER } from "@/domains/journal/run-scope";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { buildEvidenceResults, foldEvidenceVerdict } from "@/domains/test";
 import {
+  assertionAuditEntries,
+  type AssertionAuditEntry,
   AUDIT_CLAIM_ENTRY_SECTION,
   auditClaimEntries,
+  type AuditClaimEntry,
   CLAIM_EVIDENCE_KIND,
   type ClaimEvidenceKind,
+  scopeJudgedPathsByUnitOf,
 } from "@/domains/verify/audit-claim-entry";
 import {
+  AUDIT_PAYLOAD_FIELD,
   headCommitOf,
   projectVerifyRun,
   runJudgedPathsOf,
@@ -18,7 +23,9 @@ import {
   validateTestScope,
   VERIFY_APPEND_EVENT_FIELD,
   VERIFY_APPEND_EVENT_TYPE,
+  VERIFY_FINDING_DISPOSITION,
   VERIFY_VERIFICATION_TYPE,
+  type VerifyRunProjection,
   type VerifyVerificationType,
 } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
@@ -167,7 +174,7 @@ export function createNodeStatusResolvers(deps: NodeStatusResolverDependencies):
       return readPaths.filter((_, index) => admitted[index]);
     },
     resolveAttributedResults: async (nodeId, request) =>
-      evidenceResults(
+      attributedResults(
         await sealedRuns(VERIFY_VERIFICATION_TYPE.AUDIT),
         pinChanges,
         nodeId,
@@ -318,11 +325,25 @@ function subjectInNode(subject: string, nodeId: string): boolean {
   return subject === nodePath || subject.startsWith(`${nodePath}${PATH_SEPARATOR}`);
 }
 
+/** The ids of the audit scope units a blocking finding of the run names. */
+function blockingUnitIdsOf(projection: VerifyRunProjection): ReadonlySet<string> {
+  const unitIds = new Set<string>();
+  for (const finding of projection.findings[VERIFY_FINDING_DISPOSITION.BLOCKING]) {
+    if (!isJsonRecord(finding.payload)) continue;
+    const unitId = finding.payload[AUDIT_PAYLOAD_FIELD.UNIT_ID];
+    if (typeof unitId === "string") unitIds.add(unitId);
+  }
+  return unitIds;
+}
+
 /**
- * The `evidence` results the node's requested kinds take from the newest sealed audit run that yields each. A
- * unit backs the node only when its subject lies in the node's directory and in no descendant node's directory.
+ * The `audit` and `evidence` results the node's request takes from sealed audit runs, newest first. A unit backs
+ * the node only when its subject lies in the node's directory and in no descendant node's directory. Each
+ * requested evidence kind takes the newest run that yields it with a current pin; each requested Audit rule slug
+ * takes the newest run whose `assertion:<slug>:<spec>` unit yields it with a current pin, and a unit that records
+ * no judged path yields `not-run` with no pin.
  */
-async function evidenceResults(
+async function attributedResults(
   runs: readonly SealedRun[],
   pinChanges: PinChangeReader,
   nodeId: string,
@@ -333,27 +354,76 @@ async function evidenceResults(
   const linkedEvidenceKinds = request.evidenceKinds.filter((kind): kind is ClaimEvidenceKind =>
     LINKED_EVIDENCE_KINDS.has(kind)
   );
-  const results: Record<string, NodeAttributedResult> = {};
+  const requestedSlugs = new Set(request.auditRuleSlugs);
+  const evidence: Record<string, NodeAttributedResult> = {};
+  const audit: Record<string, NodeAttributedResult> = {};
+  // A unit that judged no path proves nothing a pin holds: it stands only when no run yields its slug with a pin.
+  const unpinned: Record<string, NodeAttributedResult> = {};
+  const fold: RunFoldContext = { pinChanges, lockfileNames };
   for (const run of runs) {
     const projection = projectVerifyRun(run.events);
-    const entries = auditClaimEntries(
-      {
-        runId: run.runToken,
-        sealed: projection.sealed,
-        auditScopeUnits: projection.auditScopeUnits.filter((unit) =>
-          subjectInNode(unit.subject, nodeId) && !descendantIds.some((id) => subjectInNode(unit.subject, id))
-        ),
-        ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),
-        ...(projection.verifier === undefined ? {} : { verifier: projection.verifier }),
-      },
+    const runFacts = {
+      runId: run.runToken,
+      sealed: projection.sealed,
+      auditScopeUnits: projection.auditScopeUnits.filter((unit) =>
+        subjectInNode(unit.subject, nodeId) && !descendantIds.some((id) => subjectInNode(unit.subject, id))
+      ),
+      ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),
+      ...(projection.verifier === undefined ? {} : { verifier: projection.verifier }),
+    };
+    const evidenceEntries = auditClaimEntries(
+      runFacts,
       { malleability: NODE_STATUS_MALLEABILITY.IMPLEMENTATION, linkedEvidenceKinds },
-    ).filter((entry) => entry.section === AUDIT_CLAIM_ENTRY_SECTION.EVIDENCE && !(entry.key in results));
-    if (entries.length === 0) continue;
-    const read = withoutLockfile(runJudgedPathsOf(run.events), lockfileNames);
-    if (!(await unchangedSince(pinChanges, run.headCommit, read))) continue;
-    for (const entry of entries) {
-      results[entry.key] = { verdict: entry.verdict, read, actor: entry.actor, run: entry.run };
+    ).filter((entry) => entry.section === AUDIT_CLAIM_ENTRY_SECTION.EVIDENCE && !(entry.key in evidence));
+    Object.assign(evidence, await foldEvidenceEntries(fold, run, evidenceEntries));
+    const assertionEntries = assertionAuditEntries({
+      ...runFacts,
+      blockingUnitIds: blockingUnitIdsOf(projection),
+      judgedPathsByUnit: scopeJudgedPathsByUnitOf(run.events),
+    }).filter((entry) => requestedSlugs.has(entry.slug) && !(entry.slug in audit));
+    for (const entry of assertionEntries.filter((candidate) => candidate.judgedPaths.length === 0)) {
+      unpinned[entry.slug] ??= { verdict: entry.verdict, read: [], actor: entry.actor, run: entry.run };
     }
+    Object.assign(
+      audit,
+      await foldAssertionEntries(fold, run, assertionEntries.filter((entry) => entry.judgedPaths.length > 0)),
+    );
   }
-  return { evidence: results };
+  for (const [slug, result] of Object.entries(unpinned)) audit[slug] ??= result;
+  return { audit, evidence };
+}
+
+/** What folding one run's entries reads besides the run: the pin-change reader and the lockfile names a pin drops. */
+interface RunFoldContext {
+  readonly pinChanges: PinChangeReader;
+  readonly lockfileNames: readonly string[];
+}
+
+/** The `evidence` results a run's entries take, all pinned to the run's judged paths, or none when that pin is stale. */
+async function foldEvidenceEntries(
+  fold: RunFoldContext,
+  run: SealedRun,
+  entries: readonly AuditClaimEntry[],
+): Promise<Readonly<Record<string, NodeAttributedResult>>> {
+  if (entries.length === 0) return {};
+  const read = withoutLockfile(runJudgedPathsOf(run.events), fold.lockfileNames);
+  if (!(await unchangedSince(fold.pinChanges, run.headCommit, read))) return {};
+  return Object.fromEntries(
+    entries.map((entry) => [entry.key, { verdict: entry.verdict, read, actor: entry.actor, run: entry.run }]),
+  );
+}
+
+/** The `audit` results a run's judged Assertion entries take: each pinned to its spec and its unit's judged paths, none from a unit whose pin is stale. */
+async function foldAssertionEntries(
+  fold: RunFoldContext,
+  run: SealedRun,
+  entries: readonly AssertionAuditEntry[],
+): Promise<Readonly<Record<string, NodeAttributedResult>>> {
+  const results: Record<string, NodeAttributedResult> = {};
+  for (const entry of entries) {
+    const read = withoutLockfile([entry.specPath, ...entry.judgedPaths], fold.lockfileNames);
+    if (!(await unchangedSince(fold.pinChanges, run.headCommit, read))) continue;
+    results[entry.slug] = { verdict: entry.verdict, read, actor: entry.actor, run: entry.run };
+  }
+  return results;
 }

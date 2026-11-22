@@ -5,7 +5,7 @@
     "test": {
       "tests/verify-drive-mode.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -404,7 +404,7 @@
       },
       "tests/verify-finding.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -803,7 +803,7 @@
       },
       "tests/verify-idempotency.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -1202,7 +1202,7 @@
       },
       "tests/verify-judged-deletions.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -1604,7 +1604,7 @@
       },
       "tests/verify-judged-paths.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -2006,7 +2006,7 @@
       },
       "tests/verify-payload.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -2405,7 +2405,7 @@
       },
       "tests/verify-run-payload.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -2808,7 +2808,7 @@
       },
       "tests/verify-terminal-rejection.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
@@ -3206,10 +3206,27 @@
         ]
       }
     },
+    "audit": {
+      "payload-directory-addressing": {
+        "verdict": "passed",
+        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
+        "read": [
+          "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/verify.ts",
+          "src/lib/state-store/index.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-22_07-25-42-996-38ee6b9453b7"
+      }
+    },
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-drive-mode.compliance.l1.test.ts",
@@ -3620,7 +3637,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-22_05-05-10-354-ec7e16b15a24"
+        "run": "2026-11-22_07-25-06-347-2aa297b5c03e"
       }
     }
   }

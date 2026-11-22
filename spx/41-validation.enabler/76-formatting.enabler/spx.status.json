@@ -5,7 +5,7 @@
     "test": {
       "tests/formatting.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "dprint.jsonc",
           "pnpm-lock.yaml",
@@ -403,7 +403,7 @@
       },
       "tests/formatting.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "dprint.jsonc",
           "pnpm-lock.yaml",
@@ -801,7 +801,7 @@
       },
       "tests/formatting.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/76-formatting.enabler/formatting.md",
@@ -1198,7 +1198,7 @@
       },
       "tests/formatting.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "dprint.jsonc",
           "pnpm-lock.yaml",

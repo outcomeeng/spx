@@ -29,6 +29,26 @@ For a language whose dependencies a lockfile resolves, `spx spec status --update
 | audit-entry    | an `audit` entry from a sealed audit run      | none                        | current                                                  |
 | evidence-entry | an `evidence` entry from a sealed audit run   | none                        | current                                                  |
 
+### Test.Mapping: [assertion-audit-fold](tests/assertion-audit-fold.mapping.l1.test.ts)
+
+`spx spec status --update` folds each `assertion:<slug>:<spec>` unit of a sealed audit run into its own `audit` entry under the unit's slug, by what the run records for that unit, whatever the run's terminal status.
+
+| Case                    | What the run records for the unit                      | Entry under the unit's slug                                                                       |
+| ----------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| approved-run            | no blocking finding, judged paths, run sealed approved | `passed`, with the run's actor and run, pinned to the run's commit, the spec and the judged paths |
+| rejected-run-clean-unit | no blocking finding, judged paths, run sealed rejected | `passed`, with the run's actor and run, pinned to the run's commit, the spec and the judged paths |
+| finding-on-unit         | a blocking finding on the unit, judged paths           | `failed`, with the run's actor and run, pinned to the run's commit, the spec and the judged paths |
+| no-judged-paths         | no judged paths                                        | `not-run`, with no pin                                                                            |
+| newer-run-same-slug     | a newer sealed run, its pin current, has the slug      | the newer run's unit folds, and the older run's unit folds nowhere                                |
+| stale-pin               | judged paths that changed since the run's commit       | no entry from that run                                                                            |
+
+### Test.Scenario: one rejected run over two rows
+
+- [rejected-run-folds-per-row](tests/assertion-audit-fold.scenario.l1.test.ts):
+  - Given the node `spx/20-drafts.enabler` with the Audit rows `no-implicit-removal` and `real-storage-in-tests`, and the audit run `2026-01-02_03-04-05-006-0123456789ab` sealed rejected at commit `1111111111111111111111111111111111111111`, with one blocking finding on unit `assertion:real-storage-in-tests:spx/20-drafts.enabler/drafts.md`, none on unit `assertion:no-implicit-removal:spx/20-drafts.enabler/drafts.md`, and the judged path `src/lib/drafts.ts` on each unit
+  - When `spx spec status --update` folds recorded evidence for the node
+  - Then the node's 4.0 claim holds exactly two `audit` entries: `no-implicit-removal` reads `passed` and `real-storage-in-tests` reads `failed`, each with the run's actor and run token, and each pinned to commit `1111111111111111111111111111111111111111`, `spx/20-drafts.enabler/drafts.md` and `src/lib/drafts.ts`
+
 ### Mappings
 
 - Classification of a 4.0 claim resolves `passing` when every required result is current and passed, otherwise `failing` when the claim's Git history records `passing` at or after the latest change to the node's spec or a governing decision record, otherwise `declared` when a required artifact is missing, and `specified` otherwise; classification of a version-1 claim resolves each node to one lifecycle state in precedence order: a node with no linked verification references resolves to `declared`; otherwise a node listed in `spx/EXCLUDE` resolves to `specified`; otherwise a node whose committed verification outcomes all pass resolves to `passing`; otherwise the node resolves to `failing` ([test](tests/node-status.mapping.l1.test.ts))

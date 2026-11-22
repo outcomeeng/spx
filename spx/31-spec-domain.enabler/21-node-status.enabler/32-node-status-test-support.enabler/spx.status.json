@@ -5,7 +5,7 @@
     "test": {
       "tests/node-status-test-support.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/32-node-status-test-support.enabler/node-status-test-support.md",
@@ -180,7 +180,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
         "read": [
           "spx/31-spec-domain.enabler/21-node-status.enabler/32-node-status-test-support.enabler/node-status-test-support.md",
           "spx/31-spec-domain.enabler/21-node-status.enabler/32-node-status-test-support.enabler/tests/node-status-test-support.property.l1.test.ts",
@@ -353,7 +353,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-22_05-05-43-647-9a63379486ae"
+        "run": "2026-11-22_07-24-53-952-ea08e908a644"
       }
     }
   }
