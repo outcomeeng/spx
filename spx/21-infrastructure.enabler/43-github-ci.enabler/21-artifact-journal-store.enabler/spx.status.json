@@ -5,7 +5,7 @@
     "test": {
       "tests/artifact-journal-store.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "49b0e105dcbe7ca22da550902cdb21ce65376644",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler/artifact-journal-store.md",
@@ -33,7 +33,7 @@
       },
       "tests/artifact-journal-store.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "49b0e105dcbe7ca22da550902cdb21ce65376644",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler/artifact-journal-store.md",
@@ -61,7 +61,7 @@
       },
       "tests/artifact-journal-store.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "49b0e105dcbe7ca22da550902cdb21ce65376644",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler/artifact-journal-store.md",
