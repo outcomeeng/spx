@@ -24,7 +24,7 @@ Read the Product Tree by methodology's Walk. Never invoke `product-tree:understa
 - In a tree migrating from 3.2, a 3.x kind such as `.enabler` counts as an output Node.
 - In a repository without a Product Tree, a Change heads each Declarations subsection by its path from the repository root, may create, delete, move or replace any file, and labels its diff lines in place of slugs. The Operator's review before Sliced binds every line.
 - spx writes no Audit File, so CI keeps each Audit entry without one on its pin.
-- Write each eval and run none. Each Review judges every case of each eval the Changeset writes or reaches.
+- Run no eval. Wherever a Node records eval evidence, or a row's verification type is Evaluate, the Advisor audits that row in place of the run: it judges each case of the eval against the producer's output, seals the verdict with `spx verification run` as for every Audit, and returns the run token. Write each eval as methodology states. A claim a Decision Record gives eval evidence stands on that audit, and no one reports a missing eval run as a finding.
 
 ## Asking
 
