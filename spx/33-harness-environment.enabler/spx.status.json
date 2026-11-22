@@ -5,7 +5,7 @@
     "test": {
       "tests/agent-identification.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -104,7 +104,7 @@
       },
       "tests/agent-names.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -538,7 +538,7 @@
       },
       "tests/agent-registry.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -639,7 +639,7 @@
       },
       "tests/harness-environment-descriptor.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45a463abc21e5a608944348818ecc5e66b4b5c58",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -750,7 +750,7 @@
       },
       "tests/harness-environment-descriptor.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45a463abc21e5a608944348818ecc5e66b4b5c58",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -862,7 +862,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "84cca75035ea19124f0fed353c09d60da623b197",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "spx/33-harness-environment.enabler/harness-environment.md",
           "spx/33-harness-environment.enabler/tests/agent-identification.mapping.l1.test.ts",
@@ -1314,7 +1314,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-22_02-26-39-847-2f209f006e80"
+        "run": "2026-11-22_03-53-47-829-02b13a8ff970"
       }
     }
   }

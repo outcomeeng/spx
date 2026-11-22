@@ -5,7 +5,7 @@
     "test": {
       "tests/defaults.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/21-config-cli.enabler/config-cli.md",
@@ -402,7 +402,7 @@
       },
       "tests/determinism.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/21-config-cli.enabler/config-cli.md",
@@ -800,7 +800,7 @@
       },
       "tests/invariants.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/21-config-cli.enabler/config-cli.md",
@@ -1272,7 +1272,7 @@
       },
       "tests/show.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/21-config-cli.enabler/config-cli.md",
@@ -1669,7 +1669,7 @@
       },
       "tests/validate.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/21-config-cli.enabler/config-cli.md",

@@ -5,7 +5,7 @@
     "test": {
       "tests/run-compare-arguments.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "49b0e105dcbe7ca22da550902cdb21ce65376644",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare-arguments.compliance.l1.test.ts",
@@ -235,6 +235,7 @@
           "src/interfaces/hooks/cli-runner.ts",
           "src/interfaces/hooks/registry.ts",
           "src/interfaces/hooks/session-start.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
@@ -403,7 +404,7 @@
       },
       "tests/run-compare-lookup.conformance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "49b0e105dcbe7ca22da550902cdb21ce65376644",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare-lookup.conformance.l2.test.ts",
@@ -633,6 +634,7 @@
           "src/interfaces/hooks/cli-runner.ts",
           "src/interfaces/hooks/registry.ts",
           "src/interfaces/hooks/session-start.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
@@ -809,7 +811,7 @@
       },
       "tests/run-compare.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "49b0e105dcbe7ca22da550902cdb21ce65376644",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare.compliance.l2.test.ts",
@@ -1039,6 +1041,7 @@
           "src/interfaces/hooks/cli-runner.ts",
           "src/interfaces/hooks/registry.ts",
           "src/interfaces/hooks/session-start.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
@@ -1215,7 +1218,7 @@
       },
       "tests/run-compare.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "49b0e105dcbe7ca22da550902cdb21ce65376644",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare.scenario.l2.test.ts",
@@ -1445,6 +1448,7 @@
           "src/interfaces/hooks/cli-runner.ts",
           "src/interfaces/hooks/registry.ts",
           "src/interfaces/hooks/session-start.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
@@ -1621,7 +1625,7 @@
       },
       "tests/run-list.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "49b0e105dcbe7ca22da550902cdb21ce65376644",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-list.compliance.l2.test.ts",
@@ -1851,6 +1855,7 @@
           "src/interfaces/hooks/cli-runner.ts",
           "src/interfaces/hooks/registry.ts",
           "src/interfaces/hooks/session-start.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
@@ -2027,7 +2032,7 @@
       },
       "tests/run-list.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "49b0e105dcbe7ca22da550902cdb21ce65376644",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-list.scenario.l2.test.ts",
@@ -2257,6 +2262,7 @@
           "src/interfaces/hooks/cli-runner.ts",
           "src/interfaces/hooks/registry.ts",
           "src/interfaces/hooks/session-start.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
@@ -2433,7 +2439,7 @@
       },
       "tests/verification.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "49b0e105dcbe7ca22da550902cdb21ce65376644",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/verification.compliance.l1.test.ts",
@@ -2663,6 +2669,7 @@
           "src/interfaces/hooks/cli-runner.ts",
           "src/interfaces/hooks/registry.ts",
           "src/interfaces/hooks/session-start.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
@@ -2832,7 +2839,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "474c11828dac450e33434ad719547887edadb4a1",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare-arguments.compliance.l1.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare-lookup.conformance.l2.test.ts",
@@ -3067,6 +3074,7 @@
           "src/interfaces/hooks/cli-runner.ts",
           "src/interfaces/hooks/registry.ts",
           "src/interfaces/hooks/session-start.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
@@ -3244,7 +3252,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-22_03-07-41-319-e4dd16dc7cb8"
+        "run": "2026-11-22_03-43-19-753-4c8e744f61c0"
       }
     }
   }

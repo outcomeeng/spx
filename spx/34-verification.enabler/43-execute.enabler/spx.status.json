@@ -5,7 +5,7 @@
     "test": {
       "tests/execute.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/43-execute.enabler/execute.md",
@@ -406,7 +406,7 @@
       },
       "tests/execute.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/43-execute.enabler/execute.md",
@@ -807,7 +807,7 @@
       },
       "tests/execute.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/43-execute.enabler/execute.md",
