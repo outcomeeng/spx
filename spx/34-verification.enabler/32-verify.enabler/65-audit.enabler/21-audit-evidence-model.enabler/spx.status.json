@@ -5,7 +5,13 @@
     "test": {
       "tests/audit-changeset-class.mapping.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -169,7 +175,13 @@
       },
       "tests/audit-changeset-root.conformance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -334,7 +346,13 @@
       },
       "tests/audit-evidence-validation.compliance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -740,7 +758,13 @@
       },
       "tests/audit-file-root.conformance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -905,7 +929,13 @@
       },
       "tests/audit-finding.conformance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -1070,7 +1100,13 @@
       },
       "tests/audit-order.compliance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -1474,7 +1510,13 @@
       },
       "tests/audit-scope.conformance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",

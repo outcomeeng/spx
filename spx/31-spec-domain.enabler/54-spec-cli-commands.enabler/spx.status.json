@@ -5,7 +5,13 @@
     "test": {
       "tests/evidence-attribution.mapping.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -224,7 +230,13 @@
       },
       "tests/pin-currency.compliance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -399,7 +411,13 @@
       },
       "tests/spec-cli-commands.compliance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -605,7 +623,13 @@
       },
       "tests/spec-cli-commands.scenario.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -782,7 +806,13 @@
       },
       "tests/spec-cli-commands.scenario.l2.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -992,7 +1022,13 @@
       },
       "tests/spec-context-commands.scenario.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -1168,7 +1204,13 @@
       },
       "tests/spec-status-fold.mapping.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -1343,7 +1385,13 @@
       },
       "tests/status-journal-evidence.scenario.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -1526,7 +1574,13 @@
       },
       "tests/status-journal-evidence.scenario.l2.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -1709,7 +1763,13 @@
       },
       "tests/status-testing-delegation.compliance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",

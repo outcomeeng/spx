@@ -5,7 +5,7 @@
     "test": {
       "tests/agent-identification.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -104,7 +104,7 @@
       },
       "tests/agent-names.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -115,6 +115,8 @@
           "src/commands/agent/index.ts",
           "src/commands/agent/resume.ts",
           "src/commands/agent/search.ts",
+          "src/commands/change/contract.ts",
+          "src/commands/change/draft.ts",
           "src/commands/compact/index.ts",
           "src/commands/compact/retrieve.ts",
           "src/commands/compact/store.ts",
@@ -125,8 +127,6 @@
           "src/commands/diagnose/index.ts",
           "src/commands/diagnose/probes.ts",
           "src/commands/diagnose/spx-reachability-probe.ts",
-          "src/commands/draft/contract.ts",
-          "src/commands/draft/draft.ts",
           "src/commands/journal/cli.ts",
           "src/commands/journal/github-pr-sink.ts",
           "src/commands/journal/runtime.ts",
@@ -307,12 +307,12 @@
           "src/interfaces/cli/agent/resume/AgentResumePicker.tsx",
           "src/interfaces/cli/agent/resume/launch-agent-resume.ts",
           "src/interfaces/cli/agent/resume/run-picker.tsx",
+          "src/interfaces/cli/change.ts",
           "src/interfaces/cli/coding-agent.ts",
           "src/interfaces/cli/compact.ts",
           "src/interfaces/cli/config.ts",
           "src/interfaces/cli/diagnose.ts",
           "src/interfaces/cli/domain.ts",
-          "src/interfaces/cli/draft.ts",
           "src/interfaces/cli/foreground-launch.ts",
           "src/interfaces/cli/hook.ts",
           "src/interfaces/cli/invocation.ts",
@@ -538,7 +538,7 @@
       },
       "tests/agent-registry.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -639,7 +639,7 @@
       },
       "tests/harness-environment-descriptor.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -750,7 +750,7 @@
       },
       "tests/harness-environment-descriptor.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/harness-environment.md",
@@ -862,7 +862,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "5719299ca4ab3a5bcc9cb8942ac1eff3431df0e3",
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
         "read": [
           "spx/33-harness-environment.enabler/harness-environment.md",
           "spx/33-harness-environment.enabler/tests/agent-identification.mapping.l1.test.ts",
@@ -876,6 +876,8 @@
           "src/commands/agent/index.ts",
           "src/commands/agent/resume.ts",
           "src/commands/agent/search.ts",
+          "src/commands/change/contract.ts",
+          "src/commands/change/draft.ts",
           "src/commands/compact/index.ts",
           "src/commands/compact/retrieve.ts",
           "src/commands/compact/store.ts",
@@ -886,8 +888,6 @@
           "src/commands/diagnose/index.ts",
           "src/commands/diagnose/probes.ts",
           "src/commands/diagnose/spx-reachability-probe.ts",
-          "src/commands/draft/contract.ts",
-          "src/commands/draft/draft.ts",
           "src/commands/journal/cli.ts",
           "src/commands/journal/github-pr-sink.ts",
           "src/commands/journal/runtime.ts",
@@ -1068,12 +1068,12 @@
           "src/interfaces/cli/agent/resume/AgentResumePicker.tsx",
           "src/interfaces/cli/agent/resume/launch-agent-resume.ts",
           "src/interfaces/cli/agent/resume/run-picker.tsx",
+          "src/interfaces/cli/change.ts",
           "src/interfaces/cli/coding-agent.ts",
           "src/interfaces/cli/compact.ts",
           "src/interfaces/cli/config.ts",
           "src/interfaces/cli/diagnose.ts",
           "src/interfaces/cli/domain.ts",
-          "src/interfaces/cli/draft.ts",
           "src/interfaces/cli/foreground-launch.ts",
           "src/interfaces/cli/hook.ts",
           "src/interfaces/cli/invocation.ts",
@@ -1314,7 +1314,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-22_03-50-12-373-5959a4184446"
+        "run": "2026-11-22_03-53-47-829-02b13a8ff970"
       }
     }
   }

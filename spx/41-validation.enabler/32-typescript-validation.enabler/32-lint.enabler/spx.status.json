@@ -5,7 +5,13 @@
     "test": {
       "tests/lint-args.compliance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "eslint.test-lint-debt-nodes.json",
           "eslint.test-owned-constant-debt-nodes.json",
@@ -406,7 +412,13 @@
       },
       "tests/lint-policy.compliance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/lint.md",
@@ -805,7 +817,13 @@
       },
       "tests/lint-preflight.compliance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/lint.md",
@@ -943,7 +961,13 @@
       },
       "tests/lint.compliance.l2.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/lint.md",
@@ -1336,7 +1360,13 @@
       },
       "tests/lint.scenario.l2.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/lint.md",
@@ -1729,7 +1759,13 @@
       },
       "tests/no-spec-tree.compliance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/lint.md",
@@ -2128,7 +2164,13 @@
       },
       "tests/superseded-suffix.compliance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/lint.md",

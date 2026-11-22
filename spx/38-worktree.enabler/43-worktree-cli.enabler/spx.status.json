@@ -5,7 +5,13 @@
     "test": {
       "tests/output-escaping.compliance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/output-escaping.compliance.l1.test.ts",
@@ -49,7 +55,13 @@
       },
       "tests/worktree-cli.compliance.l2.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-cli.compliance.l2.test.ts",
@@ -92,7 +104,13 @@
       },
       "tests/worktree-cli.scenario.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-cli.scenario.l1.test.ts",
@@ -141,7 +159,13 @@
       },
       "tests/worktree-cli.scenario.l2.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-cli.scenario.l2.test.ts",
@@ -184,7 +208,13 @@
       },
       "tests/worktree-controlling-process.scenario.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-controlling-process.scenario.l1.test.ts",
@@ -214,7 +244,13 @@
       },
       "tests/worktree-name-resolution.compliance.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-name-resolution.compliance.l1.test.ts",
@@ -255,7 +291,13 @@
       },
       "tests/worktree-name-resolution.mapping.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-name-resolution.mapping.l1.test.ts",
@@ -296,7 +338,13 @@
       },
       "tests/worktree-name.property.l1.test.ts": {
         "verdict": "passed",
+<<<<<<< HEAD
         "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
+||||||| parent of c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
+        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+=======
+        "commit": "4bf5b04518c82509fc984b3c45193668bad44889",
+>>>>>>> c7093a8c0 (test(status): project the full suite and eight audits at 4bf5b04)
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-name.property.l1.test.ts",
