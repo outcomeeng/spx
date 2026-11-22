@@ -35,3 +35,13 @@ For each candidate payload directory, `sweepClosedRunPayloadDirectories` calls `
 **Impact:** each `start` costs one journal read per candidate per branch scope. Both counts grow as runs that never seal accumulate. No repository has measured the cost.
 
 **Settlement condition:** each candidate resolves against its own branch scope first, or the sweep indexes the run journals once, as the Audit row `payload-directory-sweep` of [`spx/34-verification.enabler/32-verify.enabler/17-run-payload-directory.adr.md`](spx/34-verification.enabler/32-verify.enabler/17-run-payload-directory.adr.md) already permits.
+
+## The payload-directory sweep test exceeds its time limit under full-suite load `tests/verify-payload-directory.compliance.l1.test.ts`
+
+**Source:** the full-suite run `2026-11-22_13-27-58-043-2ffd5dfa6013` of `tsx src/cli.ts verification test run` at `3f7e97844888c1e46a6dea3832959ed87a4870c0`, on 2026-11-22.
+
+The test "removes the payload directory of every run whose journal carries a terminal-completion event or a seal, under every verification type and branch scope, and keeps every other one" in `tests/verify-payload-directory.compliance.l1.test.ts` failed in that run with "Test timed out in 30000ms", the limit `VITEST_TEST_TIMEOUT` in `testing/vitest-policy.ts` sets through `vitest.config.ts`. Run alone, its file takes about 14 seconds of test time. It passed on its own recorded rerun, run `2026-11-22_13-36-26-215-30ff96053f9b`, and in the next full run, `2026-11-22_13-39-00-708-9ac8b475ec5b`, at the same commit.
+
+**Impact:** one timeout seals the whole full-suite run `failed`. `spx spec status --update` then projects every module of that run `not-run`, because a run that did not pass cannot tell a passed module from one that failed to load. One slow test can therefore turn every claim in the tree to `not-run` until a fully passing run follows.
+
+**Settlement condition:** the test completes within its time limit under full-suite load, through a smaller generated case set, a limit sized to its work, or a cheaper fixture, and a full run passes with it.
