@@ -5,7 +5,7 @@
     "test": {
       "tests/nested-product-layout-git-observation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "f2c7f20a6257b968e447b6541b4588b196fa5431",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
@@ -91,7 +91,7 @@
       },
       "tests/nested-product-layout.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "f2c7f20a6257b968e447b6541b4588b196fa5431",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
@@ -165,7 +165,7 @@
       },
       "tests/state-test-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "f2c7f20a6257b968e447b6541b4588b196fa5431",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
@@ -195,7 +195,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "fbb4c9b24aacb2a74cb05dcccbac17a03abe30c1",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
           "spx/18-state.enabler/15-state-test-harness.enabler/tests/nested-product-layout-git-observation.scenario.l1.test.ts",
@@ -279,7 +279,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-21_07-22-10-021-97050468a4cc"
+        "run": "2026-11-22_03-20-56-284-2186d344ad61"
       }
     }
   }

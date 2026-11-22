@@ -5,7 +5,7 @@
     "test": {
       "tests/passing-scope.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -146,7 +146,7 @@
       },
       "tests/recorded-run-reuse.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -156,8 +156,6 @@
           "src/commands/agent/index.ts",
           "src/commands/agent/resume.ts",
           "src/commands/agent/search.ts",
-          "src/commands/change/contract.ts",
-          "src/commands/change/draft.ts",
           "src/commands/compact/index.ts",
           "src/commands/compact/retrieve.ts",
           "src/commands/compact/store.ts",
@@ -167,6 +165,8 @@
           "src/commands/diagnose/index.ts",
           "src/commands/diagnose/probes.ts",
           "src/commands/diagnose/spx-reachability-probe.ts",
+          "src/commands/draft/contract.ts",
+          "src/commands/draft/draft.ts",
           "src/commands/journal/cli.ts",
           "src/commands/journal/github-pr-sink.ts",
           "src/commands/journal/runtime.ts",
@@ -340,11 +340,11 @@
           "src/interfaces/cli/agent/resume/AgentResumePicker.tsx",
           "src/interfaces/cli/agent/resume/launch-agent-resume.ts",
           "src/interfaces/cli/agent/resume/run-picker.tsx",
-          "src/interfaces/cli/change.ts",
           "src/interfaces/cli/coding-agent.ts",
           "src/interfaces/cli/compact.ts",
           "src/interfaces/cli/config.ts",
           "src/interfaces/cli/diagnose.ts",
+          "src/interfaces/cli/draft.ts",
           "src/interfaces/cli/foreground-launch.ts",
           "src/interfaces/cli/hook.ts",
           "src/interfaces/cli/invocation.ts",
@@ -558,7 +558,7 @@
       },
       "tests/recorded-run-satisfaction.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -568,8 +568,6 @@
           "src/commands/agent/index.ts",
           "src/commands/agent/resume.ts",
           "src/commands/agent/search.ts",
-          "src/commands/change/contract.ts",
-          "src/commands/change/draft.ts",
           "src/commands/compact/index.ts",
           "src/commands/compact/retrieve.ts",
           "src/commands/compact/store.ts",
@@ -579,6 +577,8 @@
           "src/commands/diagnose/index.ts",
           "src/commands/diagnose/probes.ts",
           "src/commands/diagnose/spx-reachability-probe.ts",
+          "src/commands/draft/contract.ts",
+          "src/commands/draft/draft.ts",
           "src/commands/journal/cli.ts",
           "src/commands/journal/github-pr-sink.ts",
           "src/commands/journal/runtime.ts",
@@ -752,11 +752,11 @@
           "src/interfaces/cli/agent/resume/AgentResumePicker.tsx",
           "src/interfaces/cli/agent/resume/launch-agent-resume.ts",
           "src/interfaces/cli/agent/resume/run-picker.tsx",
-          "src/interfaces/cli/change.ts",
           "src/interfaces/cli/coding-agent.ts",
           "src/interfaces/cli/compact.ts",
           "src/interfaces/cli/config.ts",
           "src/interfaces/cli/diagnose.ts",
+          "src/interfaces/cli/draft.ts",
           "src/interfaces/cli/foreground-launch.ts",
           "src/interfaces/cli/hook.ts",
           "src/interfaces/cli/invocation.ts",
@@ -972,7 +972,7 @@
       },
       "tests/run-state.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -1072,7 +1072,7 @@
       },
       "tests/run-state.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -1171,7 +1171,7 @@
       },
       "tests/staleness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",

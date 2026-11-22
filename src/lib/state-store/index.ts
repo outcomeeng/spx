@@ -29,6 +29,7 @@ export const STATE_STORE_SCOPE_PATH = {
   BRANCH_SCOPE: "branch",
   WORKTREE_SCOPE: "worktree",
   CHANGES_SCOPE: "changes",
+  DRAFTS_SCOPE: "drafts",
   SESSIONS_SCOPE: "sessions",
   WORKTREES_SCOPE: "worktrees",
 } as const;
@@ -375,6 +376,27 @@ export function worktreeScopeDir(productDir: string): string {
 
 export function changesScopeDir(productDir: string): string {
   return join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.CHANGES_SCOPE);
+}
+
+export function draftsScopeDir(productDir: string): string {
+  return join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.DRAFTS_SCOPE);
+}
+
+/** The shared `.spx/drafts` scope dir and the Git common-dir product root that holds it. */
+export interface ResolveDraftsScopeResult {
+  readonly productDir: string;
+  readonly draftsDir: string;
+}
+
+/**
+ * Resolves the shared `.spx/drafts` scope directory from the Git common-dir
+ * product root so every worktree of the repository addresses the same drafts.
+ * Its consumer, the draft capability, is presentation-free and checks Git
+ * visibility from the product root, so the result carries both and no warning.
+ */
+export async function resolveDraftsScopeDir(options: ResolveScopeOptions = {}): Promise<ResolveDraftsScopeResult> {
+  const gitResult = await detectGitCommonDirProductRoot(options.cwd, options.deps);
+  return { productDir: gitResult.productDir, draftsDir: draftsScopeDir(gitResult.productDir) };
 }
 
 export function sessionsScopeDir(productDir: string): string {

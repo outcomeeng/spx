@@ -5,7 +5,7 @@
     "test": {
       "tests/markdown-validation-command.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -15,8 +15,6 @@
           "src/commands/agent/index.ts",
           "src/commands/agent/resume.ts",
           "src/commands/agent/search.ts",
-          "src/commands/change/contract.ts",
-          "src/commands/change/draft.ts",
           "src/commands/compact/index.ts",
           "src/commands/compact/retrieve.ts",
           "src/commands/compact/store.ts",
@@ -26,6 +24,8 @@
           "src/commands/diagnose/index.ts",
           "src/commands/diagnose/probes.ts",
           "src/commands/diagnose/spx-reachability-probe.ts",
+          "src/commands/draft/contract.ts",
+          "src/commands/draft/draft.ts",
           "src/commands/journal/cli.ts",
           "src/commands/journal/github-pr-sink.ts",
           "src/commands/journal/runtime.ts",
@@ -197,11 +197,11 @@
           "src/interfaces/cli/agent/resume/AgentResumePicker.tsx",
           "src/interfaces/cli/agent/resume/launch-agent-resume.ts",
           "src/interfaces/cli/agent/resume/run-picker.tsx",
-          "src/interfaces/cli/change.ts",
           "src/interfaces/cli/coding-agent.ts",
           "src/interfaces/cli/compact.ts",
           "src/interfaces/cli/config.ts",
           "src/interfaces/cli/diagnose.ts",
+          "src/interfaces/cli/draft.ts",
           "src/interfaces/cli/foreground-launch.ts",
           "src/interfaces/cli/hook.ts",
           "src/interfaces/cli/invocation.ts",
@@ -400,7 +400,7 @@
       },
       "tests/markdown-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -553,7 +553,7 @@
       },
       "tests/markdown-validation.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -659,7 +659,7 @@
       },
       "tests/markdown-validation.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -759,7 +759,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45a463abc21e5a608944348818ecc5e66b4b5c58",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
@@ -936,11 +936,9 @@
           "spx/23-spec-tree.enabler/PLAN.md",
           "spx/23-spec-tree.enabler/spec-tree.md",
           "spx/25-outcomeeng.enabler/31-changes.enabler/21-change-store.pdr.md",
-          "spx/25-outcomeeng.enabler/31-changes.enabler/26-local-drafts.adr.md",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/21-draft-storage.pdr.md",
+          "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/26-local-drafts.adr.md",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/change-drafts.md",
-          "spx/25-outcomeeng.enabler/31-changes.enabler/43-change-cli.enabler/change-cli.md",
-          "spx/25-outcomeeng.enabler/31-changes.enabler/ISSUES.md",
           "spx/25-outcomeeng.enabler/31-changes.enabler/PLAN.md",
           "spx/25-outcomeeng.enabler/31-changes.enabler/changes.md",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/21-tree-fetch.adr.md",
@@ -1244,6 +1242,8 @@
           "spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/15-command-surface-governance.enabler/PLAN.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/15-command-surface-governance.enabler/command-surface-governance.md",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/15-draft-command.adr.md",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/draft.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/11-journal-channel.adr.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/13-journal-module-structure.adr.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/ISSUES.md",

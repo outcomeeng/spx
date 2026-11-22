@@ -5,7 +5,7 @@
     "test": {
       "tests/spec-tree-env-lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
@@ -111,7 +111,7 @@
       },
       "tests/spec-tree-env-safety.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
@@ -219,7 +219,7 @@
       },
       "tests/spec-tree-fixture-sources.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
@@ -327,7 +327,7 @@
       },
       "tests/spec-tree-fixtures.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "60b745de37d52212ed4428753fdc0b459827d521",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
@@ -594,10 +594,8 @@
           "spx/23-spec-tree.enabler/tests/spec-tree-ownership.property.l1.test.ts",
           "spx/23-spec-tree.enabler/tests/spec-tree-surface.conformance.l1.test.ts",
           "spx/23-spec-tree.enabler/tests/spec-tree-surface.scenario.l1.test.ts",
+          "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/drafts.compliance.l1.test.ts",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/drafts.property.l1.test.ts",
-          "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/storage-safety.property.l1.test.ts",
-          "spx/25-outcomeeng.enabler/31-changes.enabler/43-change-cli.enabler/tests/change-cli.property.l1.test.ts",
-          "spx/25-outcomeeng.enabler/31-changes.enabler/43-change-cli.enabler/tests/packaged-commands.mapping.l1.test.ts",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/tests/diagnostics.compliance.l1.test.ts",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/tests/fetch.compliance.l1.test.ts",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/tests/fetch.conformance.l1.test.ts",
@@ -1020,6 +1018,12 @@
           "spx/54-diagnose.enabler/tests/resolve.mapping.l1.test.ts",
           "spx/54-diagnose.enabler/tests/text-report.compliance.l1.test.ts",
           "spx/54-diagnose.enabler/tests/worktree-status-probe.compliance.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/tests/change-cli.property.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/tests/draft-commands.compliance.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/tests/draft-commands.compliance.l2.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/tests/list-selection-bound.mapping.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/tests/listing.scenario.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/tests/packaged-commands.mapping.l1.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/backend-selection.mapping.l1.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/github-cli.scenario.l1.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/github-pr-sink.scenario.l1.test.ts",
@@ -1170,7 +1174,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "50b6b77740a40d43edefc566d29ec9cec97d9176",
+        "commit": "5719299ca4ab3a5bcc9cb8942ac1eff3431df0e3",
         "read": [
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.mapping.l1.test.ts",
@@ -1436,10 +1440,8 @@
           "spx/23-spec-tree.enabler/tests/spec-tree-ownership.property.l1.test.ts",
           "spx/23-spec-tree.enabler/tests/spec-tree-surface.conformance.l1.test.ts",
           "spx/23-spec-tree.enabler/tests/spec-tree-surface.scenario.l1.test.ts",
+          "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/drafts.compliance.l1.test.ts",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/drafts.property.l1.test.ts",
-          "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/storage-safety.property.l1.test.ts",
-          "spx/25-outcomeeng.enabler/31-changes.enabler/43-change-cli.enabler/tests/change-cli.property.l1.test.ts",
-          "spx/25-outcomeeng.enabler/31-changes.enabler/43-change-cli.enabler/tests/packaged-commands.mapping.l1.test.ts",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/tests/diagnostics.compliance.l1.test.ts",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/tests/fetch.compliance.l1.test.ts",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/tests/fetch.conformance.l1.test.ts",
@@ -1529,6 +1531,9 @@
           "spx/33-harness-environment.enabler/32-agent-config.enabler/21-test-harness.enabler/tests/test-harness.scenario.l1.test.ts",
           "spx/33-harness-environment.enabler/32-agent-config.enabler/tests/agent-config.compliance.l1.test.ts",
           "spx/33-harness-environment.enabler/32-agent-config.enabler/tests/agent-config.scenario.l1.test.ts",
+          "spx/33-harness-environment.enabler/tests/agent-identification.mapping.l1.test.ts",
+          "spx/33-harness-environment.enabler/tests/agent-names.compliance.l1.test.ts",
+          "spx/33-harness-environment.enabler/tests/agent-registry.compliance.l1.test.ts",
           "spx/33-harness-environment.enabler/tests/harness-environment-descriptor.compliance.l1.test.ts",
           "spx/33-harness-environment.enabler/tests/harness-environment-descriptor.mapping.l1.test.ts",
           "spx/34-verification.enabler/21-verification-context.enabler/tests/verification-context-cli-registry.scenario.l1.test.ts",
@@ -1859,6 +1864,12 @@
           "spx/54-diagnose.enabler/tests/resolve.mapping.l1.test.ts",
           "spx/54-diagnose.enabler/tests/text-report.compliance.l1.test.ts",
           "spx/54-diagnose.enabler/tests/worktree-status-probe.compliance.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/tests/change-cli.property.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/tests/draft-commands.compliance.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/tests/draft-commands.compliance.l2.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/tests/list-selection-bound.mapping.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/tests/listing.scenario.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/tests/packaged-commands.mapping.l1.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/backend-selection.mapping.l1.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/github-cli.scenario.l1.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/github-pr-sink.scenario.l1.test.ts",
@@ -2008,7 +2019,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-21_08-55-54-529-5df286990278"
+        "run": "2026-11-22_03-50-09-702-42c69f2ae565"
       }
     }
   }

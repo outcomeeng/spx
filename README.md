@@ -151,26 +151,29 @@ spx session delete <session-id>
 
 Sessions are stored in `.spx/sessions/` with priority-based ordering (high > medium > low) and FIFO within the same priority. Commands output parseable `<PICKUP_ID>`, `<HANDOFF_ID>`, and `<SESSION_FILE>` tags for automation.
 
-### Local Change drafts
+### Local drafts
 
-While you edit and audit a Change draft, keep it local:
+Keep a local working copy, such as a Change draft, in a draft of a kind you name:
 
 ```bash
-# Retain the complete Markdown document and its metadata
-spx change draft create --input stdin < change.md
+# Create one empty draft file of a kind and print its coordinates
+spx draft create --kind change
 
-# List retained drafts
-spx change draft list
+# List retained drafts newest first: the 50 newest by default, or narrow and widen
+spx draft list
+spx draft list --kind change
+spx draft list --limit 10
+spx draft list --all
 
 # When a draft is no longer needed, delete it
-spx change draft delete <draft-id>
+spx draft delete --kind change <draft-id>
 ```
 
-The `create` command returns JSON with `draftId`, an absolute `path`, and a repository-relative `relativePath`. Edit the returned file directly to revise the same draft.
+A kind is a lowercase letter followed by lowercase letters, digits, and hyphens. The `create` command takes no text: it prints JSON with `kind`, `draftId`, and the absolute `path` of an empty file, and you write the draft into that file. Every worktree of the repository shares the drafts under `.spx/drafts/<kind>/`.
 
-Draft operations work offline. File-scoped verification audits support `auditClass: coordination` and `auditKind: change`. Use the returned relative path to identify the candidate.
+Draft operations work offline and never read or change what you write. File-scoped verification audits support `auditClass: coordination` and `auditKind: change`.
 
-Authors use the authoring workflow to publish approved drafts to a remote Change store. The `spx change draft` commands never write to that store.
+Authors use the authoring workflow to publish approved drafts to a remote Change store. The `spx draft` commands never write to that store.
 
 ### Spec Management
 

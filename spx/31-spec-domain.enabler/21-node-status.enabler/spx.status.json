@@ -5,7 +5,7 @@
     "test": {
       "tests/claim-comparison.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "f2c7f20a6257b968e447b6541b4588b196fa5431",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -175,7 +175,7 @@
       },
       "tests/lockfile-pin.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "f2c7f20a6257b968e447b6541b4588b196fa5431",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -395,7 +395,7 @@
       },
       "tests/node-status.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "f2c7f20a6257b968e447b6541b4588b196fa5431",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -570,7 +570,7 @@
       },
       "tests/node-status.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "f2c7f20a6257b968e447b6541b4588b196fa5431",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -742,7 +742,7 @@
       },
       "tests/node-status.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "f2c7f20a6257b968e447b6541b4588b196fa5431",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -915,7 +915,7 @@
       },
       "tests/node-status.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "f2c7f20a6257b968e447b6541b4588b196fa5431",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -1092,7 +1092,7 @@
       },
       "tests/tracked-path-inclusion.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "f2c7f20a6257b968e447b6541b4588b196fa5431",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -1194,7 +1194,7 @@
       },
       "tests/tracked-paths.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2fe98dc31c9c7ed3a7416154d8b49c1ed2238a0b",
+        "commit": "f2c7f20a6257b968e447b6541b4588b196fa5431",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -1367,7 +1367,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "50b6b77740a40d43edefc566d29ec9cec97d9176",
+        "commit": "f9570ca6a7d7db1e5d9669728315fcbe3e38f6e7",
         "read": [
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
           "spx/31-spec-domain.enabler/21-node-status.enabler/tests/claim-comparison.compliance.l1.test.ts",
@@ -1600,7 +1600,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-21_08-55-59-059-024ad6f626ce"
+        "run": "2026-11-22_03-21-03-310-6c4d63e0d462"
       }
     }
   }

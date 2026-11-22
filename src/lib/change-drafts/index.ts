@@ -1,12 +1,11 @@
 import { join, relative, sep } from "node:path";
 
-import { detectWorktreeProductRoot } from "@/lib/git/root";
 import {
   compareAsciiStrings,
   ERROR_CODE_FILE_EXISTS,
   ERROR_CODE_NOT_FOUND,
   hasErrorCode,
-  worktreeScopeDir,
+  resolveDraftsScopeDir,
 } from "@/lib/state-store";
 
 import {
@@ -24,10 +23,26 @@ import {
 
 type DraftOperation = (typeof CHANGE_DRAFT_OPERATION)[keyof typeof CHANGE_DRAFT_OPERATION];
 
+const GIT_INSIDE_WORK_TREE = "true";
+const GIT_CHECK_IGNORE_NOT_IGNORED = 1;
+
 interface DraftContext {
   readonly productDir: string;
-  readonly directory: string;
+  readonly draftsDir: string;
   readonly dependencies: ChangeDraftDependencies;
+}
+
+export function isDraftKind(value: string): boolean {
+  return CHANGE_DRAFT.kindPattern.test(value);
+}
+
+function requireKind(operation: DraftOperation, kind: string): string {
+  if (!isDraftKind(kind)) throw new ChangeDraftError(CHANGE_DRAFT_ERROR.invalidKind, operation, kind);
+  return kind;
+}
+
+function kindDirectory(context: DraftContext, kind: string): string {
+  return join(context.draftsDir, kind);
 }
 
 async function inspect(context: DraftContext, path: string): Promise<ChangeDraftStats | undefined> {
@@ -57,9 +72,14 @@ function requireSafeDirectory(
   }
 }
 
-async function storageExists(context: DraftContext, operation: DraftOperation, create: boolean): Promise<boolean> {
+async function storageExists(
+  context: DraftContext,
+  operation: DraftOperation,
+  directory: string,
+  create: boolean,
+): Promise<boolean> {
   let path = context.productDir;
-  for (const component of relative(context.productDir, context.directory).split(sep)) {
+  for (const component of relative(context.productDir, directory).split(sep)) {
     path = join(path, component);
     let stats = await inspect(context, path);
     if (stats === undefined) {
@@ -71,17 +91,17 @@ async function storageExists(context: DraftContext, operation: DraftOperation, c
       }
       stats = await inspect(context, path);
     }
-    requireSafeDirectory(stats, path, context.directory, operation);
+    requireSafeDirectory(stats, path, directory, operation);
   }
   return true;
 }
 
-function descriptor(context: DraftContext, operation: DraftOperation, draftId: string): ChangeDraftDescriptor {
+function descriptor(context: DraftContext, operation: DraftOperation, kind: string, draftId: string) {
   if (!CHANGE_DRAFT.idPattern.test(draftId)) {
     throw new ChangeDraftError(CHANGE_DRAFT_ERROR.invalidId, operation, draftId);
   }
-  const path = join(context.directory, `${draftId}${CHANGE_DRAFT.extension}`);
-  return { draftId, path, relativePath: relative(context.productDir, path).split(sep).join("/") };
+  const path = join(kindDirectory(context, kind), `${draftId}${CHANGE_DRAFT.extension}`);
+  return { kind, draftId, path } satisfies ChangeDraftDescriptor;
 }
 
 async function candidateExists(context: DraftContext, operation: DraftOperation, path: string): Promise<boolean> {
@@ -102,14 +122,34 @@ async function withOperation<T>(operation: DraftOperation, path: string, action:
   }
 }
 
-async function writeDraft(context: DraftContext, path: string, text: string): Promise<void> {
+/** Refuses a destination Git would publish: one inside a work tree that Git does not ignore. */
+async function requireHiddenFromGit(context: DraftContext, operation: DraftOperation, path: string): Promise<void> {
+  const inside = await context.dependencies.git.execa("git", ["rev-parse", "--is-inside-work-tree"], {
+    cwd: context.productDir,
+    reject: false,
+  });
+  if (inside.exitCode !== 0 || inside.stdout.trim() !== GIT_INSIDE_WORK_TREE) return;
+  const relativePath = relative(context.productDir, path).split(sep).join("/");
+  const ignored = await context.dependencies.git.execa("git", ["check-ignore", "--quiet", "--", relativePath], {
+    cwd: context.productDir,
+    reject: false,
+  });
+  if (ignored.exitCode !== 0) {
+    throw new ChangeDraftError(
+      ignored.exitCode === GIT_CHECK_IGNORE_NOT_IGNORED
+        ? CHANGE_DRAFT_ERROR.visibleToGit
+        : CHANGE_DRAFT_ERROR.operationFailed,
+      operation,
+      path,
+      { cause: new Error(ignored.stderr) },
+    );
+  }
+}
+
+async function createEmptyDraft(context: DraftContext, path: string): Promise<void> {
   const file = await context.dependencies.fs.openExclusive(path, CHANGE_DRAFT.fileMode);
   try {
-    try {
-      await file.write(text);
-    } finally {
-      await file.close();
-    }
+    await file.close();
   } catch (error) {
     try {
       await context.dependencies.fs.remove(path);
@@ -120,62 +160,78 @@ async function writeDraft(context: DraftContext, path: string, text: string): Pr
   }
 }
 
-async function createDraft(context: DraftContext, text: string): Promise<ChangeDraftDescriptor> {
+async function createDraft(context: DraftContext, kind: string): Promise<ChangeDraftDescriptor> {
   const operation = CHANGE_DRAFT_OPERATION.create;
-  const draft = descriptor(context, operation, context.dependencies.generateId());
+  requireKind(operation, kind);
+  const draft = descriptor(context, operation, kind, context.dependencies.generateId());
+  const directory = kindDirectory(context, kind);
   return withOperation(operation, draft.path, async () => {
-    await storageExists(context, operation, false);
-    const ignored = await context.dependencies.git.execa("git", ["check-ignore", "--quiet", "--", draft.relativePath], {
-      cwd: context.productDir,
-      reject: false,
-    });
-    if (ignored.exitCode !== 0) {
-      throw new ChangeDraftError(
-        ignored.exitCode === 1 ? CHANGE_DRAFT_ERROR.visibleToGit : CHANGE_DRAFT_ERROR.operationFailed,
-        operation,
-        draft.path,
-        { cause: new Error(ignored.stderr) },
-      );
-    }
-    await storageExists(context, operation, true);
-    await writeDraft(context, draft.path, text);
+    await storageExists(context, operation, directory, false);
+    await requireHiddenFromGit(context, operation, draft.path);
+    await storageExists(context, operation, directory, true);
+    await createEmptyDraft(context, draft.path);
     return draft;
   });
 }
 
-async function listDrafts(context: DraftContext): Promise<readonly ChangeDraftDescriptor[]> {
+async function listKind(context: DraftContext, kind: string): Promise<ChangeDraftDescriptor[]> {
   const operation = CHANGE_DRAFT_OPERATION.list;
-  return withOperation(operation, context.directory, async () => {
-    if (!await storageExists(context, operation, false)) return [];
+  const directory = kindDirectory(context, kind);
+  if (!await storageExists(context, operation, directory, false)) return [];
+  const drafts: ChangeDraftDescriptor[] = [];
+  for (const name of await context.dependencies.fs.list(directory)) {
+    if (!name.endsWith(CHANGE_DRAFT.extension)) continue;
+    const draftId = name.slice(0, -CHANGE_DRAFT.extension.length);
+    if (!CHANGE_DRAFT.idPattern.test(draftId)) continue;
+    const draft = descriptor(context, operation, kind, draftId);
+    if (await candidateExists(context, operation, draft.path)) drafts.push(draft);
+  }
+  return drafts;
+}
+
+function newestFirst(left: ChangeDraftDescriptor, right: ChangeDraftDescriptor): number {
+  return compareAsciiStrings(right.draftId, left.draftId) || compareAsciiStrings(left.kind, right.kind);
+}
+
+async function listDrafts(context: DraftContext, kind: string | undefined): Promise<ChangeDraftDescriptor[]> {
+  const operation = CHANGE_DRAFT_OPERATION.list;
+  if (kind !== undefined) {
+    requireKind(operation, kind);
+    return withOperation(operation, kindDirectory(context, kind), async () => {
+      return (await listKind(context, kind)).sort(newestFirst);
+    });
+  }
+  return withOperation(operation, context.draftsDir, async () => {
+    if (!await storageExists(context, operation, context.draftsDir, false)) return [];
     const drafts: ChangeDraftDescriptor[] = [];
-    for (const name of await context.dependencies.fs.list(context.directory)) {
-      if (!name.endsWith(CHANGE_DRAFT.extension)) continue;
-      const draftId = name.slice(0, -CHANGE_DRAFT.extension.length);
-      if (!CHANGE_DRAFT.idPattern.test(draftId)) continue;
-      const draft = descriptor(context, operation, draftId);
-      if (await candidateExists(context, operation, draft.path)) drafts.push(draft);
+    for (const name of await context.dependencies.fs.list(context.draftsDir)) {
+      if (!isDraftKind(name)) continue;
+      drafts.push(...await listKind(context, name));
     }
-    return drafts.sort((left, right) => compareAsciiStrings(left.draftId, right.draftId));
+    return drafts.sort(newestFirst);
+  });
+}
+
+async function deleteDraft(context: DraftContext, kind: string, draftId: string) {
+  const operation = CHANGE_DRAFT_OPERATION.delete;
+  requireKind(operation, kind);
+  const draft = descriptor(context, operation, kind, draftId);
+  return withOperation(operation, draft.path, async () => {
+    const present = await storageExists(context, operation, kindDirectory(context, kind), false)
+      && await candidateExists(context, operation, draft.path);
+    if (!present) return { kind, draftId, removed: false };
+    await context.dependencies.fs.remove(draft.path);
+    return { kind, draftId, removed: true };
   });
 }
 
 export async function createChangeDraftStore(options: ChangeDraftStoreOptions): Promise<ChangeDraftStore> {
   const dependencies = options.dependencies ?? changeDraftDependencies;
-  const { productDir } = await detectWorktreeProductRoot(options.cwd, dependencies.git);
-  const context = { productDir, directory: join(worktreeScopeDir(productDir), CHANGE_DRAFT.directory), dependencies };
+  const { productDir, draftsDir } = await resolveDraftsScopeDir({ cwd: options.cwd, deps: dependencies.git });
+  const context: DraftContext = { productDir, draftsDir, dependencies };
   return {
-    create: (text) => createDraft(context, text),
-    list: () => listDrafts(context),
-    delete: async (draftId) => {
-      const operation = CHANGE_DRAFT_OPERATION.delete;
-      const draft = descriptor(context, operation, draftId);
-      return withOperation(operation, draft.path, async () => {
-        if (!await storageExists(context, operation, false) || !await candidateExists(context, operation, draft.path)) {
-          return { draftId, removed: false };
-        }
-        await dependencies.fs.remove(draft.path);
-        return { draftId, removed: true };
-      });
-    },
+    create: (kind) => createDraft(context, kind),
+    list: (kind) => listDrafts(context, kind),
+    delete: (kind, draftId) => deleteDraft(context, kind, draftId),
   };
 }

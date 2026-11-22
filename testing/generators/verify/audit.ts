@@ -25,7 +25,7 @@ import {
 } from "@/domains/verify/verify";
 import { CLOUDEVENTS_SPECVERSION, JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { CHANGE_DRAFT } from "@/lib/change-drafts/contract";
-import { worktreeScopeDir } from "@/lib/state-store";
+import { draftsScopeDir } from "@/lib/state-store";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import {
@@ -705,11 +705,14 @@ export function arbitraryFileAuditScopeScenario(
     });
 }
 
+/** The caller-named kind under which authoring workflows keep Change drafts. */
+const CHANGE_DRAFT_KIND = "change";
+
 export const AUDIT_FILE_SCOPE_GENERATORS = {
   general: () => arbitraryFileAuditScopeScenario(),
   change: () =>
     arbitraryFileAuditScopeScenario(
-      fc.uuid().map((id) => posix.join(worktreeScopeDir(""), CHANGE_DRAFT.directory, `${id}${CHANGE_DRAFT.extension}`)),
+      fc.uuid().map((id) => posix.join(draftsScopeDir(""), CHANGE_DRAFT_KIND, `${id}${CHANGE_DRAFT.extension}`)),
       arbitraryChangeAuditScopeUnit(),
     ),
 } as const;
