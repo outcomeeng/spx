@@ -5,7 +5,7 @@
     "test": {
       "tests/branch-identity.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/32-scope-addressing.enabler/scope-addressing.md",
@@ -26,7 +26,7 @@
       },
       "tests/scope-addressing.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/32-scope-addressing.enabler/scope-addressing.md",
@@ -53,7 +53,7 @@
       },
       "tests/scope-token.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/32-scope-addressing.enabler/scope-addressing.md",
