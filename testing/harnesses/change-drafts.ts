@@ -1,13 +1,11 @@
-import { Command, CommanderError, Option } from "commander";
-import { spawnSync } from "node:child_process";
+import { Command, CommanderError } from "commander";
+import { spawn, spawnSync } from "node:child_process";
 import { constants as fsConstants, type Stats } from "node:fs";
 import * as fs from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
-import { CHANGE_COMMAND } from "@/commands/change/contract";
-import { createChangeDomain } from "@/interfaces/cli/change";
+import { createDraftDomain } from "@/interfaces/cli/draft";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { createChangeDraftStore } from "@/lib/change-drafts";
@@ -17,20 +15,30 @@ import {
   changeDraftDependencies,
   type ChangeDraftDescriptor,
   type ChangeDraftStore,
+  RETIRED_CHANGE_DRAFT_DIRECTORY,
 } from "@/lib/change-drafts/contract";
 import { withoutGitEnvironment } from "@/lib/git/environment";
-import { escapeCliArgument } from "@/lib/sanitize-cli-argument";
-import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
+import { branchScopesDir, changesScopeDir, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { PROPERTY_LEVEL, PROPERTY_TIMEOUTS_MS } from "@testing/harnesses/property/property";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
-const DRAFT_TEMP_PREFIX = "spx-change-draft-";
+const DRAFT_TEMP_PREFIX = "spx-draft-";
 /**
- * The draft location 21-draft-storage.pdr.md declares, written out here rather than composed
- * from the production scope and directory constants, so a wrong constant moves the drafts away
- * from this path.
+ * The drafts location 21-draft-storage.pdr.md declares, written out here rather than composed
+ * from the production scope constants, so a wrong constant moves the drafts away from this path.
  */
-const DECLARED_DRAFT_LAYOUT = ".spx/worktree/change-drafts";
+const DECLARED_DRAFTS_LAYOUT = ".spx/drafts";
+const RETIRED_DRAFT_NAME = "retired.md";
+const LINKED_WORKTREE_NAME = "linked";
+/** How long a draft command may run with an open standard input before it counts as reading it. */
+const OPEN_STDIN_TIMEOUT_MS = PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L2];
+
+function packagedCliPath(): string {
+  return fileURLToPath(new URL("../../bin/spx.js", import.meta.url));
+}
+
+/** A published Change record and a verification run record beside the drafts. */
+const SHARED_RECORD_NAMES = { change: "published-change.json", branch: "main", run: "run-record.jsonl" } as const;
 const TEMP_GIT_ENV = {
   ...withoutGitEnvironment(process.env),
   GIT_CONFIG_GLOBAL: "/dev/null",
@@ -41,29 +49,6 @@ const TEMP_GIT_ENV = {
   GIT_COMMITTER_EMAIL: "draft@example.invalid",
 };
 
-/** Independent Commander grammar: no product registry, handlers, or error formatter is invoked. */
-export function referenceDraftDiagnostic(args: readonly string[]): string {
-  let stderr = "";
-  const program = new Command().exitOverride().configureOutput({
-    writeErr: (text) => {
-      stderr += text;
-    },
-  });
-  const draft = program.command(CHANGE_COMMAND.name).command(CHANGE_COMMAND.draft);
-  draft.command(CHANGE_COMMAND.operations.create)
-    .addOption(
-      new Option(`${CHANGE_COMMAND.inputOption} <source>`).choices([CHANGE_COMMAND.stdin]).makeOptionMandatory(),
-    );
-  draft.command(CHANGE_COMMAND.operations.delete).argument(CHANGE_COMMAND.idOperand);
-  draft.command(CHANGE_COMMAND.operations.list);
-  try {
-    program.parse([...args], { from: "user" });
-  } catch (error) {
-    if (!(error instanceof CommanderError)) throw error;
-  }
-  return escapeCliArgument(stderr.trim());
-}
-
 export interface DraftCliObservation {
   readonly status: number | null;
   readonly stdout: string;
@@ -72,23 +57,29 @@ export interface DraftCliObservation {
 
 export interface ChangeDraftEnv {
   readonly productDir: string;
-  readonly draftDir: string;
+  readonly draftsDir: string;
   readonly store: ChangeDraftStore;
   readonly dependencies: ChangeDraftDependencies;
+  kindDir(kind: string): string;
+  write(draft: ChangeDraftDescriptor, text: string): Promise<void>;
   read(draft: ChangeDraftDescriptor): Promise<string>;
   inspect(path: string): Promise<Stats>;
   readPath(path: string): Promise<string>;
-  retainedNames(): Promise<string[]>;
   listPath(path: string): Promise<string[]>;
-  setDraftDirectoryMode(mode: number): Promise<void>;
+  setKindDirectoryMode(kind: string, mode: number): Promise<void>;
   makeVisibleToGit(): Promise<void>;
   obstructStorage(text: string): Promise<string>;
-  addUnmanagedFile(name: string, text: string): Promise<string>;
-  sibling(): Promise<{ productDir: string; store: ChangeDraftStore }>;
+  addUnmanagedFile(kind: string, name: string, text: string): Promise<string>;
+  addRetiredDraft(text: string): Promise<string>;
+  addSharedRecords(text: string): Promise<string[]>;
+  linkedWorktree(): Promise<{ productDir: string; store: ChangeDraftStore }>;
   symlinkStorage(): Promise<string>;
-  symlinkDraft(draftId: string, text: string): Promise<{ path: string; target: string }>;
-  runCli(args: readonly string[], input?: string, cwd?: string): Promise<DraftCliObservation>;
-  runPackagedCli(args: readonly string[], input?: string): DraftCliObservation;
+  symlinkDraft(kind: string, draftId: string, text: string): Promise<{ path: string; target: string }>;
+  storeWith(dependencies: ChangeDraftDependencies): Promise<ChangeDraftStore>;
+  placeDraft(kind: string, draftId: string): Promise<string>;
+  runCli(args: readonly string[], cwd?: string): Promise<DraftCliObservation>;
+  runPackagedCli(args: readonly string[], cwd?: string): DraftCliObservation;
+  runPackagedCliWithOpenStdin(args: readonly string[]): Promise<DraftCliObservation & { timedOut: boolean }>;
 }
 
 function git(productDir: string, args: readonly string[]): void {
@@ -108,22 +99,24 @@ export async function withChangeDraftEnv<T>(callback: (env: ChangeDraftEnv) => P
     const productDir = await fs.realpath(root);
     git(productDir, ["init", "--quiet"]);
     const ignorePath = join(productDir, ".gitignore");
-    await fs.writeFile(ignorePath, `${STATE_STORE_SCOPE_PATH.SPX_DIR}/\n`);
-    const draftDir = join(productDir, ...DECLARED_DRAFT_LAYOUT.split("/"));
+    await fs.writeFile(ignorePath, `${STATE_STORE_SCOPE_PATH.SPX_DIR}/\n/${LINKED_WORKTREE_NAME}/\n`);
+    const draftsDir = join(productDir, ...DECLARED_DRAFTS_LAYOUT.split("/"));
+    const kindDir = (kind: string) => join(draftsDir, kind);
     const store = await createChangeDraftStore({ cwd: productDir });
     const env: ChangeDraftEnv = {
       productDir,
-      draftDir,
+      draftsDir,
       store,
       dependencies: changeDraftDependencies,
+      kindDir,
+      write: (draft, text) => fs.writeFile(draft.path, text),
       read: (draft) => fs.readFile(draft.path, "utf8"),
       inspect: (path) => fs.lstat(path),
       readPath: (path) => fs.readFile(path, "utf8"),
-      retainedNames: () => fs.readdir(draftDir),
       listPath: (path) => fs.readdir(path),
-      setDraftDirectoryMode: async (mode) => {
-        await fs.mkdir(draftDir, { recursive: true, mode: fsConstants.S_IRWXU });
-        await fs.chmod(draftDir, mode);
+      setKindDirectoryMode: async (kind, mode) => {
+        await fs.mkdir(kindDir(kind), { recursive: true, mode: fsConstants.S_IRWXU });
+        await fs.chmod(kindDir(kind), mode);
       },
       makeVisibleToGit: () =>
         fs.writeFile(
@@ -135,17 +128,41 @@ export async function withChangeDraftEnv<T>(callback: (env: ChangeDraftEnv) => P
         await fs.writeFile(path, text);
         return path;
       },
-      addUnmanagedFile: async (name, text) => {
-        const path = join(draftDir, `notes-${name}${CHANGE_DRAFT.extension}`);
+      addUnmanagedFile: async (kind, name, text) => {
+        await fs.mkdir(kindDir(kind), { recursive: true, mode: fsConstants.S_IRWXU });
+        const path = join(kindDir(kind), `notes-${name}${CHANGE_DRAFT.extension}`);
         await fs.writeFile(path, text);
         return path;
       },
-      sibling: async () => {
+      addRetiredDraft: async (text) => {
+        const directory = join(
+          productDir,
+          STATE_STORE_SCOPE_PATH.SPX_DIR,
+          STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
+          RETIRED_CHANGE_DRAFT_DIRECTORY,
+        );
+        await fs.mkdir(directory, { recursive: true, mode: fsConstants.S_IRWXU });
+        const path = join(directory, RETIRED_DRAFT_NAME);
+        await fs.writeFile(path, text);
+        return path;
+      },
+      addSharedRecords: async (text) => {
+        const paths = [
+          join(changesScopeDir(productDir), SHARED_RECORD_NAMES.change),
+          join(branchScopesDir(productDir), SHARED_RECORD_NAMES.branch, SHARED_RECORD_NAMES.run),
+        ];
+        for (const path of paths) {
+          await fs.mkdir(dirname(path), { recursive: true, mode: fsConstants.S_IRWXU });
+          await fs.writeFile(path, text);
+        }
+        return paths;
+      },
+      linkedWorktree: async () => {
         git(productDir, ["add", ".gitignore"]);
         git(productDir, ["commit", "--quiet", "-m", "Create fixture"]);
-        const siblingDir = join(productDir, "sibling");
-        git(productDir, ["worktree", "add", "--quiet", "--detach", siblingDir]);
-        return { productDir: siblingDir, store: await createChangeDraftStore({ cwd: siblingDir }) };
+        const linkedDir = join(productDir, LINKED_WORKTREE_NAME);
+        git(productDir, ["worktree", "add", "--quiet", "--detach", linkedDir]);
+        return { productDir: linkedDir, store: await createChangeDraftStore({ cwd: linkedDir }) };
       },
       symlinkStorage: async () => {
         const target = join(productDir, "outside");
@@ -153,20 +170,52 @@ export async function withChangeDraftEnv<T>(callback: (env: ChangeDraftEnv) => P
         await fs.symlink(target, join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR));
         return target;
       },
-      symlinkDraft: async (draftId, text) => {
+      symlinkDraft: async (kind, draftId, text) => {
         const target = join(productDir, "outside.md");
-        const path = join(draftDir, `${draftId}${CHANGE_DRAFT.extension}`);
-        await fs.mkdir(draftDir, { recursive: true, mode: fsConstants.S_IRWXU });
+        const path = join(kindDir(kind), `${draftId}${CHANGE_DRAFT.extension}`);
+        await fs.mkdir(kindDir(kind), { recursive: true, mode: fsConstants.S_IRWXU });
         await fs.writeFile(target, text);
         await fs.symlink(target, path);
         return { path, target };
       },
-      runCli: async (args, input, cwd = productDir) => {
+      storeWith: (dependencies) => createChangeDraftStore({ cwd: productDir, dependencies }),
+      placeDraft: async (kind, draftId) => {
+        await fs.mkdir(kindDir(kind), { recursive: true, mode: fsConstants.S_IRWXU });
+        const path = join(kindDir(kind), `${draftId}${CHANGE_DRAFT.extension}`);
+        await fs.writeFile(path, "", { mode: CHANGE_DRAFT.fileMode });
+        return path;
+      },
+      runPackagedCliWithOpenStdin: (args) =>
+        new Promise((resolveObservation) => {
+          const child = spawn(process.execPath, [packagedCliPath(), ...args], {
+            cwd: productDir,
+            env: TEMP_GIT_ENV,
+            stdio: ["pipe", "pipe", "pipe"],
+          });
+          let stdout = "";
+          let stderr = "";
+          let timedOut = false;
+          child.stdout.on("data", (chunk: Buffer) => {
+            stdout += chunk.toString("utf8");
+          });
+          child.stderr.on("data", (chunk: Buffer) => {
+            stderr += chunk.toString("utf8");
+          });
+          const timer = setTimeout(() => {
+            timedOut = true;
+            child.kill();
+          }, OPEN_STDIN_TIMEOUT_MS);
+          child.on("close", (status) => {
+            clearTimeout(timer);
+            resolveObservation({ status, stdout, stderr, timedOut });
+          });
+        }),
+      runCli: async (args, cwd = productDir) => {
         let status = 0;
         let stdout = "";
         let stderr = "";
         const program = createCliProgram({
-          domains: [createChangeDomain(Readable.from([input ?? ""]))],
+          domains: [createDraftDomain()],
           processCwd: () => cwd,
           writeStdout: (text) => {
             stdout += text;
@@ -187,16 +236,15 @@ export async function withChangeDraftEnv<T>(callback: (env: ChangeDraftEnv) => P
         }
         return { status, stdout, stderr };
       },
-      runPackagedCli: (args, input) => {
+      runPackagedCli: (args, cwd = productDir) => {
         const result = spawnSync(process.execPath, [
-          fileURLToPath(new URL("../../bin/spx.js", import.meta.url)),
+          packagedCliPath(),
           ...args,
         ], {
-          cwd: productDir,
+          cwd,
           env: TEMP_GIT_ENV,
-          input,
           encoding: "utf8",
-          timeout: PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L1],
+          timeout: PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L2],
         });
         if (result.error) {
           throw new Error(`Packaged draft command could not complete: ${result.stderr}`, { cause: result.error });
@@ -212,8 +260,20 @@ export function collidingDraftDependencies(env: ChangeDraftEnv, draftId: string)
   return { ...env.dependencies, generateId: () => draftId };
 }
 
-// Failure simulation: retain real exclusive-open and cleanup, fail after a partial write.
-export function failingDraftWriteDependencies(env: ChangeDraftEnv): ChangeDraftDependencies {
+export function fixedIdDependencies(env: ChangeDraftEnv, ids: readonly string[]): ChangeDraftDependencies {
+  let index = 0;
+  return {
+    ...env.dependencies,
+    generateId: () => {
+      const id = ids[index];
+      index += 1;
+      return id;
+    },
+  };
+}
+
+// Failure simulation: retain the real exclusive open and cleanup, fail when the new file closes.
+export function failingDraftCloseDependencies(env: ChangeDraftEnv): ChangeDraftDependencies {
   return {
     ...env.dependencies,
     fs: {
@@ -221,17 +281,42 @@ export function failingDraftWriteDependencies(env: ChangeDraftEnv): ChangeDraftD
       openExclusive: async (path, mode) => {
         const file = await env.dependencies.fs.openExclusive(path, mode);
         return {
-          write: async (text) => {
-            await file.write(text.slice(0, Math.floor(text.length / 2)));
-            throw new Error(`Injected write failure at ${path}`);
+          close: async () => {
+            await file.close();
+            throw new Error(`Injected close failure at ${path}`);
           },
-          close: () => file.close(),
         };
       },
     },
   };
 }
 
-export function draftParentDirectory(draft: ChangeDraftDescriptor): string {
-  return dirname(draft.path);
+/** The facts a UUID string carries; the executed test judges them. */
+export interface UuidFacts {
+  readonly lowercase: boolean;
+  readonly hexDigits: number;
+  readonly version: number;
+  readonly variantBits: number;
+  readonly timestampMs: number;
+}
+
+const UUID_LAYOUT = { timestampDigits: 12, versionDigit: 12, variantDigit: 16, variantShift: 2, radix: 16 } as const;
+
+export function uuidFacts(id: string): UuidFacts {
+  const hex = id.replaceAll("-", "");
+  return {
+    lowercase: id === id.toLowerCase(),
+    hexDigits: [...hex].filter((digit) => Number.isInteger(Number.parseInt(digit, UUID_LAYOUT.radix))).length,
+    version: Number.parseInt(hex[UUID_LAYOUT.versionDigit] ?? "", UUID_LAYOUT.radix),
+    variantBits: Number.parseInt(hex[UUID_LAYOUT.variantDigit] ?? "", UUID_LAYOUT.radix) >> UUID_LAYOUT.variantShift,
+    timestampMs: Number.parseInt(hex.slice(0, UUID_LAYOUT.timestampDigits), UUID_LAYOUT.radix),
+  };
+}
+
+/** Whether every character of a diagnostic is printable or a line break. */
+export function printableCharacters(text: string): boolean[] {
+  return [...text].map((character) => {
+    const code = character.codePointAt(0) ?? 0;
+    return character === "\n" || (code >= 0x20 && code !== 0x7f);
+  });
 }

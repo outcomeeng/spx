@@ -9,11 +9,11 @@ CAN write and revise the one file SPX designates, address the same draft from an
 ### Test.Property: creation and listing
 
 - [create-names-empty-file](tests/drafts.property.l1.test.ts): For every kind in the kind grammar, creation takes no draft text, creates one empty file in that kind's draft storage, and returns its kind, local ID, and absolute path; separate successful creations have distinct IDs and files
-- shared-storage: For every worktree of a repository, creation, listing, and deletion of one kind address the one directory `.spx/drafts/<kind>/` at the Git common-dir product root, so a draft created from one worktree is listed and deleted from every other worktree
-- kind-grammar: For every value, every draft operation accepts it as a kind exactly when it lies in the kind grammar, consults no list of kinds, and otherwise rejects it with a diagnostic naming the value and writes nothing
+- [shared-storage](tests/drafts.property.l1.test.ts): For every worktree of a repository, creation, listing, and deletion of one kind address the one directory `.spx/drafts/<kind>/` at the Git common-dir product root, so a draft created from one worktree is listed and deleted from every other worktree
+- [kind-grammar](tests/drafts.property.l1.test.ts): For every value, every draft operation accepts it as a kind exactly when it lies in the kind grammar, consults no list of kinds, and otherwise rejects it with a diagnostic naming the value and writes nothing
 - [list-by-kind](tests/drafts.property.l1.test.ts): For every set of retained drafts, listing one kind returns exactly that kind's managed regular draft files, and listing every kind returns every kind's managed regular draft files together, in descending identifier order, newest first, with each descriptor naming its kind, listing changes no content, and an absent draft directory returns an empty list without creating directories
-- draft-identifiers: For every successful creation, the returned local ID is the value that the injected UUIDv7 generator returned, unchanged
-- draft-identifier-order: For every sequence of successful creations, each returned local ID is a lowercase UUIDv7, and it precedes in ordinal order the local ID of every creation in a later millisecond; for creations within one millisecond, the IDs' ordinal order alone fixes their listing order
+- [draft-identifiers](tests/drafts.property.l1.test.ts): For every successful creation, the returned local ID is the value that the injected UUIDv7 generator returned, unchanged
+- [draft-identifier-order](tests/drafts.property.l1.test.ts): For every sequence of successful creations, each returned local ID is a lowercase UUIDv7, and it precedes in ordinal order the local ID of every creation in a later millisecond; for creations within one millisecond, the IDs' ordinal order alone fixes their listing order
 
 ### Test.Property: deletion
 
@@ -21,26 +21,26 @@ CAN write and revise the one file SPX designates, address the same draft from an
 
 ### Test.Compliance: storage safety
 
-- owner-only-access: ALWAYS: created draft files and their kind directories are accessible only to their owner on permission-enforcing filesystems, and creation refuses a storage destination that Git would publish by default
-- no-overwrite-no-escape: NEVER: creation overwrites an existing candidate path, or deletion accepts traversal, an arbitrary path, another kind's draft, or a symlink as a managed draft
-- exclusive-create: ALWAYS: creation creates the kind directory with owner-only access and the draft file through one exclusive create with owner read/write access, and a failed creation removes only the file that operation created and leaves every pre-existing file unchanged
-- storage-checked-before-create: ALWAYS: creation refuses unsafe storage components and a Git-visible storage destination before it creates the draft file, and listing and deletion reject a symlinked storage directory or candidate entry before following it
-- malformed-identifier-rejected: NEVER: deletion accepts a malformed draft identifier, a lowercase UUID of a version other than 7 included, as naming a managed draft
+- [owner-only-access](tests/drafts.compliance.l1.test.ts): ALWAYS: created draft files and their kind directories are accessible only to their owner on permission-enforcing filesystems, and creation refuses a storage destination that Git would publish by default
+- [no-overwrite-no-escape](tests/drafts.compliance.l1.test.ts): NEVER: creation overwrites an existing candidate path, or deletion accepts traversal, an arbitrary path, another kind's draft, or a symlink as a managed draft
+- [exclusive-create](tests/drafts.compliance.l1.test.ts): ALWAYS: creation creates the kind directory with owner-only access and the draft file through one exclusive create with owner read/write access, and a failed creation removes only the file that operation created and leaves every pre-existing file unchanged
+- [storage-checked-before-create](tests/drafts.compliance.l1.test.ts): ALWAYS: creation refuses unsafe storage components and a Git-visible storage destination before it creates the draft file, and listing and deletion reject a symlinked storage directory or candidate entry before following it
+- [malformed-identifier-rejected](tests/drafts.compliance.l1.test.ts): NEVER: deletion accepts a malformed draft identifier, a lowercase UUID of a version other than 7 included, as naming a managed draft
 
 ### Test.Compliance: results
 
-- descriptor-fields: ALWAYS: every descriptor that creation or listing returns carries `kind`, `draftId`, and `path`, and its absolute path lies inside `.spx/drafts/<kind>/` of its own kind
-- list-order: ALWAYS: listing reads no draft file, orders one kind's descriptors and every kind's descriptors together alike by descending ordinal identifier comparison, and returns an empty result for an absent directory
-- delete-one-file: ALWAYS: deletion of a kind and an identifier derives the path from the managed scope, removes exactly one regular file without recursive cleanup, and reports the file removed, or already absent for a valid identifier with no file
-- error-context: ALWAYS: a failed file operation returns an error naming that operation and the path it acted on
+- [descriptor-fields](tests/drafts.compliance.l1.test.ts): ALWAYS: every descriptor that creation or listing returns carries `kind`, `draftId`, and `path`, and its absolute path lies inside `.spx/drafts/<kind>/` of its own kind
+- [list-order](tests/drafts.compliance.l1.test.ts): ALWAYS: listing reads no draft file, orders one kind's descriptors and every kind's descriptors together alike by descending ordinal identifier comparison, and returns an empty result for an absent directory
+- [delete-one-file](tests/drafts.compliance.l1.test.ts): ALWAYS: deletion of a kind and an identifier derives the path from the managed scope, removes exactly one regular file without recursive cleanup, and reports the file removed, or already absent for a valid identifier with no file
+- [error-context](tests/drafts.compliance.l1.test.ts): ALWAYS: a failed file operation returns an error naming that operation and the path it acted on
 
 ### Test.Compliance: isolation
 
-- content-untouched: NEVER: a draft operation reads, parses, or changes the content a caller wrote to a draft file; only the deletion of that draft removes it
-- no-migration: NEVER: a draft operation reads, moves, or deletes a file under `.spx/worktree/change-drafts/`
-- exact-delete: ALWAYS: deletion removes only the identified draft of its kind, and leaves every other draft unchanged, whichever worktree created it
-- delete-absent-fails: ALWAYS: deletion of a lowercase UUIDv7 identifier that names no draft of its kind leaves every draft unchanged and returns a failed result that reports the absence
-- no-foreign-state: NEVER: a draft operation mutates a shared Change backend, a verification journal, or the process working directory
+- [content-untouched](tests/drafts.compliance.l1.test.ts): NEVER: a draft operation reads, parses, or changes the content a caller wrote to a draft file; only the deletion of that draft removes it
+- [no-migration](tests/drafts.compliance.l1.test.ts): NEVER: a draft operation reads, moves, or deletes a file under `.spx/worktree/change-drafts/`
+- [exact-delete](tests/drafts.compliance.l1.test.ts): ALWAYS: deletion removes only the identified draft of its kind, and leaves every other draft unchanged, whichever worktree created it
+- [delete-absent-fails](tests/drafts.compliance.l1.test.ts): ALWAYS: deletion of a lowercase UUIDv7 identifier that names no draft of its kind leaves every draft unchanged and returns a failed result that reports the absence
+- [no-foreign-state](tests/drafts.compliance.l1.test.ts): NEVER: a draft operation mutates a shared Change backend, a verification journal, or the process working directory
 
 ### Audit: lifecycle
 
