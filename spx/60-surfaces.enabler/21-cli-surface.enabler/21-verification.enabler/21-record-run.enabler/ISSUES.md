@@ -68,3 +68,27 @@ can catch a forbidden command path that the descriptor's own list omits.
 
 **Settlement condition:** the parent entry settles, and a test-evidence audit
 of this node raises no source-ownership finding on the descriptor.
+
+## Payload-source options resolve relative paths against different bases `src/interfaces/cli/verify.ts` `evidenceDeps` `run-payload-option`
+
+**Source:** the CI review of PR 748 at head `15bd4cc552cbc4fa47cddfb0680d1f310b0911b8`,
+category consistency, label DEBT, accepted by the Methodology Director's ruling in
+place of the SPX Maintainer. The rule is `run-payload-option` in
+[`spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`](spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md).
+
+`evidenceDeps` in `src/interfaces/cli/verify.ts` resolves a relative `--payload`
+path against the effective invocation directory, so `scope add` and
+`finding add` follow `-C <path>`. `run-payload-option` and this node's
+`run-payload-option-grammar` both state that base. `finish` reads
+`--terminal-metadata` through `deps()`, and the `--input` sources read the same
+way, so a relative path there resolves against the process directory. No line
+of the record states the base of `--terminal-metadata` or `--input`.
+
+**Impact:** under `-C <path>`, one relative path names different files on
+sibling verbs of one run: `scope add --payload x.json` reads `<path>/x.json`,
+while `finish --terminal-metadata x.json` reads `x.json` in the process
+directory.
+
+**Settlement condition:** every payload-source option of the
+`spx verification run` verbs resolves a relative path against one base, and the
+record states that base for each option.
