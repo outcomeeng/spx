@@ -631,6 +631,8 @@ export const PINNED_SPEC_FIXTURE = {
   EVAL_LINKED: join(NODE_STATUS_FIXTURE_DIRECTORY, "linked-spec-eval.md.fixture"),
   /** One linked test, eval, and probe, and one audit rule. */
   ALL_EVIDENCE: join(NODE_STATUS_FIXTURE_DIRECTORY, "linked-spec-all-evidence.md.fixture"),
+  /** One linked test and two 4.0 Audit rows under an `### Audit` heading. */
+  AUDIT_ROWS: join(NODE_STATUS_FIXTURE_DIRECTORY, "audit-rows-spec.md.fixture"),
 } as const;
 
 const SPEC_LINK_PATTERN = new RegExp(
@@ -648,7 +650,26 @@ const REPOSITORY_ROOT_PATHS = ["."] as const;
 const UNRELATED_FILE_PATH = "unrelated.txt";
 const AUDIT_RULE_TAG_PATTERN = /\[audit:([a-z0-9-]+)\]/g;
 const AUDIT_RULE_TAG_GROUP = 1;
+/** The heading of a 4.0 group of Audit rows in a spec fixture, and one row's slug. */
+const AUDIT_ROW_GROUP_HEADING = /^###\s+Audit(?::|\s*$)/;
+const AUDIT_ROW_SLUG = /^- ([a-z\d][a-z\d-]*):\s/;
+const AUDIT_ROW_SLUG_GROUP = 1;
 const VARIANT_SUBJECT_DIRECTORY = "src";
+
+/** The slugs of the 4.0 Audit rows a spec fixture holds, in document order. */
+function auditRowSlugsOfFixture(specContent: string): readonly string[] {
+  const slugs: string[] = [];
+  let underAuditHeading = false;
+  for (const line of specContent.split("\n")) {
+    if (line.startsWith("#")) {
+      underAuditHeading = AUDIT_ROW_GROUP_HEADING.test(line);
+      continue;
+    }
+    const slug = underAuditHeading ? AUDIT_ROW_SLUG.exec(line)?.[AUDIT_ROW_SLUG_GROUP] : undefined;
+    if (slug !== undefined) slugs.push(slug);
+  }
+  return slugs;
+}
 
 /** A committed single-node repository whose results can be pinned to its spec, tests, and source subjects. */
 export type PinnedNodeRepository = {
@@ -676,7 +697,7 @@ export type PinnedNodeRepository = {
   /** The commit every pin of this repository names. */
   readonly commit: string;
   readonly git: GitDependencies;
-  /** The audit rule slugs the spec tags, read from the spec fixture. */
+  /** The audit rule slugs the spec tags and its 4.0 Audit rows, read from the spec fixture. */
   readonly auditRuleSlugs: readonly string[];
   /** A pin-change reader that has compared no commit with the checkout yet. */
   readonly pinChanges: PinChangeReader;
@@ -844,10 +865,13 @@ export async function withPinnedNodeRepository(
       subjectPaths: fixture.subjectPaths,
       commit,
       git: isolatedFixtureGitDependencies,
-      auditRuleSlugs: [...specContent.matchAll(AUDIT_RULE_TAG_PATTERN)].flatMap((match) => {
-        const slug = match.at(AUDIT_RULE_TAG_GROUP);
-        return slug === undefined ? [] : [slug];
-      }),
+      auditRuleSlugs: [
+        ...[...specContent.matchAll(AUDIT_RULE_TAG_PATTERN)].flatMap((match) => {
+          const slug = match.at(AUDIT_RULE_TAG_GROUP);
+          return slug === undefined ? [] : [slug];
+        }),
+        ...auditRowSlugsOfFixture(specContent),
+      ],
       get pinChanges() {
         return createPinChangeReader({ productDir: env.productDir, git: isolatedFixtureGitDependencies });
       },

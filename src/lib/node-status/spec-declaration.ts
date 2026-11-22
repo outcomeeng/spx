@@ -15,6 +15,12 @@ import { NODE_STATUS_DEFAULT_MALLEABILITY, NODE_STATUS_MALLEABILITY, type NodeSt
 const SLUG_OF_DIRECTORY = /^\d+(?:\.\d+)?-(.+)\.[a-z]+$/;
 const AUDIT_RULE_TAG = /\[audit:([^\]\s]+)\]/g;
 const AUDIT_RULE_SLUG_GROUP = 1;
+const LINE_BREAK = /\r?\n/;
+const HEADING_PREFIX = "#";
+/** The heading of a 4.0 group of Audit rows: `### Audit`, optionally followed by `: {subject}`. */
+const AUDIT_GROUP_HEADING = /^###\s+Audit(?::|\s*$)/;
+/** A 4.0 Audit row: a top-level bullet that opens with its slug and a colon. */
+const AUDIT_ROW = /^- ([a-z\d][a-z\d-]*):\s/;
 const TEXT_ENCODING = "utf8";
 
 /** What a node's spec declares that its claim is measured against. */
@@ -24,6 +30,8 @@ export interface NodeSpecDeclaration {
   readonly malleability: NodeStatusMalleability;
   /** The rule slugs of the spec's `[audit:{rule-slug}]` assertions, in document order. */
   readonly auditRuleSlugs: readonly string[];
+  /** The slugs of the spec's 4.0 Audit rows, `- {slug}:` lines under an `### Audit` heading, in document order. */
+  readonly auditRowSlugs: readonly string[];
 }
 
 const MALLEABILITIES: ReadonlySet<string> = new Set(Object.values(NODE_STATUS_MALLEABILITY));
@@ -47,12 +55,18 @@ export async function readNodeSpecDeclaration(productDir: string, nodeId: string
     } catch {
       continue;
     }
-    return { specPath, malleability: declaredMalleability(source, specPath), auditRuleSlugs: auditSlugsOf(source) };
+    return {
+      specPath,
+      malleability: declaredMalleability(source, specPath),
+      auditRuleSlugs: auditSlugsOf(source),
+      auditRowSlugs: auditRowSlugsOf(source),
+    };
   }
   return {
     specPath: candidates[candidates.length - 1] ?? nodePath,
     malleability: NODE_STATUS_DEFAULT_MALLEABILITY,
     auditRuleSlugs: [],
+    auditRowSlugs: [],
   };
 }
 
@@ -72,6 +86,22 @@ function auditSlugsOf(source: string): readonly string[] {
   const slugs = new Set<string>();
   for (const match of source.matchAll(AUDIT_RULE_TAG)) {
     const slug = match.at(AUDIT_RULE_SLUG_GROUP);
+    if (slug !== undefined) slugs.add(slug);
+  }
+  return [...slugs];
+}
+
+/** The slugs of the spec's 4.0 Audit rows: each `- {slug}:` line under an `### Audit` heading, in document order. */
+function auditRowSlugsOf(source: string): readonly string[] {
+  const slugs = new Set<string>();
+  let underAuditHeading = false;
+  for (const line of source.split(LINE_BREAK)) {
+    if (line.startsWith(HEADING_PREFIX)) {
+      underAuditHeading = AUDIT_GROUP_HEADING.test(line);
+      continue;
+    }
+    if (!underAuditHeading) continue;
+    const slug = AUDIT_ROW.exec(line)?.[AUDIT_RULE_SLUG_GROUP];
     if (slug !== undefined) slugs.add(slug);
   }
   return [...slugs];

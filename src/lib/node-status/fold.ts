@@ -126,15 +126,23 @@ export async function foldNodeClaim(input: NodeClaimFoldInput): Promise<NodeStat
   const evidenceKinds = input.declaration.malleability === NODE_STATUS_MALLEABILITY.IMPLEMENTATION
     ? linkedEvidenceKinds(input.evidencePaths)
     : [];
+  const requestedAuditSlugs = [...new Set([...input.declaration.auditRuleSlugs, ...input.declaration.auditRowSlugs])];
   const attributed = input.resolveAttributedResults === undefined
-      || (input.declaration.auditRuleSlugs.length === 0 && evidenceKinds.length === 0)
+      || (requestedAuditSlugs.length === 0 && evidenceKinds.length === 0)
     ? {}
     : await input.resolveAttributedResults(input.nodeId, {
-      auditRuleSlugs: input.declaration.auditRuleSlugs,
+      auditRuleSlugs: requestedAuditSlugs,
       evidenceKinds,
     });
+  // A 3.x audit tag always takes an entry; a 4.0 Audit row takes one when a sealed run yields its result.
+  const auditKeys = [
+    ...input.declaration.auditRuleSlugs,
+    ...input.declaration.auditRowSlugs.filter((slug) =>
+      !input.declaration.auditRuleSlugs.includes(slug) && attributed.audit?.[slug] !== undefined
+    ),
+  ];
   const attributedRequirements: readonly [NodeStatusClaimSection, readonly string[]][] = [
-    [NODE_STATUS_CLAIM_SECTION.AUDIT, input.declaration.auditRuleSlugs],
+    [NODE_STATUS_CLAIM_SECTION.AUDIT, auditKeys],
     [NODE_STATUS_CLAIM_SECTION.EVIDENCE, evidenceKinds],
   ];
   for (const [section, keys] of attributedRequirements) {
