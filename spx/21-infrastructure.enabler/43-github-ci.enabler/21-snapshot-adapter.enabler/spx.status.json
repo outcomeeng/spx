@@ -5,7 +5,7 @@
     "test": {
       "tests/pull-request-comment-client.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f2c7f20a6257b968e447b6541b4588b196fa5431",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler/snapshot-adapter.md",
@@ -83,7 +83,7 @@
       },
       "tests/snapshot-projection.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f2c7f20a6257b968e447b6541b4588b196fa5431",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler/snapshot-adapter.md",
@@ -109,7 +109,7 @@
       },
       "tests/surface-write.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "872a29dd53cb5d1a5acc0ea74afbe07f844c2ecf",
+        "commit": "f2c7f20a6257b968e447b6541b4588b196fa5431",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler/snapshot-adapter.md",
