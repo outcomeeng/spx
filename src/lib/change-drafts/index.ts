@@ -1,12 +1,11 @@
 import { join, relative, sep } from "node:path";
 
-import { detectGitCommonDirProductRoot } from "@/lib/git/root";
 import {
   compareAsciiStrings,
-  draftsScopeDir,
   ERROR_CODE_FILE_EXISTS,
   ERROR_CODE_NOT_FOUND,
   hasErrorCode,
+  resolveDraftsScopeDir,
 } from "@/lib/state-store";
 
 import {
@@ -228,8 +227,8 @@ async function deleteDraft(context: DraftContext, kind: string, draftId: string)
 
 export async function createChangeDraftStore(options: ChangeDraftStoreOptions): Promise<ChangeDraftStore> {
   const dependencies = options.dependencies ?? changeDraftDependencies;
-  const { productDir } = await detectGitCommonDirProductRoot(options.cwd, dependencies.git);
-  const context: DraftContext = { productDir, draftsDir: draftsScopeDir(productDir), dependencies };
+  const { productDir, draftsDir } = await resolveDraftsScopeDir({ cwd: options.cwd, deps: dependencies.git });
+  const context: DraftContext = { productDir, draftsDir, dependencies };
   return {
     create: (kind) => createDraft(context, kind),
     list: (kind) => listDrafts(context, kind),

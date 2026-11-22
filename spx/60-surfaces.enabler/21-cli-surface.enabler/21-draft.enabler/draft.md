@@ -6,7 +6,7 @@ CAN obtain the one file of a new draft before writing it, find retained drafts f
 
 ## Assertions
 
-### Test.Mapping: [packaged-draft-commands](tests/packaged-commands.mapping.l2.test.ts)
+### Test.Mapping: [packaged-draft-commands](tests/packaged-commands.mapping.l1.test.ts)
 
 The packaged CLI exposes each draft operation as one `spx draft` command path, for every kind in the kind grammar.
 

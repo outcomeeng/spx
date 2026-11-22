@@ -4,6 +4,7 @@ import { DRAFT_COMMAND, type DraftListBound } from "@/commands/draft/contract";
 import { createDraftCommand, deleteDraftCommand, listDraftsCommand } from "@/commands/draft/draft";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
+import { ChangeDraftError } from "@/lib/change-drafts/contract";
 import { externalValue, jsonDocument, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 const POSITIVE_INTEGER = /^[1-9]\d*$/u;
@@ -18,11 +19,27 @@ function failWith(invocation: CliInvocation, message: unknown): void {
   invocation.io.setExitCode(1);
 }
 
+/** A draft error names its operation, its code, and the value or path it failed at as an external value. */
+function failWithError(invocation: CliInvocation, error: unknown): void {
+  if (error instanceof ChangeDraftError) {
+    invocation.io.writeStderr(
+      renderTerminalText(
+        terminal`Draft ${externalValue(error.operation)} failed (${externalValue(error.code)}) at ${
+          externalValue(error.path)
+        }\n`,
+      ),
+    );
+    invocation.io.setExitCode(1);
+    return;
+  }
+  failWith(invocation, error instanceof Error ? error.message : error);
+}
+
 async function writeDraftResult(invocation: CliInvocation, action: () => Promise<object>): Promise<void> {
   try {
     invocation.io.writeStdout(renderTerminalText(terminal`${jsonDocument(await action())}\n`));
   } catch (error) {
-    failWith(invocation, error instanceof Error ? error.message : error);
+    failWithError(invocation, error);
   }
 }
 
@@ -95,7 +112,7 @@ export function createDraftDomain(): Domain {
             }
             invocation.io.writeStdout(renderTerminalText(terminal`${jsonDocument(deletion)}\n`));
           } catch (error) {
-            failWith(invocation, error instanceof Error ? error.message : error);
+            failWithError(invocation, error);
           }
         });
     },

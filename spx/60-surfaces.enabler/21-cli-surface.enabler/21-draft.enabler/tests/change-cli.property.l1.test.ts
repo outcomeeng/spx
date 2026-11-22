@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { DRAFT_COMMAND } from "@/commands/draft/contract";
 import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
 import { changeDraftDescriptorSchema } from "@/lib/change-drafts/contract";
+import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import {
   arbitraryDraftContent,
   arbitraryDraftId,
@@ -108,6 +109,7 @@ describe("draft command results", () => {
           expect(result.status).not.toBe(0);
           expect(result.stderr.length).toBeGreaterThan(0);
           expect(result.stdout).toHaveLength(0);
+          expect(result.stderr).toContain(renderTerminalText(terminal`${externalValue(invalid)}`));
         }
         expect(await env.store.list()).toEqual([retained]);
       });

@@ -116,15 +116,15 @@ describe("scope addressing", () => {
       deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.NON_MAIN }),
     });
 
-    expect(mainCheckout).toBe(join(
+    expect(mainCheckout.draftsDir).toBe(join(
       SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
       STATE_STORE_SCOPE_PATH.SPX_DIR,
       STATE_STORE_SCOPE_PATH.DRAFTS_SCOPE,
     ));
-    expect(linked).toBe(mainCheckout);
+    expect(linked).toEqual(mainCheckout);
     for (const toplevel of [SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL, SESSION_GIT_DEPS_PATHS.NON_MAIN_TOPLEVEL]) {
       const worktreeScope = join(toplevel, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE);
-      expect(linked.startsWith(worktreeScope)).toBe(false);
+      expect(linked.draftsDir.startsWith(worktreeScope)).toBe(false);
     }
   });
 
