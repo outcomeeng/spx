@@ -1,5 +1,5 @@
 {
-  "state": "specified",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -8322,15 +8322,72 @@
     },
     "audit": {
       "payload-directory-addressing": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "7245f9045933a9739a4c4b9d4338bbab2b6c2c0d",
+        "read": [
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/verify.ts",
+          "src/lib/state-store/index.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-23_04-41-35-010-cec505906b9e"
       },
       "payload-directory-sweep": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "7245f9045933a9739a4c4b9d4338bbab2b6c2c0d",
+        "read": [
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/verify.ts",
+          "src/lib/state-store/index.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-23_04-41-35-010-cec505906b9e"
       }
     },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "7245f9045933a9739a4c4b9d4338bbab2b6c2c0d",
+        "read": [
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-change-identity.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-change-identity.scenario.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-change-inventory.mapping.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-drive-mode.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-expectations.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-file-scope.property.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-file-scope.scenario.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-head-commit.mapping.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-input-check.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-input-check.mapping.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-input.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-input.scenario.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-name-status-inventory.mapping.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-payload-directory.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-scope.mapping.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-scope.property.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-start-content-identity.property.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-start-expected-digest.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-start.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-start.scenario.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-verifier.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-verifier.scenario.l1.test.ts",
+          "src/domains/verify/verify.ts",
+          "testing/generators/verify/verify.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-23_04-43-26-578-c39a6ea00d09"
       }
     }
   }
