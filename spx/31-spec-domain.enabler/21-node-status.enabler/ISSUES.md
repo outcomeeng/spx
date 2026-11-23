@@ -10,15 +10,15 @@
 
 **Settlement condition:** the fold's input type carries one verdict per listed path, or every fold over it treats a listed path with no verdict as `not-run`, shown by evidence that fails when a fold over such an outcome returns `passed`.
 
-## The node-status modules strip the order prefix with a single-dot copy of the index grammar
+## No evidence shows a node at a multi-dot index resolving its spec path and governing decisions
 
-`src/lib/node-status/link-format.ts` (`ORDERED_DIRECTORY_NAME`), `src/lib/node-status/provider.ts` and `src/lib/node-status/spec-declaration.ts` (`SLUG_OF_DIRECTORY`), and `src/lib/node-status/claim-state.ts` (`ORDER_PREFIX`) each declare their own pattern for a node directory's order prefix, and each admits at most one dot segment. `src/lib/spec-tree/config.ts` declares the index forms the naming-schema versions accept — `DIGIT_RUNS` and `TWO_DIGIT` under `ORDER_FORMS`, both admitting any number of dot segments — and `parseOrderedSlug` in `src/lib/spec-tree/index.ts` strips the prefix through the selected version's `order.PATTERN`.
+`src/lib/node-status/provider.ts`, `spec-declaration.ts`, `link-format.ts` and `claim-state.ts` take a node directory's slug and index from `parseSpecTreeNodeDirectoryName` and `parseSpecTreeOrderedName` in `src/lib/spec-tree/index.ts`, which read the order forms of every known naming-schema version, so each accepts any number of dot segments.
 
-**Evidence:** for a directory named `20.1.5-foo.enabler`, none of the four patterns matches. `provider.ts` and `spec-declaration.ts` fall back to the whole directory name, so the spec path they build does not exist and the node's declared malleability and audit rule slugs are lost; `link-format.ts` reports the node's prior-form spec as no spec, so the link-format currency exemption does not apply; `claim-state.ts` gives the decision file and the toward-target segment an order of negative infinity, so the governing-decision paths at that depth are empty. No node in the tree carries a multi-dot index. Raised as a DEBT finding by the CI review of PR 679.
+**Evidence:** no test of `spx/31-spec-domain.enabler/21-node-status.enabler` builds a node at an index such as `20.1.5`. No node in the tree carries a multi-dot index.
 
-**Impact:** a node at a multi-dot index reads with the wrong spec path, the wrong governing decisions, and no link-format exemption, with no diagnostic.
+**Impact:** a regression that stops a multi-dot index from resolving passes every node-status test.
 
-**Settlement condition:** the four sites take the slug and order index from the spec-tree library's per-version order grammar, or from one node-status helper covering the same grammar, and evidence shows a node at a multi-dot index resolves its spec path and governing decisions.
+**Settlement condition:** evidence shows a node at a multi-dot index resolves its spec path, its governing decisions, and its link-format exemption.
 
 ## The status report reader carries no evidence of its own
 
@@ -39,26 +39,6 @@
 **Impact:** for a newly authored, untracked node, the state `spx spec status` prints after `--update`, or without it, can differ from the state written to that node's `spx.status.json`.
 
 **Settlement condition:** one shared function resolves a node's spec path, `foldTrackedNodeClaims` and `classifyClaim` both consume it, and evidence shows an untracked node with an on-disk canonical spec reads the same state on both paths.
-
-## The node-status modules hand-code the order-prefix and slug pattern outside the versioned grammar assertion:ordinal-25:spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md:constraint-unmet
-
-`src/lib/node-status/provider.ts` (lines 36 and 135), `src/lib/node-status/spec-declaration.ts` (line 15), `src/lib/node-status/link-format.ts` (line 10), and `src/lib/node-status/claim-state.ts` (line 59) each declare the order-prefix and slug pattern of a node directory name, for example `/^\d+(?:\.\d+)?-(.+)\.[a-z]+$/`, and apply it in state derivation. The versioned filename grammar in `spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md` owns that pattern, and the node-status modules do not read it from the grammar's exports.
-
-**Evidence:** the assertion audit run 2026-10-27_18-42-54-635-6e4d085c4e67 of `spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md` reported rule `constraint-unmet`, severity `debt`, for the assertion at ordinal 25 at the five locations above.
-
-**Impact:** each hand-coded pattern changes independently of the versioned grammar, so a grammar change reaches state derivation only where a module is edited to match, and the four sites can disagree with each other and with the grammar.
-
-**Settlement condition:** the node-status modules read the order pattern from the filename-grammar exports of `spx/23-spec-tree.enabler/29-filename-grammar.enabler`, and no module under `src/` declares it again.
-
-## The node-status modules declare grammar token constants outside the registry surface assertion:ordinal-27:spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md:constraint-unmet
-
-`src/lib/node-status/provider.ts` declares `export const VARIANT_DIRECTORY_SUFFIX = ".variant"` at line 33 and uses it at line 89. The constant duplicates `KIND_REGISTRY.variant.suffix`. The four order-pattern regexes at `src/lib/node-status/provider.ts` (lines 36 and 135), `src/lib/node-status/spec-declaration.ts` (line 15), `src/lib/node-status/link-format.ts` (line 10), and `src/lib/node-status/claim-state.ts` (line 59) are further module-local grammar tokens.
-
-**Evidence:** the assertion audit run 2026-10-27_18-42-54-635-6e4d085c4e67 of `spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md` reported rule `constraint-unmet`, severity `debt`, for the assertion at ordinal 27 at these locations.
-
-**Impact:** grammar tokens declared outside the registry surface can drift from the registry's values, so the variant suffix and the order pattern have more than one source of truth.
-
-**Settlement condition:** the node-status modules read the order pattern and the variant suffix from the filename-grammar exports of `spx/23-spec-tree.enabler/29-filename-grammar.enabler`, and no module under `src/` declares them again.
 
 ## The status-file-contract PDR mixes 3.x and 4.0 form
 
