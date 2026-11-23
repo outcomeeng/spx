@@ -5,10 +5,10 @@
  * addressing key for the run rather than its coverage claim; the narrowest enclosing directory is
  * the deterministic key that names what the caller asked for.
  */
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { canonicalizeOperand } from "@/lib/test-targeting";
 
-const PATH_SEGMENT_SEPARATOR = "/";
+const PATH_SEGMENT_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 
 function parentDirectorySegments(segments: readonly string[]): readonly string[] {
   return segments.slice(0, -1);
