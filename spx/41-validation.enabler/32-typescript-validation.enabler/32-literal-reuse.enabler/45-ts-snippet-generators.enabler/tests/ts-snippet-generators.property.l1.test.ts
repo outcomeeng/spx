@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { collectLiterals, DEFAULT_LITERAL_COLLECT_OPTIONS, LITERAL_KIND } from "@/validation/literal/index";
-import { LITERAL_TEST_GENERATOR } from "@testing/generators/literal/literal";
 import {
+  arbitrarySnippetBuilderScenario,
   buildNumericAssertion,
   buildNumericDeclaration,
   buildStringAssertion,
@@ -14,7 +14,7 @@ import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesse
 describe("TypeScript snippet generators", () => {
   it("are deterministic and round-trip every canonical form through literal detection", () => {
     assertProperty(
-      LITERAL_TEST_GENERATOR.snippetBuilderScenario(),
+      arbitrarySnippetBuilderScenario(),
       ({ stringValue, numericValue, sourceFile, testFile }) => {
         expect(buildStringDeclaration(stringValue)).toBe(buildStringDeclaration(stringValue));
         expect(buildNumericDeclaration(numericValue)).toBe(buildNumericDeclaration(numericValue));
