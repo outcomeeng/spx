@@ -927,6 +927,32 @@ export function formatNameStatusZ(paths: readonly string[]): string {
   return paths.flatMap((path) => [GIT_MODIFY_STATUS_EXAMPLE, path]).join(GIT_NULL_RECORD_SEPARATOR);
 }
 
+/** One base-side path and the two head-side paths a rename and a copy of it produce. */
+export interface VerifyNameStatusPaths {
+  readonly sourcePath: string;
+  readonly renamedPath: string;
+  readonly copiedPath: string;
+}
+
+/** A name-status record of a rename or a copy: its status, then its base-side and head-side paths. */
+export interface VerifyNameStatusTwoPathRecord {
+  readonly status: string;
+  readonly sourcePath: string;
+  readonly targetPath: string;
+}
+
+/**
+ * The null-delimited `--name-status` output of two-path records, as `git diff -z` with rename and copy
+ * detection prints it. The rename and copy statuses come from `@/lib/git/name-status`; the paths are
+ * the generated domain the test explores.
+ */
+export function formatTwoPathNameStatusZ(records: readonly VerifyNameStatusTwoPathRecord[]): string {
+  return records
+    .flatMap((record) => [record.status, record.sourcePath, record.targetPath])
+    .map((field) => `${field}${GIT_NULL_RECORD_SEPARATOR}`)
+    .join("");
+}
+
 /**
  * A valid scope unit of each verification type that a run may record as its first unit, given the
  * run's scope identity: a parentless, required audit unit whose subject is the run's scope identity
@@ -1336,6 +1362,11 @@ export const VERIFY_TEST_GENERATOR = {
       sourcePath: arbitrarySourceFilePath(),
       targetPath: arbitrarySourceFilePath(),
     }).filter(({ sourcePath, targetPath }) => sourcePath !== targetPath),
+  /** Three distinct product-relative paths: one base-side path and the two head-side paths a rename and a copy of it produce. */
+  nameStatusPaths: (): fc.Arbitrary<VerifyNameStatusPaths> =>
+    fc.uniqueArray(arbitrarySourceFilePath(), { minLength: 3, maxLength: 3 }).map((
+      [sourcePath, renamedPath, copiedPath],
+    ) => ({ sourcePath, renamedPath, copiedPath })),
   /**
    * The layout of a real repository for finish reconciliation: the head branch and three distinct
    * product-relative paths — the one the changeset changes, one both commits hold unchanged, and one

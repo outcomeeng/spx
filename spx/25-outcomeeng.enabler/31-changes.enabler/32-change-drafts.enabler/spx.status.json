@@ -5,7 +5,7 @@
     "test": {
       "tests/drafts.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/change-drafts.md",
@@ -392,7 +392,7 @@
       },
       "tests/drafts.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/change-drafts.md",
