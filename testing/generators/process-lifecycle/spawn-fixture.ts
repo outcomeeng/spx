@@ -2,6 +2,8 @@ import { constants as osConstants } from "node:os";
 
 import * as fc from "fast-check";
 
+import { sampleGeneratedValue } from "@testing/generators/sample";
+
 const UNKNOWN_SIGNAL_NAME_MAX_LENGTH = 64;
 const NODE_SIGNAL_NAMES: ReadonlySet<string> = new Set(Object.keys(osConstants.signals));
 const SPAWN_FIXTURE_TEXT_UNITS = "abcdefghijklmnopqrstuvwxyz".split("");
@@ -26,8 +28,15 @@ export function arbitrarySpawnFixtureText(): fc.Arbitrary<string> {
   });
 }
 
-/** One text drawn from {@link arbitrarySpawnFixtureText}, for a scenario. */
+/** One text drawn from {@link arbitrarySpawnFixtureText} through the seeded sampler, for a scenario. */
 export function sampleSpawnFixtureText(): string {
-  const [text] = fc.sample(arbitrarySpawnFixtureText(), { numRuns: 1 });
-  return text;
+  return sampleGeneratedValue(arbitrarySpawnFixtureText());
+}
+
+/** Two different texts drawn from {@link arbitrarySpawnFixtureText} through the seeded sampler, for a scenario. */
+export function sampleDistinctSpawnFixtureTexts(): readonly [string, string] {
+  const [first, second] = sampleGeneratedValue(
+    fc.uniqueArray(arbitrarySpawnFixtureText(), { minLength: 2, maxLength: 2 }),
+  );
+  return [first, second];
 }

@@ -1,5 +1,7 @@
 import * as fc from "fast-check";
 
+import { sampleGeneratedValue } from "@testing/generators/sample";
+
 const VALIDATION_SUBPROCESS_TEXT_UNITS = "abcdefghijklmnopqrstuvwxyz".split("");
 const VALIDATION_SUBPROCESS_TEXT_MAX_LENGTH = 32;
 
@@ -22,10 +24,12 @@ export function arbitraryValidationSubprocessText(): fc.Arbitrary<string> {
   });
 }
 
-/** One text drawn from {@link arbitraryValidationSubprocessText}, for a scenario. */
-export function sampleValidationSubprocessText(): string {
-  const [text] = fc.sample(arbitraryValidationSubprocessText(), { numRuns: 1 });
-  return text;
+/** A stdout text and a different stderr text drawn through the seeded sampler, for a scenario. */
+export function sampleValidationSubprocessStreamTexts(): { readonly stdout: string; readonly stderr: string } {
+  const [stdout, stderr] = sampleGeneratedValue(
+    fc.uniqueArray(arbitraryValidationSubprocessText(), { minLength: 2, maxLength: 2 }),
+  );
+  return { stdout, stderr };
 }
 
 /** A spawn call with any command string, any list of argument strings, and any working-directory string. */

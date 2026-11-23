@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { VALIDATION_SUBPROCESS_EVENTS } from "@/validation/steps/subprocess-output";
 import {
-  sampleValidationSubprocessText,
+  sampleValidationSubprocessStreamTexts,
   VALIDATION_SUBPROCESS_EXPECTED_SUCCESS_EXIT_CODE,
 } from "@testing/generators/validation/subprocess";
 import { RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
@@ -23,8 +23,7 @@ describe("Scenario: recording validation child", () => {
 
   it("yields from stdout and stderr the text written to each stream", () => {
     const child = new RecordingValidationChild();
-    const stdoutText = sampleValidationSubprocessText();
-    const stderrText = sampleValidationSubprocessText();
+    const { stdout: stdoutText, stderr: stderrText } = sampleValidationSubprocessStreamTexts();
 
     child.stdout.write(stdoutText);
     child.stderr.write(stderrText);

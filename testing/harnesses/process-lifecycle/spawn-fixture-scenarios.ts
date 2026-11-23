@@ -5,6 +5,7 @@ import { expect } from "vitest";
 import { SIGINT_EXIT_CODE, SIGINT_NAME, SIGTERM_EXIT_CODE, SIGTERM_NAME } from "@/lib/process-lifecycle";
 import {
   arbitraryUnknownSignalName,
+  sampleDistinctSpawnFixtureTexts,
   sampleSpawnFixtureText,
   SPAWN_FIXTURE_EXPECTED_UNKNOWN_EXIT_CODE,
 } from "@testing/generators/process-lifecycle/spawn-fixture";
@@ -35,8 +36,8 @@ const MARKER_WRITER_SCRIPT = [
 export function registerSpawnFixtureScenarioEvidence(): void {
   describe("Scenario: spawn fixture result capture", () => {
     it("reports numeric exit status, stderr text, and observed stdout bytes", async () => {
-      const stdoutText = createMultibyteStdoutText();
-      const stderrText = sampleSpawnFixtureText();
+      const [stdoutPrefix, stderrText] = sampleDistinctSpawnFixtureTexts();
+      const stdoutText = createMultibyteStdoutText(stdoutPrefix);
       const result = await runSpawnFixture({
         command: process.execPath,
         args: [NODE_EVAL_FLAG, RESULT_CAPTURE_SCRIPT, stdoutText, stderrText, String(SIGINT_EXIT_CODE)],
@@ -112,7 +113,6 @@ export async function assertSpawnFixtureClosesStdoutAfterMarker(): Promise<void>
   expect(result.exitCode).toBe(SIGINT_EXIT_CODE);
 }
 
-function createMultibyteStdoutText(): string {
-  const asciiPrefix = sampleSpawnFixtureText();
+function createMultibyteStdoutText(asciiPrefix: string): string {
   return `${asciiPrefix}${String.fromCodePoint(MULTIBYTE_STDOUT_CODE_POINT)}`;
 }
