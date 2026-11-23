@@ -43,7 +43,8 @@ Load product context through methodology's Queries (`product-tree/context.md` in
 
 ## Asking
 
-- When the orchestration file sets `operator_available = true`, the Director and the Maintainer ask the Operator through `request_user_input`. Otherwise the Maintainer mails the Director, and the Director, or the Maintainer where no Director is declared, asks on the page that holds the subject.
+- Ask the Operator only a question you are authorized and able to act on, so every question has one decider and one actor; any other question goes to the Position that can act, which asks it itself.
+- When the orchestration file sets `operator_available = true`, the Director and the Maintainer ask the Operator through `request_user_input`. Otherwise each asks on the page that holds the subject, and the Director, or the Maintainer where no Director is declared, points the Operator to that page by its URL.
 - An Applier writes a reopened product or architecture judgment into its Change and submits the Change. Every other question goes to your overseer by mail.
 - Only the highest-ranking declared Position writes `operator_available`, and sets it to `true` only on the Operator's yes.
 - Never ask whether to do work your assignment, your rank or an authorization in `orchestration.md` gives you. Do it and report it.
