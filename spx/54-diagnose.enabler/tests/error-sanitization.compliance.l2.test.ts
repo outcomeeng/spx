@@ -1,5 +1,5 @@
 import { execa } from "execa";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
@@ -7,7 +7,7 @@ import { ELLIPSIS_TOKEN, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/sanitize-
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
-import { absentManifestPath, writeManifestNamingCheck } from "@testing/harnesses/diagnose/cli";
+import { absentManifestPath, removeDiagnoseTempDirs, writeManifestNamingCheck } from "@testing/harnesses/diagnose/cli";
 
 async function runDiagnose(manifestPath: string): Promise<{ readonly stderr: string; readonly exitCode: number }> {
   const result = await execa(NODE_EXECUTABLE, [
@@ -22,6 +22,8 @@ async function runDiagnose(manifestPath: string): Promise<{ readonly stderr: str
 }
 
 describe("user-supplied bytes a diagnose error echoes are sanitized before the diagnostic echo", () => {
+  afterEach(removeDiagnoseTempDirs);
+
   it("escapes a control byte in the manifest path rather than emitting it raw to stderr", async () => {
     const controlByte = String.fromCodePoint(7);
     const manifestPath = await absentManifestPath(controlByte);

@@ -1,5 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
@@ -13,7 +12,7 @@ import {
   STATE_STORE_ERROR,
 } from "@/lib/state-store";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
-import { removeTempDir } from "@testing/harnesses/with-temp-dir";
+import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 describe("state-store JSONL records", () => {
   const tempDirs: string[] = [];
@@ -24,7 +23,7 @@ describe("state-store JSONL records", () => {
 
   async function createTempFile(): Promise<string> {
     const tempPrefix = `${sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken())}-`;
-    const dir = await mkdtemp(join(tmpdir(), tempPrefix));
+    const dir = await createTempDir(tempPrefix);
     tempDirs.push(dir);
     return join(dir, "records.jsonl");
   }
