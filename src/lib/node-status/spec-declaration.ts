@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { parse } from "yaml";
 
 import {
+  parseSpecTreeNodeDirectoryName,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
@@ -12,7 +13,6 @@ import {
 
 import { NODE_STATUS_DEFAULT_MALLEABILITY, NODE_STATUS_MALLEABILITY, type NodeStatusMalleability } from "./claim";
 
-const SLUG_OF_DIRECTORY = /^\d+(?:\.\d+)?-(.+)\.[a-z]+$/;
 const AUDIT_RULE_TAG = /\[audit:([^\]\s]+)\]/g;
 const AUDIT_RULE_SLUG_GROUP = 1;
 const LINE_BREAK = /\r?\n/;
@@ -43,7 +43,7 @@ const MALLEABILITIES: ReadonlySet<string> = new Set(Object.values(NODE_STATUS_MA
 export async function readNodeSpecDeclaration(productDir: string, nodeId: string): Promise<NodeSpecDeclaration> {
   const nodePath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}${nodeId}`;
   const directoryName = nodeId.slice(nodeId.lastIndexOf(SPEC_TREE_GRAMMAR.PATH_SEPARATOR) + 1);
-  const slug = SLUG_OF_DIRECTORY.exec(directoryName)?.[1] ?? directoryName;
+  const slug = parseSpecTreeNodeDirectoryName(directoryName)?.slug ?? directoryName;
   const candidates = [
     SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
     SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
