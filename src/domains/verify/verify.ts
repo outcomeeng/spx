@@ -2328,17 +2328,25 @@ function inventoryEntriesOfNameStatus(
  * rename and copy detection: an added path is `added`; a modified path and a type change are
  * `modified`; a deleted path is `deleted`; a rename contributes its base-side path as `deleted` and
  * its head-side path as `added`; a copy contributes its head-side path as `added` and its base-side
- * path, which the head still holds, as `copy-source`. Entries are ordered by path, then change kind.
+ * path, which the head still holds, as `copy-source`. A base-side path the inventory also holds as
+ * `deleted`, such as one source a rename and a copy share, is no longer held by the head, so it keeps
+ * its `deleted` entry and carries no `copy-source` entry. Entries are ordered by path, then change kind.
  */
 export function changeInventoryOfNameStatus(stdout: string): readonly VerifyChangeInventoryEntry[] {
   const fields = stdout.split(NAME_STATUS_RECORD_SEPARATOR).filter((field) => field.length > 0);
-  const entries: VerifyChangeInventoryEntry[] = [];
+  const recorded: VerifyChangeInventoryEntry[] = [];
   for (let index = 0; index < fields.length;) {
     const status = fields[index];
     const pathCount = nameStatusIsTwoPath(status) ? 2 : 1;
-    entries.push(...inventoryEntriesOfNameStatus(status, fields.slice(index + 1, index + 1 + pathCount)));
+    recorded.push(...inventoryEntriesOfNameStatus(status, fields.slice(index + 1, index + 1 + pathCount)));
     index += 1 + pathCount;
   }
+  const deletedPaths = new Set(
+    recorded.filter((entry) => entry.changeKind === VERIFY_CHANGE_KIND.DELETED).map((entry) => entry.path),
+  );
+  const entries = recorded.filter((entry) =>
+    !(entry.changeKind === VERIFY_CHANGE_KIND.COPY_SOURCE && deletedPaths.has(entry.path))
+  );
   return entries.sort((left, right) =>
     compareAsciiStrings(left.path, right.path) || compareAsciiStrings(left.changeKind, right.changeKind)
   );
