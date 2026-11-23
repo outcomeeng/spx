@@ -5,7 +5,7 @@
     "test": {
       "tests/read-recorder.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",
@@ -120,7 +120,7 @@
       },
       "tests/read-recorder.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",
@@ -234,7 +234,7 @@
       },
       "tests/read-recorder.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",
@@ -349,7 +349,7 @@
       },
       "tests/read-recorder.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",

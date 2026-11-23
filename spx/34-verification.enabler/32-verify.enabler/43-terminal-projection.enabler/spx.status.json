@@ -1,11 +1,11 @@
 {
-  "state": "passing",
+  "state": "failing",
   "malleability": "implementation",
   "verification": {
     "test": {
       "tests/verify-drive-mode.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -403,7 +403,7 @@
       },
       "tests/verify-finish-malformed-context.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -806,7 +806,7 @@
       },
       "tests/verify-finish-reconcile.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -1210,7 +1210,7 @@
       },
       "tests/verify-finish-repeat.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -1613,7 +1613,7 @@
       },
       "tests/verify-finish-sealing.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -2016,7 +2016,7 @@
       },
       "tests/verify-lifecycle.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -2414,7 +2414,7 @@
       },
       "tests/verify-lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -2812,7 +2812,7 @@
       },
       "tests/verify-payload-removal.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -3215,7 +3215,7 @@
       },
       "tests/verify-render.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -3613,7 +3613,7 @@
       },
       "tests/verify-render.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -4011,7 +4011,7 @@
       },
       "tests/verify-status.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -4409,7 +4409,7 @@
       },
       "tests/verify-terminal-reason.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -4814,34 +4814,10 @@
     },
     "audit": {
       "payload-directory-addressing": {
-        "verdict": "passed",
-        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
-        "read": [
-          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
-          "src/commands/verify/cli.ts",
-          "src/domains/verify/verify.ts",
-          "src/lib/state-store/index.ts"
-        ],
-        "actor": {
-          "kind": "agent",
-          "id": "spx-advisor"
-        },
-        "run": "2026-11-22_07-25-46-184-b3c8a37d12cb"
+        "verdict": "not-run"
       },
       "seal-removes-payload-directory": {
-        "verdict": "passed",
-        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
-        "read": [
-          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
-          "src/commands/verify/cli.ts",
-          "src/domains/verify/verify.ts",
-          "src/lib/state-store/index.ts"
-        ],
-        "actor": {
-          "kind": "agent",
-          "id": "spx-advisor"
-        },
-        "run": "2026-11-22_07-25-46-184-b3c8a37d12cb"
+        "verdict": "not-run"
       }
     },
     "evidence": {
