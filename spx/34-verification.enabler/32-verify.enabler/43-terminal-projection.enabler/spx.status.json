@@ -4815,7 +4815,7 @@
     "audit": {
       "payload-directory-addressing": {
         "verdict": "passed",
-        "commit": "7245f9045933a9739a4c4b9d4338bbab2b6c2c0d",
+        "commit": "1d519c9f156c98144fbfaa897e2167a069e8b3ac",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
           "src/commands/verify/cli.ts",
@@ -4826,11 +4826,11 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-23_04-42-49-059-be88c93311fe"
+        "run": "2026-11-23_05-24-52-311-1a03f429e31a"
       },
       "seal-removes-payload-directory": {
         "verdict": "passed",
-        "commit": "7245f9045933a9739a4c4b9d4338bbab2b6c2c0d",
+        "commit": "1d519c9f156c98144fbfaa897e2167a069e8b3ac",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
           "src/commands/verify/cli.ts",
@@ -4841,7 +4841,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-23_04-42-49-059-be88c93311fe"
+        "run": "2026-11-23_05-24-52-311-1a03f429e31a"
       }
     },
     "evidence": {

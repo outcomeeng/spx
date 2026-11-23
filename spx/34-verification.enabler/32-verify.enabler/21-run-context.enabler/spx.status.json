@@ -8323,7 +8323,7 @@
     "audit": {
       "payload-directory-addressing": {
         "verdict": "passed",
-        "commit": "7245f9045933a9739a4c4b9d4338bbab2b6c2c0d",
+        "commit": "1d519c9f156c98144fbfaa897e2167a069e8b3ac",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
           "src/commands/verify/cli.ts",
@@ -8334,11 +8334,11 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-23_04-41-35-010-cec505906b9e"
+        "run": "2026-11-23_05-23-03-606-0668cf71e4a5"
       },
       "payload-directory-sweep": {
         "verdict": "passed",
-        "commit": "7245f9045933a9739a4c4b9d4338bbab2b6c2c0d",
+        "commit": "1d519c9f156c98144fbfaa897e2167a069e8b3ac",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
           "src/commands/verify/cli.ts",
@@ -8349,13 +8349,13 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-23_04-41-35-010-cec505906b9e"
+        "run": "2026-11-23_05-23-03-606-0668cf71e4a5"
       }
     },
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "7245f9045933a9739a4c4b9d4338bbab2b6c2c0d",
+        "commit": "1d519c9f156c98144fbfaa897e2167a069e8b3ac",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-change-identity.compliance.l1.test.ts",
@@ -8387,7 +8387,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-23_04-43-26-578-c39a6ea00d09"
+        "run": "2026-11-23_05-25-30-070-6fceaef37692"
       }
     }
   }

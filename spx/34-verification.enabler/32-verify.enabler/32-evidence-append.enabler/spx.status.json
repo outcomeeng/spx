@@ -3209,7 +3209,7 @@
     "audit": {
       "payload-directory-addressing": {
         "verdict": "passed",
-        "commit": "7245f9045933a9739a4c4b9d4338bbab2b6c2c0d",
+        "commit": "1d519c9f156c98144fbfaa897e2167a069e8b3ac",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
           "src/commands/verify/cli.ts",
@@ -3220,7 +3220,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-23_04-42-12-048-df709daf69b2"
+        "run": "2026-11-23_05-24-15-315-9c8b9b22b80d"
       }
     },
     "evidence": {
