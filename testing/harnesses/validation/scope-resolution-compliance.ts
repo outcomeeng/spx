@@ -1,4 +1,3 @@
-import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative } from "node:path";
 
@@ -7,7 +6,6 @@ import { stringify } from "yaml";
 
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { TYPESCRIPT_VALIDATION_MESSAGES, typescriptCommand } from "@/commands/validation/typescript";
-import type { ProcessRunner } from "@/lib/process-lifecycle";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   VALIDATION_PATHS_SUBSECTION,
@@ -43,7 +41,6 @@ import {
   validateCircularDependencies,
 } from "@/validation/steps/circular";
 import { KNIP_COMMAND_TOKENS, type KnipDeps, validateKnip } from "@/validation/steps/knip";
-import { VALIDATION_SUBPROCESS_EVENTS } from "@/validation/steps/subprocess-output";
 import {
   defaultTypeScriptDeps,
   formatTypeScriptExitCodeError,
@@ -54,7 +51,7 @@ import { VALIDATION_SCOPES } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
+import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 import {
   PROJECT_FIXTURES,
   VALIDATION_FIXTURE_TEXT_ENCODING,
@@ -238,32 +235,6 @@ const extensionlessNestedPath = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
   VALIDATION_PIPELINE_DATA.extensionlessSourceFileName,
 );
-
-class ErrorThenCloseRunner implements ProcessRunner {
-  readonly options: SpawnOptions[] = [];
-
-  constructor(private readonly errorMessage: string) {}
-
-  spawn(
-    _command: string,
-    _args: readonly string[],
-    options?: SpawnOptions,
-  ): ChildProcess {
-    this.options.push(options ?? {});
-    const child = new RecordingValidationChild();
-    queueMicrotask(() => {
-      child.emit(
-        VALIDATION_SUBPROCESS_EVENTS.ERROR,
-        new Error(this.errorMessage),
-      );
-      child.emit(
-        VALIDATION_SUBPROCESS_EVENTS.CLOSE,
-        VALIDATION_EXIT_CODES.FAILURE,
-      );
-    });
-    return child.asChildProcess();
-  }
-}
 
 describe("ALWAYS: TypeScript scope resolution uses the requested product directory", () => {
   it("discovers TypeScript directories under the requested product directory", async () => {
@@ -1211,7 +1182,9 @@ describe("ALWAYS: TypeScript scope resolution uses the requested product directo
       LITERAL_TEST_GENERATOR.domainLiteral(),
     );
     await withTestEnv({}, async (env) => {
-      const runner = new ErrorThenCloseRunner(errorMessage);
+      const runner = new RecordingSpawnOptionsRunner({
+        script: { errorMessage, closeCode: VALIDATION_EXIT_CODES.FAILURE },
+      });
       const cleanupTargets: string[] = [];
       const deps: KnipDeps = {
         existsSync: () => false,

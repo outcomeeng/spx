@@ -1,21 +1,17 @@
-import type { ChildProcess, SpawnOptions } from "node:child_process";
-import { EventEmitter } from "node:events";
 import { existsSync } from "node:fs";
 import { chmod, realpath } from "node:fs/promises";
 import { join } from "node:path";
-import { PassThrough } from "node:stream";
 
 import { defaultLintCommandDeps, lintCommand, type LintCommandDeps } from "@/commands/validation/lint";
 import { VALIDATION_COMMAND_OUTPUT, VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import type { LintCommandOptions } from "@/commands/validation/types";
 import type { Config } from "@/config/types";
-import type { ProcessRunner } from "@/lib/process-lifecycle";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { ESLINT_PRODUCTION_CONFIG_FILES } from "@/validation/discovery";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
 import { validateESLint } from "@/validation/steps/eslint";
 import { DEFAULT_ESLINT_CONFIG_FILE, ESLINT_LOCAL_BIN_SEGMENTS } from "@/validation/steps/eslint-contract";
-import { VALIDATION_SUBPROCESS_EVENTS, type ValidationWritableStream } from "@/validation/steps/subprocess-output";
+import { type ValidationWritableStream } from "@/validation/steps/subprocess-output";
 import { EXECUTION_MODES, VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { withTestEnv, writeOrderedDirectory } from "@testing/harnesses/spec-tree/spec-tree";
@@ -107,28 +103,6 @@ class RecordingWritable implements ValidationWritableStream {
   }
 }
 
-class RecordingEslintChild extends EventEmitter {
-  readonly stdout = new PassThrough();
-  readonly stderr = new PassThrough();
-
-  asChildProcess(): ChildProcess {
-    return this as unknown as ChildProcess;
-  }
-}
-
-class OutputRunner implements ProcessRunner {
-  constructor(private readonly stdoutChunk: string) {}
-
-  spawn(_command: string, _args: readonly string[], _options?: SpawnOptions): ChildProcess {
-    const child = new RecordingEslintChild();
-    queueMicrotask(() => {
-      child.stdout.write(this.stdoutChunk);
-      child.emit(VALIDATION_SUBPROCESS_EVENTS.CLOSE, VALIDATION_EXIT_CODES.SUCCESS);
-    });
-    return child.asChildProcess();
-  }
-}
-
 function createValidationContext(): ValidationContext {
   return {
     productDir: process.cwd(),
@@ -158,7 +132,7 @@ export async function observeEslintOutputForwarding(stdoutChunk: string): Promis
 
   const result = await validateESLint(
     createValidationContext(),
-    new OutputRunner(stdoutChunk),
+    new RecordingSpawnOptionsRunner({ script: { stdout: stdoutChunk } }),
     { stdout, stderr },
   );
 

@@ -29,12 +29,9 @@ import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesse
 import { validationConfigSection } from "@testing/harnesses/validation/configuration";
 import {
   createRecordingKnipCommandDeps,
-  ErrorOutputRecordingSpawnOptionsRunner,
-  ExpectedExecutableRunner,
+  createScopedKnipRecording,
   type KnipDiscoveryCall,
   type KnipValidationCall,
-  OutputRecordingSpawnOptionsRunner,
-  ScopedKnipRecordingRunner,
 } from "@testing/harnesses/validation/knip-support";
 import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
@@ -136,7 +133,7 @@ export const unusedCodeScenarioCases = collectHarnessTestCases(() => {
         async (env) => {
           const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
           const validationCalls: KnipValidationCall[] = [];
-          const runner = new ScopedKnipRecordingRunner();
+          const { runner, scopedIncludes } = createScopedKnipRecording();
           await env.writeTsConfigMarker();
           await env.writeSourceFile(
             sourceFilePath,
@@ -164,7 +161,7 @@ export const unusedCodeScenarioCases = collectHarnessTestCases(() => {
             },
           ]);
           expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.KNIP_SUCCESS);
-          expect(runner.scopedIncludes).toEqual([[join(env.productDir, sourceFilePath)]]);
+          expect(scopedIncludes).toEqual([[join(env.productDir, sourceFilePath)]]);
           expect(VALIDATION_PIPELINE_DATA.stageNames.KNIP).toBe(VALIDATION_STAGE_DISPLAY_NAMES.KNIP);
         },
       );
@@ -211,10 +208,9 @@ export const unusedCodeScenarioCases = collectHarnessTestCases(() => {
           const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
           const failureDetail = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
           const validationCalls: KnipValidationCall[] = [];
-          const runner = new OutputRecordingSpawnOptionsRunner(
-            failureDetail,
-            VALIDATION_EXIT_CODES.FAILURE,
-          );
+          const runner = new RecordingSpawnOptionsRunner({
+            script: { stdout: failureDetail, closeCode: VALIDATION_EXIT_CODES.FAILURE },
+          });
           await env.writeTsConfigMarker();
           await env.writeSourceFile(
             sourceFilePath,
@@ -240,10 +236,9 @@ export const unusedCodeScenarioCases = collectHarnessTestCases(() => {
           const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
           const failureDetail = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
           const validationCalls: KnipValidationCall[] = [];
-          const runner = new ErrorOutputRecordingSpawnOptionsRunner(
-            failureDetail,
-            VALIDATION_EXIT_CODES.FAILURE,
-          );
+          const runner = new RecordingSpawnOptionsRunner({
+            script: { stderr: failureDetail, closeCode: VALIDATION_EXIT_CODES.FAILURE },
+          });
           await env.writeTsConfigMarker();
           await env.writeSourceFile(
             sourceFilePath,
@@ -281,7 +276,7 @@ export const unusedCodePropertyCases = collectHarnessTestCases(() => {
             arbitraryDiscoveredKnipExecutablePath(env.productDir),
             async (discoveredToolPath) => {
               const validationCalls: KnipValidationCall[] = [];
-              const runner = new ExpectedExecutableRunner(discoveredToolPath);
+              const runner = new RecordingSpawnOptionsRunner();
 
               const result = await knipCommand(
                 { cwd: env.productDir, files: [sourceFilePath] },
@@ -320,7 +315,7 @@ interface StreamingKnipPipelineRun {
 async function runFullPipelineWithStreamingKnip(
   env: LiteralFixtureEnv,
   sourceFilePath: string,
-  runner: OutputRecordingSpawnOptionsRunner,
+  runner: RecordingSpawnOptionsRunner,
 ): Promise<StreamingKnipPipelineRun> {
   const validationCalls: KnipValidationCall[] = [];
   const streamedStdout: string[] = [];
@@ -361,10 +356,9 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
         async (env) => {
           const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
           const failureDetail = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-          const runner = new OutputRecordingSpawnOptionsRunner(
-            failureDetail,
-            VALIDATION_EXIT_CODES.FAILURE,
-          );
+          const runner = new RecordingSpawnOptionsRunner({
+            script: { stdout: failureDetail, closeCode: VALIDATION_EXIT_CODES.FAILURE },
+          });
           const { result, streamedStdout, streamedStderr, stageCompletions } = await runFullPipelineWithStreamingKnip(
             env,
             sourceFilePath,
@@ -401,10 +395,9 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
         async (env) => {
           const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
           const successDetail = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-          const runner = new OutputRecordingSpawnOptionsRunner(
-            successDetail,
-            VALIDATION_EXIT_CODES.SUCCESS,
-          );
+          const runner = new RecordingSpawnOptionsRunner({
+            script: { stdout: successDetail, closeCode: VALIDATION_EXIT_CODES.SUCCESS },
+          });
           const { result, streamedStdout, streamedStderr, stageCompletions } = await runFullPipelineWithStreamingKnip(
             env,
             sourceFilePath,
