@@ -1,4 +1,3 @@
-import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -13,7 +12,7 @@ import {
   createRelatedDepsFor,
   createRunnerDepsFor,
 } from "@/interfaces/cli/test-runner-deps";
-import { type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
+import { spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { validateESLint } from "@/validation/steps/eslint";
 import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint-contract";
@@ -26,7 +25,7 @@ import {
 import { validateTypeScript } from "@/validation/steps/typescript";
 import { EXECUTION_MODES, type ScopeConfig, VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
-import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
+import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const CALLER_OWNED_STDIO_FIXTURE_PATH = join(
@@ -34,38 +33,15 @@ const CALLER_OWNED_STDIO_FIXTURE_PATH = join(
   "testing/fixtures/process-lifecycle/caller-owned-stdio.ts",
 );
 
-class EmittingSpawnOptionsRunner implements ProcessRunner {
-  readonly commands: string[] = [];
-  readonly args: Array<readonly string[]> = [];
-  readonly options: SpawnOptions[] = [];
-  readonly children: RecordingValidationChild[] = [];
-
-  constructor(
-    private readonly stdoutChunk: string | undefined,
-    private readonly stderrChunk: string | undefined,
-    private readonly closeCodes: readonly number[] = [VALIDATION_EXIT_CODES.SUCCESS],
-  ) {}
-
-  get spawnOptions(): SpawnOptions | undefined {
-    return this.options.at(-1);
-  }
-
-  spawn(command: string, args: readonly string[], options?: SpawnOptions): ChildProcess {
-    this.commands.push(command);
-    this.args.push([...args]);
-    this.options.push(options ?? {});
-    const child = new RecordingValidationChild();
-    const closeCode = this.closeCodes[this.children.length] ?? VALIDATION_EXIT_CODES.SUCCESS;
-    this.children.push(child);
-    setImmediate(() => {
-      if (this.stdoutChunk !== undefined) child.stdout.end(this.stdoutChunk);
-      else child.stdout.end();
-      if (this.stderrChunk !== undefined) child.stderr.end(this.stderrChunk);
-      else child.stderr.end();
-      child.closeWithCode(closeCode);
-    });
-    return child.asChildProcess();
-  }
+function emittingSpawnOptionsRunner(
+  stdout: string | undefined,
+  stderr: string | undefined,
+  closeCodes?: readonly number[],
+): RecordingSpawnOptionsRunner {
+  return new RecordingSpawnOptionsRunner({
+    closeCodes,
+    script: { stdout, stderr, endStreams: true, settleOnImmediate: true },
+  });
 }
 
 function recordingOutputStreams(stdout: string[], stderr: string[]): ValidationSubprocessOutputStreams {
@@ -151,7 +127,7 @@ export function registerLifecycleComplianceEvidence(): void {
       const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
       const stdout: string[] = [];
       const stderr: string[] = [];
-      const runner = new EmittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
+      const runner = emittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
 
       const result = await validateESLint(createValidationContext(), runner, recordingOutputStreams(stdout, stderr));
 
@@ -166,7 +142,7 @@ export function registerLifecycleComplianceEvidence(): void {
       const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
       const stdout: string[] = [];
       const stderr: string[] = [];
-      const runner = new EmittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
+      const runner = emittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
 
       const result = await validateTypeScript(
         {
@@ -187,7 +163,7 @@ export function registerLifecycleComplianceEvidence(): void {
       const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
       const stdout: string[] = [];
       const stderr: string[] = [];
-      const runner = new EmittingSpawnOptionsRunner(
+      const runner = emittingSpawnOptionsRunner(
         stdoutChunk,
         stderrChunk,
         [VALIDATION_EXIT_CODES.FAILURE],
@@ -212,7 +188,7 @@ export function registerLifecycleComplianceEvidence(): void {
       const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
       const stdout: string[] = [];
       const stderr: string[] = [];
-      const runner = new EmittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
+      const runner = emittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
 
       const result = await validateFormatting(
         { productDir: process.cwd() },
@@ -229,7 +205,7 @@ export function registerLifecycleComplianceEvidence(): void {
     it("test execution subprocess output is owned by parent-owned pipes", async () => {
       const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
       const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const runner = new EmittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
+      const runner = emittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
       const stdout = new PassThrough();
       const stderr = new PassThrough();
       const stdoutChunks: string[] = [];
@@ -250,7 +226,7 @@ export function registerLifecycleComplianceEvidence(): void {
     it("related-test subprocess output is owned by parent-owned pipes", async () => {
       const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
       const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const runner = new EmittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
+      const runner = emittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
       const command = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
       const args = [sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral())];
       const dependencies = createRelatedDepsFor(process.cwd(), runner)(typescriptTestingLanguage);
@@ -266,7 +242,7 @@ export function registerLifecycleComplianceEvidence(): void {
       await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (tmpDir) => {
         const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
         const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-        const runner = new EmittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
+        const runner = emittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
         const command = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
         const args = [sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral())];
         const dependencies = createAgentRunnerDepsFor(process.cwd(), { processRunner: runner, tmpDir })(

@@ -1,11 +1,11 @@
 {
-  "state": "specified",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
       "tests/signal-target-harness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "2386cf94124f382e8045ae344d32d28c1102db7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-signal-target-harness.enabler/signal-target-harness.md",
@@ -22,12 +22,14 @@
           "src/test/languages/read-recorder-install.ts",
           "src/test/languages/read-recorder-setup.ts",
           "src/test/languages/read-recorder.ts",
-          "testing/harnesses/process-lifecycle/signal-target.ts"
+          "testing/generators/process-lifecycle/signal-target.ts",
+          "testing/harnesses/process-lifecycle/signal-target.ts",
+          "testing/harnesses/property/property.ts"
         ]
       },
       "tests/signal-target-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "2386cf94124f382e8045ae344d32d28c1102db7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-signal-target-harness.enabler/signal-target-harness.md",
@@ -44,13 +46,58 @@
           "src/test/languages/read-recorder-install.ts",
           "src/test/languages/read-recorder-setup.ts",
           "src/test/languages/read-recorder.ts",
+          "testing/generators/process-lifecycle/signal-target.ts",
           "testing/harnesses/process-lifecycle/signal-target.ts"
         ]
       }
     },
+    "audit": {
+      "in-memory-signal-target": {
+        "verdict": "passed",
+        "commit": "2386cf94124f382e8045ae344d32d28c1102db7e",
+        "read": [
+          "spx/13-cli.enabler/21-signal-target-harness.enabler/signal-target-harness.md",
+          "testing/harnesses/process-lifecycle/signal-target.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-23_04-02-28-317-cac23bd5f627"
+      },
+      "signal-target-test-values": {
+        "verdict": "passed",
+        "commit": "2386cf94124f382e8045ae344d32d28c1102db7e",
+        "read": [
+          "spx/13-cli.enabler/21-signal-target-harness.enabler/signal-target-harness.md",
+          "spx/13-cli.enabler/21-signal-target-harness.enabler/tests/signal-target-harness.property.l1.test.ts",
+          "spx/13-cli.enabler/21-signal-target-harness.enabler/tests/signal-target-harness.scenario.l1.test.ts",
+          "testing/generators/process-lifecycle/signal-target.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-23_04-02-28-317-cac23bd5f627"
+      }
+    },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "2386cf94124f382e8045ae344d32d28c1102db7e",
+        "read": [
+          "spx/13-cli.enabler/21-signal-target-harness.enabler/signal-target-harness.md",
+          "spx/13-cli.enabler/21-signal-target-harness.enabler/tests/signal-target-harness.property.l1.test.ts",
+          "spx/13-cli.enabler/21-signal-target-harness.enabler/tests/signal-target-harness.scenario.l1.test.ts",
+          "testing/generators/process-lifecycle/signal-target.ts",
+          "testing/harnesses/process-lifecycle/signal-target.ts",
+          "testing/harnesses/property/property.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-23_04-05-39-316-03ac4d7fb112"
       }
     }
   }

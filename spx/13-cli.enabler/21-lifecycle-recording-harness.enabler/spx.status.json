@@ -1,11 +1,11 @@
 {
-  "state": "specified",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
       "tests/lifecycle-recording-harness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "2386cf94124f382e8045ae344d32d28c1102db7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-lifecycle-recording-harness.enabler/lifecycle-recording-harness.md",
@@ -22,12 +22,14 @@
           "src/test/languages/read-recorder-install.ts",
           "src/test/languages/read-recorder-setup.ts",
           "src/test/languages/read-recorder.ts",
-          "testing/harnesses/process-lifecycle/lifecycle.ts"
+          "testing/generators/process-lifecycle/lifecycle.ts",
+          "testing/harnesses/process-lifecycle/lifecycle.ts",
+          "testing/harnesses/property/property.ts"
         ]
       },
       "tests/lifecycle-recording-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "2386cf94124f382e8045ae344d32d28c1102db7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-lifecycle-recording-harness.enabler/lifecycle-recording-harness.md",
@@ -44,13 +46,58 @@
           "src/test/languages/read-recorder-install.ts",
           "src/test/languages/read-recorder-setup.ts",
           "src/test/languages/read-recorder.ts",
+          "testing/generators/process-lifecycle/lifecycle.ts",
           "testing/harnesses/process-lifecycle/lifecycle.ts"
         ]
       }
     },
+    "audit": {
+      "in-memory-collaborators": {
+        "verdict": "passed",
+        "commit": "2386cf94124f382e8045ae344d32d28c1102db7e",
+        "read": [
+          "spx/13-cli.enabler/21-lifecycle-recording-harness.enabler/lifecycle-recording-harness.md",
+          "testing/harnesses/process-lifecycle/lifecycle.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-23_04-01-04-581-a418d1fef575"
+      },
+      "lifecycle-test-values": {
+        "verdict": "passed",
+        "commit": "2386cf94124f382e8045ae344d32d28c1102db7e",
+        "read": [
+          "spx/13-cli.enabler/21-lifecycle-recording-harness.enabler/lifecycle-recording-harness.md",
+          "spx/13-cli.enabler/21-lifecycle-recording-harness.enabler/tests/lifecycle-recording-harness.property.l1.test.ts",
+          "spx/13-cli.enabler/21-lifecycle-recording-harness.enabler/tests/lifecycle-recording-harness.scenario.l1.test.ts",
+          "testing/generators/process-lifecycle/lifecycle.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-23_04-01-04-581-a418d1fef575"
+      }
+    },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "2386cf94124f382e8045ae344d32d28c1102db7e",
+        "read": [
+          "spx/13-cli.enabler/21-lifecycle-recording-harness.enabler/lifecycle-recording-harness.md",
+          "spx/13-cli.enabler/21-lifecycle-recording-harness.enabler/tests/lifecycle-recording-harness.property.l1.test.ts",
+          "spx/13-cli.enabler/21-lifecycle-recording-harness.enabler/tests/lifecycle-recording-harness.scenario.l1.test.ts",
+          "testing/generators/process-lifecycle/lifecycle.ts",
+          "testing/harnesses/process-lifecycle/lifecycle.ts",
+          "testing/harnesses/property/property.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-23_04-05-04-953-398465587d24"
       }
     }
   }

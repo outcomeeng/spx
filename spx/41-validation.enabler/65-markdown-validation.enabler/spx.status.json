@@ -759,7 +759,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
+        "commit": "2386cf94124f382e8045ae344d32d28c1102db7e",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
@@ -1206,7 +1206,6 @@
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/literal-reuse.md",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-type-check.enabler/ISSUES.md",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-type-check.enabler/type-check.md",
-          "spx/41-validation.enabler/32-typescript-validation.enabler/32-unused-code.enabler/ISSUES.md",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-unused-code.enabler/unused-code.md",
           "spx/41-validation.enabler/32-typescript-validation.enabler/ISSUES.md",
           "spx/41-validation.enabler/32-typescript-validation.enabler/typescript-validation.md",

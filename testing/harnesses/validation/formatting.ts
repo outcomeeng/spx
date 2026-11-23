@@ -8,7 +8,7 @@
  * the surrounding repository's formatting state.
  */
 
-import { type ChildProcess, execFile, type SpawnOptions } from "node:child_process";
+import { execFile } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { readFileSync, writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -52,7 +52,7 @@ import {
 } from "@testing/generators/validation/formatting";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { runValidationSubprocess } from "@testing/harnesses/validation/cli";
-import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
+import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -73,29 +73,6 @@ class RecordingFormattingWritable extends EventEmitter implements ValidationWrit
   write(chunk: string | Uint8Array): boolean {
     this.chunks.push(Buffer.from(chunk).toString());
     return true;
-  }
-}
-
-class OutputFormattingRunner extends RecordingSpawnOptionsRunner {
-  constructor(
-    private readonly stdoutChunk: string,
-    private readonly stderrChunk: string,
-  ) {
-    super();
-  }
-
-  override spawn(command: string, args: readonly string[], options?: SpawnOptions): ChildProcess {
-    this.commands.push(command);
-    this.args.push([...args]);
-    this.options.push(options ?? {});
-    const child = new RecordingValidationChild();
-    this.children.push(child);
-    queueMicrotask(() => {
-      child.stdout.write(this.stdoutChunk);
-      child.stderr.write(this.stderrChunk);
-      child.closeSuccessfully();
-    });
-    return child.asChildProcess();
   }
 }
 
@@ -194,7 +171,9 @@ export function registerFormattingComplianceEvidence(): void {
     it("captures and forwards subprocess streams once from the supplied product directory", async () => {
       const stdoutChunk = sampleLiteralTestValue(arbitraryDomainLiteral());
       const stderrChunk = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const runner = new OutputFormattingRunner(stdoutChunk, stderrChunk);
+      const runner = new RecordingSpawnOptionsRunner({
+        script: { stdout: stdoutChunk, stderr: stderrChunk },
+      });
       const stdout = new RecordingFormattingWritable();
       const stderr = new RecordingFormattingWritable();
       const productDir = process.cwd();
