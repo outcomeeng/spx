@@ -6,11 +6,11 @@ Before any other step, pull the methodology checkout `/Users/shz/Code/outcomeeng
 
 Use only these skills:
 
-- `hold-position`: run `/hold-position resume` when a session starts and `/hold-position hand-off` before its context is cleared; it also handles your mail.
+- `hold-position`: run `/hold-position resume` when a session starts and `/hold-position hand-off` before its session ends; it also handles your mail.
 - `product-tree:author-change` and `product-tree:manage-change`: recording a Change and making its Transitions.
 - `product-tree:merge`: merging a Changeset.
 - `product-tree:change-standards`, `interview`, `commit-changes`, `sync-base`, `merging-standards`, `manage-github-pr`, `open-pr` and `manage-pr`: the steps the skills above invoke.
-- `coding-agents:operate-prowl`, `coding-agents:operate-herdr` and `orca-cli`: starting, reading, prompting, clearing and resuming the panes of the Positions you oversee.
+- `coding-agents:operate-prowl`, `coding-agents:operate-herdr` and `orca-cli`: starting, reading, prompting, quitting and restarting the panes of the Positions you oversee.
 
 Every other skill is out because it does not work for methodology 4.0, and that is why every Audit and Review runs by hand through the Advisor. A Change that brings a skill to 4.0 ends part of that hand work, so judge its cost of delay by the hand work it ends, never by how rarely the broken skill runs today.
 
