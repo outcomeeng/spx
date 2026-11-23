@@ -327,7 +327,7 @@
       },
       "tests/spec-tree-fixtures.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2386cf94124f382e8045ae344d32d28c1102db7e",
+        "commit": "05d35203a6ccc326736883e1d302fbeb0301434d",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
@@ -714,6 +714,7 @@
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-input-check.mapping.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-input.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-input.scenario.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-name-status-inventory.mapping.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-payload-directory.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-scope.mapping.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-scope.property.l1.test.ts",
