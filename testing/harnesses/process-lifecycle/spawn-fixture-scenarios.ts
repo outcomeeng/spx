@@ -3,13 +3,15 @@ import { join } from "node:path";
 import { expect } from "vitest";
 
 import { SIGINT_EXIT_CODE, SIGINT_NAME, SIGTERM_EXIT_CODE, SIGTERM_NAME } from "@/lib/process-lifecycle";
-import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
-import { arbitraryUnknownSignalName } from "@testing/generators/process-lifecycle/spawn-fixture";
+import {
+  arbitraryUnknownSignalName,
+  sampleSpawnFixtureText,
+  SPAWN_FIXTURE_EXPECTED_UNKNOWN_EXIT_CODE,
+} from "@testing/generators/process-lifecycle/spawn-fixture";
 import {
   resolveSpawnFixtureExitCode,
   runSpawnFixture,
   SPAWN_FIXTURE_STREAM_EVENTS,
-  SPAWN_FIXTURE_UNKNOWN_EXIT_CODE,
 } from "@testing/harnesses/process-lifecycle/spawn-fixture";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -34,7 +36,7 @@ export function registerSpawnFixtureScenarioEvidence(): void {
   describe("Scenario: spawn fixture result capture", () => {
     it("reports numeric exit status, stderr text, and observed stdout bytes", async () => {
       const stdoutText = createMultibyteStdoutText();
-      const stderrText = sampleLiteralTestValue(arbitraryDomainLiteral());
+      const stderrText = sampleSpawnFixtureText();
       const result = await runSpawnFixture({
         command: process.execPath,
         args: [NODE_EVAL_FLAG, RESULT_CAPTURE_SCRIPT, stdoutText, stderrText, String(SIGINT_EXIT_CODE)],
@@ -56,7 +58,7 @@ export function registerSpawnFixtureScenarioEvidence(): void {
       expect(result.exitCode).toBe(SIGTERM_EXIT_CODE);
     });
 
-    it("maps another standard signal through Node's signal table", async () => {
+    it("maps SIGINT child termination to 128 plus its signal number", async () => {
       const result = await runSpawnFixture({
         command: process.execPath,
         args: [NODE_EVAL_FLAG, SIGNAL_EXIT_SCRIPT, SIGINT_NAME],
@@ -66,8 +68,8 @@ export function registerSpawnFixtureScenarioEvidence(): void {
       expect(result.exitCode).toBe(SIGINT_EXIT_CODE);
     });
 
-    it("settles spawn errors with the source-owned unknown exit code", async () => {
-      const missingCommandName = sampleLiteralTestValue(arbitraryDomainLiteral());
+    it("settles a spawn error with exit code -1", async () => {
+      const missingCommandName = sampleSpawnFixtureText();
 
       await withTempDir(missingCommandName, async (tempDir) => {
         const result = await runSpawnFixture({
@@ -76,7 +78,7 @@ export function registerSpawnFixtureScenarioEvidence(): void {
           cwd: tempDir,
         });
 
-        expect(result.exitCode).toBe(SPAWN_FIXTURE_UNKNOWN_EXIT_CODE);
+        expect(result.exitCode).toBe(SPAWN_FIXTURE_EXPECTED_UNKNOWN_EXIT_CODE);
       });
     });
   });
@@ -84,11 +86,11 @@ export function registerSpawnFixtureScenarioEvidence(): void {
 
 export function registerSpawnFixturePropertyEvidence(): void {
   describe("Property: spawn fixture signal exit resolution", () => {
-    it("returns the unknown exit code for every signal absent from Node's signal table", () => {
+    it("returns exit code -1 for every signal name absent from Node's signal table", () => {
       assertProperty(
         arbitraryUnknownSignalName(),
         (signalName) => {
-          expect(resolveSpawnFixtureExitCode(null, signalName)).toBe(SPAWN_FIXTURE_UNKNOWN_EXIT_CODE);
+          expect(resolveSpawnFixtureExitCode(null, signalName)).toBe(SPAWN_FIXTURE_EXPECTED_UNKNOWN_EXIT_CODE);
         },
         { level: PROPERTY_LEVEL.L1 },
       );
@@ -97,7 +99,7 @@ export function registerSpawnFixturePropertyEvidence(): void {
 }
 
 export async function assertSpawnFixtureClosesStdoutAfterMarker(): Promise<void> {
-  const marker = sampleLiteralTestValue(arbitraryDomainLiteral());
+  const marker = sampleSpawnFixtureText();
   const result = await runSpawnFixture({
     command: process.execPath,
     args: [NODE_EVAL_FLAG, MARKER_WRITER_SCRIPT, marker, String(SIGINT_EXIT_CODE)],
@@ -111,6 +113,6 @@ export async function assertSpawnFixtureClosesStdoutAfterMarker(): Promise<void>
 }
 
 function createMultibyteStdoutText(): string {
-  const asciiPrefix = sampleLiteralTestValue(arbitraryDomainLiteral());
+  const asciiPrefix = sampleSpawnFixtureText();
   return `${asciiPrefix}${String.fromCodePoint(MULTIBYTE_STDOUT_CODE_POINT)}`;
 }

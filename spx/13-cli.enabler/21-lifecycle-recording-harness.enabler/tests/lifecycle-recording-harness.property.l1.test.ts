@@ -1,62 +1,47 @@
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
-  EPIPE_EXIT_CODE,
-  SIGINT_EXIT_CODE,
-  SIGINT_NAME,
-  SIGTERM_EXIT_CODE,
-  SIGTERM_NAME,
-  UNCAUGHT_EXIT_CODE,
-} from "@/lib/process-lifecycle";
+  arbitraryLifecycleExitSequence,
+  arbitraryLifecycleKillSequence,
+} from "@testing/generators/process-lifecycle/lifecycle";
 import { RecordingChild, RecordingExitController } from "@testing/harnesses/process-lifecycle/lifecycle";
-
-function killValue(): fc.Arbitrary<NodeJS.Signals | number> {
-  return fc.oneof(
-    fc.constant(SIGINT_NAME),
-    fc.constant(SIGTERM_NAME),
-    fc.constant(EPIPE_EXIT_CODE),
-    fc.constant(SIGINT_EXIT_CODE),
-    fc.constant(SIGTERM_EXIT_CODE),
-    fc.constant(UNCAUGHT_EXIT_CODE),
-  );
-}
-
-function exitCode(): fc.Arbitrary<number> {
-  return fc.oneof(
-    fc.constant(EPIPE_EXIT_CODE),
-    fc.constant(SIGINT_EXIT_CODE),
-    fc.constant(SIGTERM_EXIT_CODE),
-    fc.constant(UNCAUGHT_EXIT_CODE),
-  );
-}
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("Property: recording child kill calls", () => {
-  it("records every kill value in order and succeeds only on the first kill", () => {
-    fc.assert(
-      fc.property(fc.array(killValue(), { minLength: 1 }), (values) => {
+  it("records every kill value in order, succeeds only on the first kill, and reads killed from the first kill on", () => {
+    assertProperty(
+      arbitraryLifecycleKillSequence(),
+      (values) => {
         const child = new RecordingChild();
+        const results: boolean[] = [];
+        const killedAfterEachKill: boolean[] = [];
 
-        const results = values.map((value) => child.kill(value));
+        for (const value of values) {
+          results.push(child.kill(value));
+          killedAfterEachKill.push(child.killed);
+        }
 
         expect(child.killCalls).toEqual(values);
         expect(results).toEqual(values.map((_, index) => index === 0));
-        expect(child.killed).toBe(true);
-      }),
+        expect(killedAfterEachKill).toEqual(values.map(() => true));
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 });
 
 describe("Property: recording exit controller", () => {
   it("records every requested exit code in order", () => {
-    fc.assert(
-      fc.property(fc.array(exitCode()), (codes) => {
+    assertProperty(
+      arbitraryLifecycleExitSequence(),
+      (codes) => {
         const exitController = new RecordingExitController();
 
         for (const code of codes) exitController.exit(code);
 
         expect(exitController.exits).toEqual(codes);
-      }),
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 });

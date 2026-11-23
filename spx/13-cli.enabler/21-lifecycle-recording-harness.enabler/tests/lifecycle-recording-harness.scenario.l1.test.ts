@@ -1,28 +1,25 @@
 import { describe, expect, it } from "vitest";
 
-import { EPIPE_EXIT_CODE, UNCAUGHT_EXIT_CODE } from "@/lib/process-lifecycle";
+import { LIFECYCLE_SUCCESS_EXIT_CODE } from "@testing/generators/process-lifecycle/lifecycle";
 import { RECORDING_CHILD_EXIT_EVENT, RecordingChild } from "@testing/harnesses/process-lifecycle/lifecycle";
 
 describe("Scenario: recording child exit listeners", () => {
-  it("notifies every registered exit listener in registration order", () => {
+  it("notifies the first and then the second exit listener with exit code 0, and makes no other call", () => {
     const child = new RecordingChild();
-    const observedCalls: Array<readonly [listener: (code: number | null) => void, code: number]> = [];
+    const observedCalls: Array<readonly [listener: string, args: readonly unknown[]]> = [];
 
-    const firstListener = (code: number | null): void => {
-      observedCalls.push([firstListener, code ?? UNCAUGHT_EXIT_CODE]);
-    };
-    const secondListener = (code: number | null): void => {
-      observedCalls.push([secondListener, code ?? UNCAUGHT_EXIT_CODE]);
-    };
+    child.on(RECORDING_CHILD_EXIT_EVENT, (...args: unknown[]) => {
+      observedCalls.push(["first", args]);
+    });
+    child.on(RECORDING_CHILD_EXIT_EVENT, (...args: unknown[]) => {
+      observedCalls.push(["second", args]);
+    });
 
-    child.on(RECORDING_CHILD_EXIT_EVENT, firstListener);
-    child.on(RECORDING_CHILD_EXIT_EVENT, secondListener);
-
-    child.triggerExit(EPIPE_EXIT_CODE);
+    child.triggerExit(LIFECYCLE_SUCCESS_EXIT_CODE);
 
     expect(observedCalls).toEqual([
-      [firstListener, EPIPE_EXIT_CODE],
-      [secondListener, EPIPE_EXIT_CODE],
+      ["first", [LIFECYCLE_SUCCESS_EXIT_CODE]],
+      ["second", [LIFECYCLE_SUCCESS_EXIT_CODE]],
     ]);
   });
 });

@@ -1,26 +1,22 @@
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { FOREGROUND_SIGNALS, SIGINT_NAME, type SignalListener, SIGTERM_NAME } from "@/lib/process-lifecycle";
+import type { SignalListener } from "@/lib/process-lifecycle";
+import {
+  arbitraryInitialListenerIndexes,
+  arbitrarySignalOperationSequence,
+  createSignalListenerPool,
+  SIGNAL_TARGET_SIGNALS,
+} from "@testing/generators/process-lifecycle/signal-target";
 import { RecordingSignalTarget } from "@testing/harnesses/process-lifecycle/signal-target";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
-const listenerPoolSize = 3;
-
-interface SignalOperation {
-  readonly shouldAdd: boolean;
-  readonly signal: NodeJS.Signals;
-  readonly listenerIndex: number;
+function poolListener(pool: readonly SignalListener[], index: number): SignalListener {
+  const listener = pool[index];
+  if (listener === undefined) throw new RangeError(`listener pool holds no listener at ${index}`);
+  return listener;
 }
 
-function signalOperation(): fc.Arbitrary<SignalOperation> {
-  return fc.record({
-    shouldAdd: fc.boolean(),
-    signal: fc.constantFrom(...FOREGROUND_SIGNALS),
-    listenerIndex: fc.integer({ min: 0, max: listenerPoolSize - 1 }),
-  });
-}
-
-function currentListeners(
+function modelListeners(
   model: ReadonlyMap<NodeJS.Signals, readonly SignalListener[]>,
   signal: NodeJS.Signals,
 ): readonly SignalListener[] {
@@ -28,79 +24,55 @@ function currentListeners(
 }
 
 describe("Property: recording signal target listener registry", () => {
-  it("appends listeners in order and removes only the first matching listener", () => {
-    fc.assert(
-      fc.property(fc.array(signalOperation()), (operations) => {
-        const listenerPool = createListenerPool();
+  it("appends listeners in order and removes only the first matching listener of a signal", () => {
+    assertProperty(
+      arbitrarySignalOperationSequence(),
+      (operations) => {
+        const pool = createSignalListenerPool();
         const target = new RecordingSignalTarget();
         const model = new Map<NodeJS.Signals, SignalListener[]>();
 
         for (const operation of operations) {
-          const listener = listenerPool[operation.listenerIndex];
-          if (listener === undefined) continue;
+          const listener = poolListener(pool, operation.listenerIndex);
+          const listeners = [...modelListeners(model, operation.signal)];
 
           if (operation.shouldAdd) {
             target.on(operation.signal, listener);
-            model.set(operation.signal, [...currentListeners(model, operation.signal), listener]);
+            listeners.push(listener);
           } else {
             target.removeListener(operation.signal, listener);
-            const listeners = [...currentListeners(model, operation.signal)];
             const index = listeners.indexOf(listener);
             if (index !== -1) listeners.splice(index, 1);
-            model.set(operation.signal, listeners);
           }
+          model.set(operation.signal, listeners);
         }
 
-        for (const signal of FOREGROUND_SIGNALS) {
-          expect(target.listeners(signal)).toEqual(currentListeners(model, signal));
+        for (const signal of SIGNAL_TARGET_SIGNALS) {
+          expect(target.listeners(signal)).toEqual(modelListeners(model, signal));
         }
-      }),
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 
-  it("clones initial listener arrays at construction", () => {
-    fc.assert(
-      fc.property(
-        fc.array(fc.integer({ min: 0, max: listenerPoolSize - 1 })),
-        fc.array(fc.integer({ min: 0, max: listenerPoolSize - 1 })),
-        (sigintIndexes, sigtermIndexes) => {
-          const listenerPool = createListenerPool();
-          const sigintSignal = SIGINT_NAME;
-          const sigtermSignal = SIGTERM_NAME;
-          const sigintListeners = sigintIndexes.map((index) => listenerPool[index]).filter(isListener);
-          const sigtermListeners = sigtermIndexes.map((index) => listenerPool[index]).filter(isListener);
-          const target = new RecordingSignalTarget(
-            new Map([
-              [sigintSignal, sigintListeners],
-              [sigtermSignal, sigtermListeners],
-            ]),
-          );
+  it("copies each initial listener list at construction", () => {
+    assertProperty(
+      arbitraryInitialListenerIndexes(),
+      (initialIndexes) => {
+        const pool = createSignalListenerPool();
+        const originals = new Map(
+          [...initialIndexes].map(([signal, indexes]) => [signal, indexes.map((index) => poolListener(pool, index))]),
+        );
+        const expected = new Map([...originals].map(([signal, listeners]) => [signal, [...listeners]]));
+        const target = new RecordingSignalTarget(originals);
 
-          const firstListener = listenerPool[0];
-          const secondListener = listenerPool[1];
-          if (firstListener !== undefined) sigintListeners.push(firstListener);
-          if (secondListener !== undefined) sigtermListeners.push(secondListener);
+        for (const listeners of originals.values()) listeners.push(poolListener(pool, 0));
 
-          expect(target.listeners(sigintSignal)).toEqual(
-            sigintIndexes.map((index) => listenerPool[index]).filter(isListener),
-          );
-          expect(target.listeners(sigtermSignal)).toEqual(
-            sigtermIndexes.map((index) => listenerPool[index]).filter(isListener),
-          );
-        },
-      ),
+        for (const signal of SIGNAL_TARGET_SIGNALS) {
+          expect(target.listeners(signal)).toEqual(expected.get(signal));
+        }
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 });
-
-function createListenerPool(): readonly SignalListener[] {
-  return [
-    () => undefined,
-    () => undefined,
-    () => undefined,
-  ];
-}
-
-function isListener(listener: SignalListener | undefined): listener is SignalListener {
-  return listener !== undefined;
-}
