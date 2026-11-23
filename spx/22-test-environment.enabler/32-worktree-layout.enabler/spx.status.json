@@ -5,7 +5,7 @@
     "test": {
       "tests/worktree-layout.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47f509b23f2116c7491cd1cde9d3a793611ce03",
+        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-worktree-layout.enabler/tests/worktree-layout.scenario.l1.test.ts",

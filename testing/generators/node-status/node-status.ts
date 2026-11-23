@@ -27,7 +27,6 @@ import {
   NODE_STATUS_SCHEMA_VERSION,
   NODE_STATUS_VERIFICATION_MECHANISM,
 } from "@/lib/node-status";
-import { VARIANT_DIRECTORY_SUFFIX } from "@/lib/node-status/provider";
 import {
   KIND_REGISTRY,
   SPEC_TREE_CONFIG,
@@ -576,7 +575,7 @@ function arbitraryVariantParent(partition: VariantPartition): fc.Arbitrary<Varia
         parentDirName: nodeDirectoryName(order, slug),
         parentSlug: slug,
         variants: variants.map((variant, index) => ({
-          dirName: `${variant.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${variant.slug}${VARIANT_DIRECTORY_SUFFIX}`,
+          dirName: `${variant.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${variant.slug}${KIND_REGISTRY.variant.suffix}`,
           slug: variant.slug,
           passes: passing.includes(index),
         })),

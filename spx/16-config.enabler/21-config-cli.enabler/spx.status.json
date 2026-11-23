@@ -5,7 +5,7 @@
     "test": {
       "tests/defaults.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
+        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/21-config-cli.enabler/config-cli.md",
@@ -402,7 +402,7 @@
       },
       "tests/determinism.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
+        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/21-config-cli.enabler/config-cli.md",
@@ -800,7 +800,7 @@
       },
       "tests/invariants.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
+        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/21-config-cli.enabler/config-cli.md",
@@ -1197,7 +1197,7 @@
       },
       "tests/root-resolution.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/21-config-cli.enabler/config-cli.md",
@@ -1272,7 +1272,7 @@
       },
       "tests/show.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
+        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/21-config-cli.enabler/config-cli.md",
@@ -1669,7 +1669,7 @@
       },
       "tests/validate.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
+        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/21-config-cli.enabler/config-cli.md",

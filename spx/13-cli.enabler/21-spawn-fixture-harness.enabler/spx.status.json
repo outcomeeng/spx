@@ -5,7 +5,7 @@
     "test": {
       "tests/spawn-fixture-harness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-spawn-fixture-harness.enabler/spawn-fixture-harness.md",
@@ -111,7 +111,7 @@
       },
       "tests/spawn-fixture-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-spawn-fixture-harness.enabler/spawn-fixture-harness.md",
@@ -217,7 +217,7 @@
       },
       "tests/spawn-fixture-marker.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-spawn-fixture-harness.enabler/spawn-fixture-harness.md",

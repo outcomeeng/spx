@@ -1,11 +1,16 @@
 import { CONFIG_FILENAMES } from "@/config/filenames";
 import { TEST_RELEVANT_SOURCE_ROOT_PREFIXES } from "@/config/source-roots";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
+import {
+  KIND_REGISTRY,
+  parseSpecTreeNodeDirectoryName,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_EVIDENCE_FILE,
+  SPEC_TREE_GRAMMAR,
+} from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 
-const PATH_SEPARATOR = "/";
-const MARKDOWN_EXTENSION = ".md";
-const NODE_INDEX_PATTERN = /^\d+-/;
+const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
+const PRIOR_SPEC_FILE_SUFFIX = SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX;
 const TESTS_DIRECTORY_NAME = SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME;
 const SPEC_ROOT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 const NODE_SUFFIXES = [KIND_REGISTRY.enabler.suffix, KIND_REGISTRY.outcome.suffix] as const;
@@ -20,14 +25,17 @@ export interface ChangedPathPartition {
   readonly productInputChanged: boolean;
 }
 
+function nodeDirectoryOf(segment: string): { readonly slug: string } | null {
+  const parsed = parseSpecTreeNodeDirectoryName(segment);
+  return parsed !== null && NODE_SUFFIXES.some((suffix) => suffix === parsed.suffix) ? parsed : null;
+}
+
 function isNodeSegment(segment: string): boolean {
-  return NODE_INDEX_PATTERN.test(segment) && NODE_SUFFIXES.some((suffix) => segment.endsWith(suffix));
+  return nodeDirectoryOf(segment) !== null;
 }
 
 function nodeSpecSlug(segment: string): string | null {
-  const suffix = NODE_SUFFIXES.find((candidate) => segment.endsWith(candidate));
-  if (suffix === undefined) return null;
-  return segment.replace(NODE_INDEX_PATTERN, "").slice(0, -suffix.length);
+  return nodeDirectoryOf(segment)?.slug ?? null;
 }
 
 function nearestNodeOperand(path: string): string | null {
@@ -41,7 +49,7 @@ function nearestNodeOperand(path: string): string | null {
   const nodeSegments = segments.slice(0, nodeEnd + 1);
   const tail = segments.slice(nodeEnd + 1);
   const nodeSlug = nodeSpecSlug(segments[nodeEnd]);
-  const isNodeSpec = tail.length === 1 && nodeSlug !== null && tail[0] === `${nodeSlug}${MARKDOWN_EXTENSION}`;
+  const isNodeSpec = tail.length === 1 && nodeSlug !== null && tail[0] === `${nodeSlug}${PRIOR_SPEC_FILE_SUFFIX}`;
   const isNodeTest = tail[0] === TESTS_DIRECTORY_NAME && tail.length > 1;
   return isNodeSpec || isNodeTest ? nodeSegments.join(PATH_SEPARATOR) : null;
 }

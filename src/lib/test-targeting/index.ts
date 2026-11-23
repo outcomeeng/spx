@@ -9,11 +9,11 @@ import { relative, resolve } from "node:path";
 
 import { applyPathFilter, normalizePathPrefix } from "@/config/primitives/path-filter";
 import { isPathContained } from "@/lib/file-system/pathContainment";
-import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
+import { SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 
 const TESTS_DIRECTORY_NAME = SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME;
-const PATH_SEGMENT_SEPARATOR = "/";
+const PATH_SEGMENT_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 
 /**
  * The operand forms this vocabulary gives a name. The product-root operand is the bare dot, spelled

@@ -4,6 +4,8 @@ import { dirname, join, relative } from "node:path";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
 import { listTrackedPaths } from "@/lib/git/tracked-paths";
 import {
+  KIND_REGISTRY,
+  parseSpecTreeNodeDirectoryName,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_NODE_STATE,
@@ -30,10 +32,8 @@ import { createNodeStatusExcludeReader } from "./exclude";
 import { NODE_STATUS_FILENAME, parseNodeStatusFile } from "./read";
 import { collectNodeStatusFiles } from "./status-files";
 
-export const VARIANT_DIRECTORY_SUFFIX = ".variant";
 const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 const ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}`;
-const SLUG_OF_DIRECTORY = /^\d+(?:\.\d+)?-(.+)\.[a-z]+$/;
 
 export interface NodeStatusProviderOptions {
   /** Git runner for pin currency and claim history; defaults to the production runner. */
@@ -86,7 +86,7 @@ export async function createNodeStatusProvider(
       continue;
     }
     statesByNode.set(nodeId, await classifyClaim(nodeId, read.claim));
-    if (nodeId.endsWith(VARIANT_DIRECTORY_SUFFIX)) {
+    if (nodeId.endsWith(KIND_REGISTRY.variant.suffix)) {
       const parent = dirname(nodeId);
       variantsByParent.set(parent, [...(variantsByParent.get(parent) ?? []), nodeId]);
     }
@@ -132,7 +132,7 @@ export async function createNodeStatusProvider(
 /** The tracked spec file of a node: the canonical `{slug}.spec.md` or the prior `{slug}.md`. */
 function specPathOf(nodePath: string, trackedPaths: ReadonlySet<string>): string {
   const directoryName = nodePath.slice(nodePath.lastIndexOf(PATH_SEPARATOR) + 1);
-  const slug = SLUG_OF_DIRECTORY.exec(directoryName)?.[1] ?? directoryName;
+  const slug = parseSpecTreeNodeDirectoryName(directoryName)?.slug ?? directoryName;
   const canonical = `${nodePath}${PATH_SEPARATOR}${slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`;
   return trackedPaths.has(canonical)
     ? canonical

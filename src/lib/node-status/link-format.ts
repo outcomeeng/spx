@@ -1,13 +1,12 @@
 import { posix } from "node:path";
 
-import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { parseSpecTreeNodeDirectoryName, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 
 const MARKDOWN_LINK = /\[([^\]\n]*)\]\(([^)\s]+)(?:\s+"[^"\n]*")?\)/g;
 const LINK_LABEL_GROUP = 1;
 const LINK_TARGET_GROUP = 2;
 const URL_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 const TREE_ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`;
-const ORDERED_DIRECTORY_NAME = /^\d+(?:\.\d+)?-(.+)\.[a-z]+$/;
 
 /**
  * Whether two versions of a spec differ only in how links are written: every link keeps its label and
@@ -21,7 +20,7 @@ export function isLinkFormatOnlyEdit(before: string, after: string, specPath: st
 export function isSpecPath(path: string): boolean {
   if (path.endsWith(SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX)) return true;
   if (!path.endsWith(SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX)) return false;
-  const slug = ORDERED_DIRECTORY_NAME.exec(posix.basename(posix.dirname(path)))?.[1];
+  const slug = parseSpecTreeNodeDirectoryName(posix.basename(posix.dirname(path)))?.slug;
   return slug !== undefined && posix.basename(path, SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX) === slug;
 }
 

@@ -1527,6 +1527,37 @@ type OrderedSlug = {
   readonly slug: string;
 };
 
+/** An ordered name split at its index: the index's numeric segments and the name after the order separator. */
+export type SpecTreeOrderedName = OrderedSlug;
+
+/** An ordered node directory name: its index segments, its slug, and the node suffix it carries. */
+export interface SpecTreeOrderedNodeDirectoryName extends SpecTreeOrderedName {
+  readonly suffix: string;
+}
+
+/**
+ * The index and the rest of an ordered name, a node directory or a decision record, whose index some
+ * known naming-schema version accepts; `null` for a name no known version orders.
+ */
+export function parseSpecTreeOrderedName(name: string): SpecTreeOrderedName | null {
+  return parseOrderedSlugByVersions(name, SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS);
+}
+
+/**
+ * The index, slug, and node suffix of a node directory name that some known naming-schema version
+ * accepts with one of its node suffixes; `null` for any other name.
+ */
+export function parseSpecTreeNodeDirectoryName(name: string): SpecTreeOrderedNodeDirectoryName | null {
+  for (const version of SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS) {
+    for (const suffix of version.nodeSuffixes) {
+      if (!name.endsWith(suffix)) continue;
+      const parsed = parseOrderedSlug(stripSuffix(name, suffix), version.order.PATTERN);
+      if (parsed !== null) return { ...parsed, suffix };
+    }
+  }
+  return null;
+}
+
 function parseOrderedSlugByVersions(
   value: string,
   versions: readonly NamingSchemaVersion[],

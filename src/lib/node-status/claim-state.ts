@@ -2,7 +2,14 @@ import { posix } from "node:path";
 
 import { committedFileContent } from "@/lib/git/release";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
-import { DECISION_SUFFIXES, SPEC_TREE_GRAMMAR, SPEC_TREE_NODE_STATE, type SpecTreeNodeState } from "@/lib/spec-tree";
+import {
+  compareSpecTreeOrder,
+  DECISION_SUFFIXES,
+  parseSpecTreeOrderedName,
+  SPEC_TREE_GRAMMAR,
+  SPEC_TREE_NODE_STATE,
+  type SpecTreeNodeState,
+} from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 
 import { NODE_STATUS_CLAIM_FIELD, NODE_STATUS_CLAIM_SHAPE } from "./claim";
@@ -56,8 +63,6 @@ export function classifyParentOfVariants(variantStates: readonly SpecTreeNodeSta
   return SPEC_TREE_NODE_STATE.DECLARED;
 }
 
-const ORDER_PREFIX = /^(\d+(?:\.\d+)?)-/;
-
 /**
  * The paths whose change invalidates a node's declaration: its spec and every decision record that governs it —
  * the records beside it and its ancestors, and the lower-index records beside each ancestor on the way down.
@@ -72,18 +77,25 @@ export function governingDeclarationPaths(
   for (let depth = 1; depth <= segments.length; depth += 1) {
     const directory = segments.slice(0, depth).join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
     const towardTarget = segments.at(depth);
-    const limit = towardTarget === undefined ? Number.POSITIVE_INFINITY : orderOf(towardTarget);
+    const limit = towardTarget === undefined ? undefined : orderOf(towardTarget);
+    if (limit === null) continue;
     for (const tracked of trackedPaths) {
       if (posix.dirname(tracked) !== directory || !isDecisionFile(tracked)) continue;
-      if (orderOf(posix.basename(tracked)) < limit) paths.add(tracked);
+      if (precedes(orderOf(posix.basename(tracked)), limit)) paths.add(tracked);
     }
   }
   return [...paths].sort(compareAsciiStrings);
 }
 
-function orderOf(name: string): number {
-  const prefix = ORDER_PREFIX.exec(name)?.[1];
-  return prefix === undefined ? Number.NEGATIVE_INFINITY : Number(prefix);
+/** The index segments of an ordered name, or `null` for a name no known naming-schema version orders. */
+function orderOf(name: string): readonly number[] | null {
+  return parseSpecTreeOrderedName(name)?.orderSegments ?? null;
+}
+
+/** Whether a record's index precedes the limit: an unordered record precedes every limit, and no limit admits all. */
+function precedes(order: readonly number[] | null, limit: readonly number[] | undefined): boolean {
+  if (order === null || limit === undefined) return true;
+  return compareSpecTreeOrder(order, limit) < 0;
 }
 
 function isDecisionFile(path: string): boolean {
