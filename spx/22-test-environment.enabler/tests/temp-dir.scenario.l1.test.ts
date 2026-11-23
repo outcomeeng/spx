@@ -6,7 +6,6 @@ import { resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 describe("withTempDir — lifecycle", () => {
@@ -26,7 +25,7 @@ describe("withTempDir — lifecycle", () => {
 
   it("returns the callback's result unchanged", async () => {
     const prefix = sampleConfigTestValue(CONFIG_TEST_GENERATOR.tempPrefix());
-    const payload = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const payload = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
 
     const result = await withTempDir(prefix, async () => payload);
 
@@ -71,7 +70,7 @@ describe("withTempDir — cleanup on throw", () => {
   it("removes the directory when the callback throws and rethrows the original error", async () => {
     const prefix = sampleConfigTestValue(CONFIG_TEST_GENERATOR.tempPrefix());
     let observed = "";
-    const boom = new TempDirBoomError(sampleLiteralTestValue(arbitraryDomainLiteral()));
+    const boom = new TempDirBoomError(sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()));
 
     await expect(
       withTempDir(prefix, async (dir) => {

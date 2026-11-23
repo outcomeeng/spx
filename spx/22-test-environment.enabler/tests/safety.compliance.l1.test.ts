@@ -6,7 +6,7 @@ import { join, relative, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
-import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -53,7 +53,7 @@ describe("withTestEnv — filesystem safety", () => {
 
 describe("withTempDir — removal safety", () => {
   it("refuses to remove a path that resolves outside os.tmpdir()", async () => {
-    const outside = resolve(tmpdir(), "..", sampleLiteralTestValue(arbitraryDomainLiteral()));
+    const outside = resolve(tmpdir(), "..", sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()));
 
     await expect(removeTempDir(outside)).rejects.toThrow();
   });
@@ -65,7 +65,7 @@ describe("withTempDir — removal safety", () => {
 
 describe("createTempDir — creation safety", () => {
   it("refuses a prefix that escapes os.tmpdir() via path traversal", async () => {
-    const traversalPrefix = `..${sep}${sampleLiteralTestValue(arbitraryDomainLiteral())}`;
+    const traversalPrefix = `..${sep}${sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())}`;
 
     await expect(createTempDir(traversalPrefix)).rejects.toThrow();
   });
