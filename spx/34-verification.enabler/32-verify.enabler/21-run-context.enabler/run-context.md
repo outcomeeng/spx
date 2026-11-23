@@ -34,6 +34,16 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 - ALWAYS: when the product is a Git repository whose HEAD names a commit, `start` records the run's head commit for every scope type, the `file` scope included; where the product has no commit to name — outside a Git repository, or in a Git repository whose HEAD is unborn — a `file`-scope `start` records no head commit and still opens the run ([test](tests/verify-head-commit.mapping.l1.test.ts))
 - ALWAYS: `start` of a changeset-scoped run records on its run-context event the run's change inventory — one entry carrying `path` and `changeKind` for every path its changeset changes between base and head, where an added path is `added`, a modified path and a type change are `modified`, a deleted path is `deleted`, a rename contributes its base-side path as `deleted` and its head-side path as `added`, and a copy contributes its head-side path as `added` and its base-side path, which the head still holds, as `copy-source` — so later lifecycle operations read the inventory the run started over ([test](tests/verify-change-inventory.mapping.l1.test.ts))
 
+### Test.Mapping: [name-status-inventory](tests/verify-name-status-inventory.mapping.l1.test.ts)
+
+`start` of a changeset-scoped run maps each set of records in its changeset's null-delimited `--name-status` diff, read with rename and copy detection, to the inventory entries it contributes, and gives no `copy-source` entry to a base-side path it holds as `deleted`.
+
+| Case               | Name-status records                                                           | Inventory entries                                                                                     |
+| ------------------ | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| copied             | a `C` record from a base-side path to a head-side path                        | the head-side path as `added` and the base-side path as `copy-source`                                 |
+| renamed            | an `R` record from a base-side path to a head-side path                       | the base-side path as `deleted` and the head-side path as `added`                                     |
+| renamed-and-copied | an `R` record and a `C` record from one base-side path to two head-side paths | each head-side path as `added` and the base-side path once, as `deleted`, with no `copy-source` entry |
+
 ### Compliance
 
 - ALWAYS: `start` given an expected content SHA-256 compares it, under the named content normalization, `none` when none is named, with the digest of the bytes it captures, and before any verification context, run journal, or run-context event exists rejects an expected digest that is not 64 lowercase hexadecimal characters naming the option, a content normalization named without an expected digest naming both options, a difference naming both digests, and captured bytes that are not valid UTF-8 under `utf8-universal-newlines` naming that normalization and its version ([test](tests/verify-start-expected-digest.compliance.l1.test.ts))
