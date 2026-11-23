@@ -1,49 +1,39 @@
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+import {
+  arbitraryValidationSpawnCallSequence,
+  type ValidationSpawnCall,
+} from "@testing/generators/validation/subprocess";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 
-interface SpawnCallInput {
-  readonly command: string;
-  readonly args: readonly string[];
-  readonly cwd: string;
-}
-
-function spawnCallInput(): fc.Arbitrary<SpawnCallInput> {
-  return fc.record({
-    command: arbitraryDomainLiteral(),
-    args: fc.array(arbitraryDomainLiteral()),
-    cwd: arbitraryDomainLiteral(),
-  });
-}
-
-function toSpawnOptions(input: SpawnCallInput): SpawnOptions {
-  return { cwd: input.cwd };
+function toSpawnOptions(call: ValidationSpawnCall): SpawnOptions {
+  return { cwd: call.cwd };
 }
 
 describe("Property: recording spawn-options runner", () => {
-  it("records commands, args, options, and children in spawn order", () => {
-    fc.assert(
-      fc.property(fc.array(spawnCallInput()), (inputs) => {
+  it("records each command, argument list, options object, and returned child in call order", () => {
+    assertProperty(
+      arbitraryValidationSpawnCallSequence(),
+      (calls) => {
         const runner = new RecordingSpawnOptionsRunner();
         const returnedChildren: ChildProcess[] = [];
+        const latestOptions: Array<SpawnOptions | undefined> = [runner.spawnOptions];
 
-        for (const input of inputs) {
-          returnedChildren.push(runner.spawn(input.command, input.args, toSpawnOptions(input)));
+        for (const call of calls) {
+          returnedChildren.push(runner.spawn(call.command, call.args, toSpawnOptions(call)));
+          latestOptions.push(runner.spawnOptions);
         }
 
-        expect(runner.commands).toEqual(inputs.map((input) => input.command));
-        expect(runner.args).toEqual(inputs.map((input) => [...input.args]));
-        expect(runner.options).toEqual(inputs.map(toSpawnOptions));
+        expect(runner.commands).toEqual(calls.map((call) => call.command));
+        expect(runner.args).toEqual(calls.map((call) => [...call.args]));
+        expect(runner.options).toEqual(calls.map(toSpawnOptions));
         expect(runner.children.map((child) => child.asChildProcess())).toEqual(returnedChildren);
-        expect(runner.children).toHaveLength(inputs.length);
-        expect(runner.spawnOptions).toEqual(
-          inputs.length === 0 ? undefined : toSpawnOptions(inputs[inputs.length - 1]),
-        );
-      }),
+        expect(latestOptions).toEqual([undefined, ...calls.map(toSpawnOptions)]);
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 });
