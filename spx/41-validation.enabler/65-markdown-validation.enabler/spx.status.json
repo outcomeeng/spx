@@ -5,7 +5,7 @@
     "test": {
       "tests/markdown-validation-command.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
+        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -400,7 +400,7 @@
       },
       "tests/markdown-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
+        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -553,7 +553,7 @@
       },
       "tests/markdown-validation.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
+        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -659,7 +659,7 @@
       },
       "tests/markdown-validation.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
+        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -759,7 +759,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "fea2f993c499d01b1e89da0d594319069265255d",
+        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
@@ -912,7 +912,6 @@
           "spx/23-spec-tree.enabler/21-kind-registry.adr.md",
           "spx/23-spec-tree.enabler/26-filename-grammar.adr.md",
           "spx/23-spec-tree.enabler/29-filename-grammar.enabler/21-versioned-grammar-model.adr.md",
-          "spx/23-spec-tree.enabler/29-filename-grammar.enabler/ISSUES.md",
           "spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md",
           "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/ISSUES.md",
           "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/PLAN.md",

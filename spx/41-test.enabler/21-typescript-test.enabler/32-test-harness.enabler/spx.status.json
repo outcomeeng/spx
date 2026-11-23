@@ -5,7 +5,7 @@
     "test": {
       "tests/test-harness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-test-harness.enabler/test-harness.md",
@@ -147,7 +147,7 @@
       },
       "tests/test-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-test-harness.enabler/test-harness.md",
