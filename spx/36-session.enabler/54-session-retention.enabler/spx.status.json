@@ -5,7 +5,7 @@
     "test": {
       "tests/session-retention.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/54-session-retention.enabler/session-retention.md",
@@ -40,7 +40,7 @@
       },
       "tests/session-retention.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/54-session-retention.enabler/session-retention.md",
@@ -79,7 +79,7 @@
       },
       "tests/session-retention.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/54-session-retention.enabler/session-retention.md",

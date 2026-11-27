@@ -5,7 +5,7 @@
     "test": {
       "tests/lint-args.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "05d35203a6ccc326736883e1d302fbeb0301434d",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "eslint.test-lint-debt-nodes.json",
           "eslint.test-owned-constant-debt-nodes.json",
@@ -406,7 +406,7 @@
       },
       "tests/lint-policy.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "05d35203a6ccc326736883e1d302fbeb0301434d",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/lint.md",
@@ -805,7 +805,7 @@
       },
       "tests/lint-preflight.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2386cf94124f382e8045ae344d32d28c1102db7e",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/lint.md",
@@ -943,7 +943,7 @@
       },
       "tests/lint.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "05d35203a6ccc326736883e1d302fbeb0301434d",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/lint.md",
@@ -1336,7 +1336,7 @@
       },
       "tests/lint.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "05d35203a6ccc326736883e1d302fbeb0301434d",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/lint.md",
@@ -1729,7 +1729,7 @@
       },
       "tests/no-spec-tree.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "05d35203a6ccc326736883e1d302fbeb0301434d",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/lint.md",
@@ -2128,7 +2128,7 @@
       },
       "tests/superseded-suffix.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "05d35203a6ccc326736883e1d302fbeb0301434d",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/lint.md",
