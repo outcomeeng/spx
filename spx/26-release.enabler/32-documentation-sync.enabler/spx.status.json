@@ -5,7 +5,7 @@
     "test": {
       "tests/documentation-sync.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-documentation-sync.enabler/documentation-sync.md",
@@ -141,7 +141,7 @@
       },
       "tests/documentation-sync.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-documentation-sync.enabler/documentation-sync.md",
@@ -278,7 +278,7 @@
       },
       "tests/documentation-sync.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-documentation-sync.enabler/documentation-sync.md",
@@ -445,7 +445,7 @@
       },
       "tests/documentation-sync.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-documentation-sync.enabler/documentation-sync.md",

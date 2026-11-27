@@ -5,7 +5,7 @@
     "test": {
       "tests/nested-product-layout-git-observation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
@@ -76,7 +76,7 @@
       },
       "tests/nested-product-layout.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
@@ -91,7 +91,7 @@
       },
       "tests/nested-product-layout.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "16db5d166cb1dd406fb3cf7f4ab4e73a70c4b556",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
@@ -165,7 +165,7 @@
       },
       "tests/state-test-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "252cac1566945270f9fc531b5bc4e2db44b4411d",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",

@@ -5,7 +5,7 @@
     "test": {
       "tests/journal-reporter.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/journal-reporter.md",
@@ -118,7 +118,7 @@
       },
       "tests/journal-reporter.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/journal-reporter.md",
@@ -231,7 +231,7 @@
       },
       "tests/journal-reporter.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "b54ca2521f2e57043dfb3e980bdbc5ed313549e8",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/journal-reporter.md",

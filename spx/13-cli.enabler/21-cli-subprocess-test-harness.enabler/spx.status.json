@@ -5,7 +5,7 @@
     "test": {
       "tests/cli-subprocess-test-harness.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0bb4745d458d083dea9b0f8e0a5cb4c546930f6d",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/cli-subprocess-test-harness.md",
@@ -18,7 +18,7 @@
       },
       "tests/cli-subprocess-test-harness.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47f509b23f2116c7491cd1cde9d3a793611ce03",
+        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/cli-subprocess-test-harness.md",
