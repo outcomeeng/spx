@@ -5,7 +5,7 @@
     "test": {
       "tests/write-paths.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.compliance.l1.test.ts",
@@ -407,7 +407,7 @@
       },
       "tests/write-paths.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.mapping.l1.test.ts",
@@ -812,7 +812,7 @@
     "audit": {
       "any-driving-party": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           ".gitignore",
           "spx/34-verification.enabler/32-verify.enabler/verify.md",
@@ -828,7 +828,7 @@
       },
       "no-agent-selection": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           ".gitignore",
           "spx/34-verification.enabler/32-verify.enabler/verify.md",
@@ -844,7 +844,7 @@
       },
       "payload-working-input": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           ".gitignore",
           "spx/34-verification.enabler/32-verify.enabler/verify.md",
@@ -860,7 +860,7 @@
       },
       "typed-journal-events": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           ".gitignore",
           "spx/34-verification.enabler/32-verify.enabler/verify.md",
@@ -878,7 +878,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.mapping.l1.test.ts",

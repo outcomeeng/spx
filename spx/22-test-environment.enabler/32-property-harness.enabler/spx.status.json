@@ -5,7 +5,7 @@
     "test": {
       "tests/property-harness.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -18,7 +18,7 @@
       },
       "tests/property-harness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -32,7 +32,7 @@
       },
       "tests/property-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -47,7 +47,7 @@
       },
       "tests/sampler.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -63,7 +63,7 @@
     "audit": {
       "composes-on-fast-check": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
           "testing/generators/property/property.ts",
@@ -77,7 +77,7 @@
       },
       "generators-own-domains": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
           "testing/generators/property/property.ts",
@@ -91,7 +91,7 @@
       },
       "no-test-owned-policy": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
           "testing/generators/property/property.ts",
@@ -107,7 +107,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
           "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.mapping.l1.test.ts",

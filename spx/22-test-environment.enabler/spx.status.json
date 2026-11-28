@@ -5,7 +5,7 @@
     "test": {
       "tests/env-generators.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -113,7 +113,7 @@
       },
       "tests/generators.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -222,7 +222,7 @@
       },
       "tests/helpers.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -329,7 +329,7 @@
       },
       "tests/isolation.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -437,7 +437,7 @@
       },
       "tests/lifecycle.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -545,7 +545,7 @@
       },
       "tests/lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -652,7 +652,7 @@
       },
       "tests/nesting.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -758,7 +758,7 @@
       },
       "tests/safety.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -867,7 +867,7 @@
       },
       "tests/temp-dir.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -940,7 +940,7 @@
     "audit": {
       "callback-scoped-only": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "spx/18-state.enabler/43-record-store.enabler/tests/jsonl-records.scenario.l1.test.ts",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -956,7 +956,7 @@
       },
       "caller-config": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "spx/18-state.enabler/43-record-store.enabler/tests/jsonl-records.scenario.l1.test.ts",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -972,7 +972,7 @@
       },
       "cleanup-in-finally": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "spx/18-state.enabler/43-record-store.enabler/tests/jsonl-records.scenario.l1.test.ts",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -988,7 +988,7 @@
       },
       "no-filesystem-mocking": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "spx/18-state.enabler/43-record-store.enabler/tests/jsonl-records.scenario.l1.test.ts",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -1004,7 +1004,7 @@
       },
       "no-production-registry": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "spx/18-state.enabler/43-record-store.enabler/tests/jsonl-records.scenario.l1.test.ts",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -1020,7 +1020,7 @@
       },
       "shared-temp-primitive": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "spx/18-state.enabler/43-record-store.enabler/tests/jsonl-records.scenario.l1.test.ts",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -1038,7 +1038,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "spx/22-test-environment.enabler/test-environment.md",
           "spx/22-test-environment.enabler/tests/env-generators.property.l1.test.ts",

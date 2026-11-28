@@ -71,7 +71,7 @@
       },
       "tests/jsonl-records.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-record-store.enabler/record-store.md",

@@ -5,7 +5,7 @@
     "test": {
       "tests/run-compare-arguments.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare-arguments.compliance.l1.test.ts",
@@ -404,7 +404,7 @@
       },
       "tests/run-compare-lookup.conformance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare-lookup.conformance.l2.test.ts",
@@ -811,7 +811,7 @@
       },
       "tests/run-compare.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare.compliance.l2.test.ts",
@@ -1218,7 +1218,7 @@
       },
       "tests/run-compare.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare.scenario.l2.test.ts",
@@ -1625,7 +1625,7 @@
       },
       "tests/run-list.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-list.compliance.l2.test.ts",
@@ -2032,7 +2032,7 @@
       },
       "tests/run-list.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-list.scenario.l2.test.ts",
@@ -2439,7 +2439,7 @@
       },
       "tests/verification.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/verification.compliance.l1.test.ts",
@@ -2839,7 +2839,7 @@
     "audit": {
       "run-inspection-paths": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/verification.md",
           "src/commands/verification-exec/cli.ts",
@@ -2856,7 +2856,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare-arguments.compliance.l1.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare-lookup.conformance.l2.test.ts",
