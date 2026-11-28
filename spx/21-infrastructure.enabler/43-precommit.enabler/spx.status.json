@@ -5,7 +5,7 @@
     "test": {
       "tests/deps-install-gate-probe.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "220850bb37f59da27508d3245810e8a73f93d246",
+        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
@@ -27,7 +27,7 @@
       },
       "tests/deps-install-gate.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "220850bb37f59da27508d3245810e8a73f93d246",
+        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
@@ -49,7 +49,7 @@
       },
       "tests/entrypoint.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "220850bb37f59da27508d3245810e8a73f93d246",
+        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
@@ -71,7 +71,7 @@
       },
       "tests/hook-install.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "220850bb37f59da27508d3245810e8a73f93d246",
+        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
         "read": [
           "lefthook.yml",
           "pnpm-lock.yaml",
@@ -90,7 +90,7 @@
       },
       "tests/main-checkout-gate.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "220850bb37f59da27508d3245810e8a73f93d246",
+        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
@@ -115,7 +115,7 @@
       },
       "tests/subprocess-env.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "220850bb37f59da27508d3245810e8a73f93d246",
+        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -138,7 +138,7 @@
     "audit": {
       "default-branch-cli-refresh": {
         "verdict": "passed",
-        "commit": "d8e9a3ec6c22e77fc3075ee44c6c4e38c896c10d",
+        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
         "read": [
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
           "spx/local/merging.md"
@@ -153,7 +153,7 @@
     "evidence": {
       "test": {
         "verdict": "failed",
-        "commit": "d8e9a3ec6c22e77fc3075ee44c6c4e38c896c10d",
+        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
         "read": [
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
           "spx/21-infrastructure.enabler/43-precommit.enabler/tests/deps-install-gate-probe.mapping.l1.test.ts",
