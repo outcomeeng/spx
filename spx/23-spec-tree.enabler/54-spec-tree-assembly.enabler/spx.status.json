@@ -1,11 +1,11 @@
 {
-  "state": "specified",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
       "tests/kind-containment.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "e43783b455dfbf054e4baf22eea25c5dc6bb0b51",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/spec-tree-assembly.md",
@@ -115,7 +115,7 @@
       },
       "tests/kind-containment.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "e43783b455dfbf054e4baf22eea25c5dc6bb0b51",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/spec-tree-assembly.md",
@@ -219,7 +219,7 @@
       },
       "tests/kind-containment.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "e43783b455dfbf054e4baf22eea25c5dc6bb0b51",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/spec-tree-assembly.md",
@@ -329,7 +329,7 @@
       },
       "tests/residual-snapshot.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "e43783b455dfbf054e4baf22eea25c5dc6bb0b51",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/spec-tree-assembly.md",
@@ -435,7 +435,7 @@
       },
       "tests/spec-tree-assembly.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "e43783b455dfbf054e4baf22eea25c5dc6bb0b51",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/spec-tree-assembly.md",
@@ -540,7 +540,23 @@
     },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "e43783b455dfbf054e4baf22eea25c5dc6bb0b51",
+        "read": [
+          "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/spec-tree-assembly.md",
+          "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/tests/kind-containment.compliance.l1.test.ts",
+          "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/tests/kind-containment.mapping.l1.test.ts",
+          "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/tests/kind-containment.scenario.l1.test.ts",
+          "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/tests/residual-snapshot.compliance.l1.test.ts",
+          "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/tests/spec-tree-assembly.property.l1.test.ts",
+          "testing/generators/spec-tree/kind-containment.ts",
+          "testing/generators/spec-tree/kind-grammar.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_05-50-05-140-df096e148838"
       }
     }
   }
