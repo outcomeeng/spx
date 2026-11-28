@@ -98,8 +98,8 @@ interface JunitTestCase {
   failed: boolean;
 }
 
-function junitReportPath(productDir: string): string {
-  const domain = domainDir(worktreeScopeDir(productDir), STATE_STORE_DOMAIN.TEST);
+function junitReportPath(worktreeRoot: string): string {
+  const domain = domainDir(worktreeScopeDir(worktreeRoot), STATE_STORE_DOMAIN.TEST);
   if (!domain.ok) throw new Error(domain.error);
   return join(
     domain.value,
@@ -186,7 +186,7 @@ async function runTests(request: TestRunRequest, deps: TestRunnerDependencies): 
     return { invoked: false };
   }
 
-  const reportPath = junitReportPath(request.productDir);
+  const reportPath = junitReportPath(request.worktreeRoot);
   const args = [
     ...PYTEST_INVOKE_ARGS,
     `${ROOTDIR_FLAG_PREFIX}${request.productDir}`,

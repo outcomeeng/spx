@@ -29,13 +29,19 @@ describe("targeted execution passing-scope interaction", () => {
       // `spx test passing` reads the exclusion from the staged config and drops the excluded
       // operand's file from the operand-selected set.
       const passingRunner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
-      await runTestsCommand({ productDir, passing: true, targets }, testingCommandDependencies(passingRunner));
+      await runTestsCommand(
+        { productDir, worktreeRoot: productDir, passing: true, targets },
+        testingCommandDependencies(passingRunner),
+      );
       expect(invokedArgs(passingRunner)).toContain(keptFile);
       expect(invokedArgs(passingRunner)).not.toContain(excludedFile);
 
       // Plain `spx test` leaves the same configured exclusion unread, so both files dispatch.
       const plainRunner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
-      await runTestsCommand({ productDir, passing: false, targets }, testingCommandDependencies(plainRunner));
+      await runTestsCommand(
+        { productDir, worktreeRoot: productDir, passing: false, targets },
+        testingCommandDependencies(plainRunner),
+      );
       expect(invokedArgs(plainRunner)).toContain(keptFile);
       expect(invokedArgs(plainRunner)).toContain(excludedFile);
     });

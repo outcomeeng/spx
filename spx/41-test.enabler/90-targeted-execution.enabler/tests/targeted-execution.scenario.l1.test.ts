@@ -177,7 +177,12 @@ describe("targeted execution operand resolution", () => {
       await writeTestFileFixture(productDir, fileA);
 
       const result = await runTests(
-        { productDir, registry: testingRegistry, targets: { operands: [nodeOperand(nodeB)], recursive: false } },
+        {
+          productDir,
+          worktreeRoot: productDir,
+          registry: testingRegistry,
+          targets: { operands: [nodeOperand(nodeB)], recursive: false },
+        },
         { runnerDepsFor: () => runner },
       );
 

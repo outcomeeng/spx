@@ -79,7 +79,11 @@ export function withRecordedTestRuns(
         if (!written.ok) throw new Error(written.error);
       },
       resolverOverRecordedRuns: () =>
-        createNodeOutcomeResolver({ productDir: env.productDir, registry: testingRegistry }),
+        createNodeOutcomeResolver({
+          productDir: env.productDir,
+          worktreeRoot: env.productDir,
+          registry: testingRegistry,
+        }),
     });
   });
 }
@@ -135,6 +139,7 @@ export function withRecordedReadPaths(
     if (!sealed.ok) throw new Error(sealed.error);
     const { resolveReadPaths } = createNodeStatusResolvers({
       productDir,
+      worktreeRoot: productDir,
       registry: testingRegistry,
       git: repository.git,
     });

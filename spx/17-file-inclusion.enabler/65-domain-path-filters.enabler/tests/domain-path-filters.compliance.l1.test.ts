@@ -173,7 +173,7 @@ describe("domain path filters — compliance", () => {
       await writeMixedDomainConfig(productDir);
 
       await runTestsCommand(
-        { productDir, passing: true },
+        { productDir, worktreeRoot: productDir, passing: true },
         { registry: testingRegistry, runnerDepsFor: () => runner, git: gitIdentityStub() },
       );
 

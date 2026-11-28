@@ -69,7 +69,12 @@ describe("status-to-testing delegation compliance", () => {
         cwd: env.productDir,
         update: true,
         resolveOutcomeFor: (productDir) =>
-          createNodeOutcomeResolver({ productDir, registry: testingRegistry, fs: counting.fs }),
+          createNodeOutcomeResolver({
+            productDir,
+            worktreeRoot: productDir,
+            registry: testingRegistry,
+            fs: counting.fs,
+          }),
       });
 
       expect(counting.readCount(join(env.productDir, rootTestFile))).toBe(1);

@@ -18,7 +18,7 @@ describe("typescript test runner path verdicts from real vitest", () => {
         assert(failingPath !== undefined && passingPath !== undefined);
 
         const result = await typescriptTestingLanguage.runTests(
-          { productDir, testPaths: [failingPath, passingPath], excludedNodePaths: [] },
+          { productDir, worktreeRoot: productDir, testPaths: [failingPath, passingPath], excludedNodePaths: [] },
           productRootedCommandRunner(),
         );
 

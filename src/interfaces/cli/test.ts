@@ -5,7 +5,7 @@ import { SUCCESS_EXIT_CODE } from "@/domains/test";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { formatAgentTestOutput } from "@/interfaces/cli/test-agent-output";
-import { resolveLocalProductRoot } from "@/lib/git/root";
+import { detectWorktreeProductRoot, resolveLocalProductRoot } from "@/lib/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import type { TargetSelection } from "@/lib/test-targeting";
 import { testingRegistry } from "@/test/registry";
@@ -70,8 +70,11 @@ async function runTestsThroughCommand(
   requireExecution?: boolean,
 ): Promise<TestsCommandResult> {
   try {
+    // The run record and runner reports live in the worktree root's `.spx/worktree/` scope, which a
+    // product nested inside the worktree shares with the enclosing product.
+    const worktreeRoot = (await detectWorktreeProductRoot(productDir)).productDir;
     return await runTestsCommand(
-      { productDir, passing, targets, changed, requireExecution },
+      { productDir, worktreeRoot, passing, targets, changed, requireExecution },
       {
         registry: testingRegistry,
         runnerDepsFor: createRunnerDepsFor(productDir),
@@ -93,8 +96,11 @@ async function runAgentTestsThroughCommand(
   requireExecution?: boolean,
 ): Promise<TestsCommandResult> {
   try {
+    // The run record and runner reports live in the worktree root's `.spx/worktree/` scope, which a
+    // product nested inside the worktree shares with the enclosing product.
+    const worktreeRoot = (await detectWorktreeProductRoot(productDir)).productDir;
     return await runTestsCommand(
-      { productDir, passing, targets, changed, requireExecution },
+      { productDir, worktreeRoot, passing, targets, changed, requireExecution },
       {
         registry: testingRegistry,
         runnerDepsFor: createAgentRunnerDepsFor(productDir),

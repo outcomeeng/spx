@@ -18,6 +18,7 @@ import { inferInvokingCodingAgent } from "@/interfaces/cli/coding-agent";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
+import { detectWorktreeProductRoot } from "@/lib/git/root";
 import { renderSpecContextEntries, type SpecContextTargetFailure } from "@/lib/spec-tree";
 import {
   authoredText,
@@ -215,10 +216,16 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
         }
         const format = resolveStatusFormat(options);
         let statusResolvers: NodeStatusResolvers | undefined;
+        // Recorded test runs live in the worktree root's `.spx/worktree/` scope, which a product nested
+        // inside the worktree shares with the enclosing product.
+        const worktreeRoot = options.update === true
+          ? (await detectWorktreeProductRoot(invocation.resolveEffectiveInvocationDir())).productDir
+          : undefined;
         const statusResolversFor = (
           productDir: string,
         ): NodeStatusResolvers => (statusResolvers ??= createNodeStatusResolvers({
           productDir,
+          worktreeRoot: worktreeRoot ?? productDir,
           registry: testingRegistry,
         }));
         const output = options.update === true

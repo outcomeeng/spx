@@ -84,6 +84,7 @@ export function withLockfilePinRepository(
     });
     const productionResolvers = createNodeStatusResolvers({
       productDir: repository.env.productDir,
+      worktreeRoot: repository.env.productDir,
       registry: testingRegistry,
       git: repository.git,
     });

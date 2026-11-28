@@ -26,7 +26,11 @@ describe("reusing a recorded passed run", () => {
       await recordPassedRun(repository);
       const invocationsAfterRecording = repository.runner.calls.length;
 
-      const result = await runTestsCommand({ productDir: repository.productDir, passing: false }, repository.deps);
+      const result = await runTestsCommand({
+        productDir: repository.productDir,
+        worktreeRoot: repository.productDir,
+        passing: false,
+      }, repository.deps);
 
       expect(repository.runner.calls).toHaveLength(invocationsAfterRecording);
       expect(result.kind).toBe(TEST_RESULT_KIND.REUSED);
@@ -48,7 +52,12 @@ describe("reusing a recorded passed run", () => {
       const invocationsAfterRecording = repository.runner.calls.length;
 
       const result = await runTestsCommand(
-        { productDir: repository.productDir, passing: false, targets: { operands: [ownFile], recursive: false } },
+        {
+          productDir: repository.productDir,
+          worktreeRoot: repository.productDir,
+          passing: false,
+          targets: { operands: [ownFile], recursive: false },
+        },
         repository.deps,
       );
 
@@ -69,7 +78,11 @@ describe("reusing a recorded passed run", () => {
       const recordedRun = await recordPassedRun(repository);
       const runFilesAfterRecording = await snapshotRunDirectory(repository.productDir);
 
-      const result = await runTestsCommand({ productDir: repository.productDir, passing: false }, repository.deps);
+      const result = await runTestsCommand({
+        productDir: repository.productDir,
+        worktreeRoot: repository.productDir,
+        passing: false,
+      }, repository.deps);
       const printed = await runTestingCli(
         [TESTING_CLI.commandName],
         testingCliDeps(repository.productDir, result, [], []),
@@ -90,7 +103,11 @@ describe("reusing a recorded passed run", () => {
       await commitAdditionalTestFile(repository, descendantFile);
       await recordPassedRun(repository);
 
-      const result = await runTestsCommand({ productDir: repository.productDir, passing: false }, repository.deps);
+      const result = await runTestsCommand({
+        productDir: repository.productDir,
+        worktreeRoot: repository.productDir,
+        passing: false,
+      }, repository.deps);
       const printed = await runTestingCli(
         [TESTING_CLI.commandName],
         testingCliDeps(repository.productDir, result, [], []),
@@ -119,7 +136,12 @@ describe("reusing a recorded passed run", () => {
       const runFilesAfterRecording = await snapshotRunDirectory(repository.productDir);
 
       const result = await runTestsCommand(
-        { productDir: repository.productDir, passing: false, requireExecution: true },
+        {
+          productDir: repository.productDir,
+          worktreeRoot: repository.productDir,
+          passing: false,
+          requireExecution: true,
+        },
         repository.deps,
       );
 
@@ -160,7 +182,11 @@ describe("one discovery per request", () => {
     await withRecordedRunRepository(ownFile, async (repository) => {
       const deps = await arrangeLateArrivingTestFile(repository, descendantFile);
 
-      const result = await runTestsCommand({ productDir: repository.productDir, passing: false }, deps);
+      const result = await runTestsCommand({
+        productDir: repository.productDir,
+        worktreeRoot: repository.productDir,
+        passing: false,
+      }, deps);
 
       expect(result.kind).toBe(TEST_RESULT_KIND.EXECUTED);
       const dispatchedPaths = repository.runner.calls.flatMap((call) => call.args);
@@ -179,7 +205,11 @@ describe("one discovery per request", () => {
       const invocationsAfterRecording = repository.runner.calls.length;
       const deps = await arrangeLateArrivingTestFile(repository, descendantFile);
 
-      const result = await runTestsCommand({ productDir: repository.productDir, passing: false }, deps);
+      const result = await runTestsCommand({
+        productDir: repository.productDir,
+        worktreeRoot: repository.productDir,
+        passing: false,
+      }, deps);
 
       expect(result.kind).toBe(TEST_RESULT_KIND.REUSED);
       expect(repository.runner.calls).toHaveLength(invocationsAfterRecording);

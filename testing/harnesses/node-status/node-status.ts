@@ -202,7 +202,7 @@ export async function withClassificationTree(
           exitCode: expectation.facts.runnerExitCode,
         });
         const result = await runNodeCommand(
-          { productDir: env.productDir, nodePath: nodeTreePath(expectation.nodeId) },
+          { productDir: env.productDir, worktreeRoot: env.productDir, nodePath: nodeTreePath(expectation.nodeId) },
           {
             registry: testingRegistry,
             runnerDepsFor: () => runner,
@@ -216,7 +216,11 @@ export async function withClassificationTree(
         });
       }
       return {
-        resolveOutcome: createNodeOutcomeResolver({ productDir: env.productDir, registry: testingRegistry }),
+        resolveOutcome: createNodeOutcomeResolver({
+          productDir: env.productDir,
+          worktreeRoot: env.productDir,
+          registry: testingRegistry,
+        }),
         runs,
       };
     };
@@ -226,7 +230,11 @@ export async function withClassificationTree(
       expectations,
       fixturePayloads: { spec: specContent, test: testContent },
       recordedOutcomeResolver: () =>
-        createNodeOutcomeResolver({ productDir: env.productDir, registry: testingRegistry }),
+        createNodeOutcomeResolver({
+          productDir: env.productDir,
+          worktreeRoot: env.productDir,
+          registry: testingRegistry,
+        }),
       recordOutcomeEvidence,
       commitProjection: async () => {
         const { resolveOutcome } = await recordOutcomeEvidence();

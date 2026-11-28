@@ -384,7 +384,7 @@ export async function runWithSimulatedReport(
   return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
     const runner = createRecordingCommandRunner({ present: true, ...options });
     return typescriptTestingLanguage.runTests(
-      { productDir, testPaths, excludedNodePaths: [] },
+      { productDir, worktreeRoot: productDir, testPaths, excludedNodePaths: [] },
       runner,
     );
   });
@@ -414,7 +414,7 @@ export function runWithReportedNamesThroughSymlink(
         reportRoot: resolvedProductDir,
       });
       return typescriptTestingLanguage.runTests(
-        { productDir, testPaths, excludedNodePaths: [] },
+        { productDir, worktreeRoot: productDir, testPaths, excludedNodePaths: [] },
         runner,
       );
     });
@@ -453,7 +453,7 @@ export function registerTypescriptRunnerScenarioL1Tests(): void {
         });
 
         await runTestsCommand(
-          { requireExecution: true, productDir, passing: true },
+          { requireExecution: true, productDir, worktreeRoot: productDir, passing: true },
           testingCommandDependencies(runner),
         );
 
@@ -481,7 +481,7 @@ export function registerTypescriptRunnerScenarioL1Tests(): void {
         await writeTestFileFixture(productDir, testPath);
 
         const result = await runTestsCommand(
-          { requireExecution: true, productDir, passing: false },
+          { requireExecution: true, productDir, worktreeRoot: productDir, passing: false },
           testingCommandDependencies(runner),
         );
 
@@ -502,7 +502,7 @@ export function registerTypescriptRunnerScenarioL1Tests(): void {
             await writeTestFileFixture(productDir, testPath);
 
             const result = await runTestsCommand(
-              { requireExecution: true, productDir, passing: false },
+              { requireExecution: true, productDir, worktreeRoot: productDir, passing: false },
               testingCommandDependencies(runner),
             );
 
@@ -533,7 +533,13 @@ export function registerTypescriptRunnerScenarioL2Tests(): void {
           );
           const runner = createRepoRootedRecordingCommandRunner();
           const result = await runTestsCommand(
-            { requireExecution: true, productDir, passing: false, targets: { operands: [testPath], recursive: false } },
+            {
+              requireExecution: true,
+              productDir,
+              worktreeRoot: productDir,
+              passing: false,
+              targets: { operands: [testPath], recursive: false },
+            },
             testingCommandDependencies(runner),
           );
 
@@ -553,7 +559,13 @@ export function registerTypescriptRunnerScenarioL2Tests(): void {
         async (productDir) => {
           const runner = createRepoRootedRecordingCommandRunner();
           const result = await runTestsCommand(
-            { requireExecution: true, productDir, passing: false, targets: { operands: [testPath], recursive: false } },
+            {
+              requireExecution: true,
+              productDir,
+              worktreeRoot: productDir,
+              passing: false,
+              targets: { operands: [testPath], recursive: false },
+            },
             testingCommandDependencies(runner),
           );
 
@@ -585,7 +597,7 @@ export function registerTypescriptRunnerMappingTests(): void {
           await writeTestFileFixture(productDir, testPath);
 
           await runTestsCommand(
-            { requireExecution: true, productDir, passing: false },
+            { requireExecution: true, productDir, worktreeRoot: productDir, passing: false },
             testingCommandDependencies(runner),
           );
 
@@ -622,7 +634,7 @@ export function registerTypescriptRunnerMappingTests(): void {
           });
 
           await runTestsCommand(
-            { requireExecution: true, productDir, passing: true },
+            { requireExecution: true, productDir, worktreeRoot: productDir, passing: true },
             testingCommandDependencies(runner),
           );
 
@@ -649,7 +661,7 @@ export function registerTypescriptRunnerComplianceTests(): void {
             await writeTestFileFixture(productDir, testPath);
 
             const result = await runTestsCommand(
-              { requireExecution: true, productDir, passing: false },
+              { requireExecution: true, productDir, worktreeRoot: productDir, passing: false },
               testingCommandDependencies(runner),
             );
 

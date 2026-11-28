@@ -31,7 +31,11 @@ describe("a request no recorded run satisfies", () => {
         const invocationsBeforeRequest = repository.runner.calls.length;
         const runFilesBeforeRequest = await snapshotRunDirectory(repository.productDir);
 
-        const result = await runTestsCommand({ productDir: repository.productDir, passing: false }, deps);
+        const result = await runTestsCommand({
+          productDir: repository.productDir,
+          worktreeRoot: repository.productDir,
+          passing: false,
+        }, deps);
 
         expect(result.kind).toBe(TEST_RESULT_KIND.EXECUTED);
         expect(repository.runner.calls.length).toBeGreaterThan(invocationsBeforeRequest);

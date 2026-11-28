@@ -84,14 +84,20 @@ async function expectProductInputDigestChanges({
         await writeProductInputFile(productDir, productInputPath, firstInputContent);
 
         const firstRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-        const first = await runTestsCommand({ productDir, passing: false }, testingCommandDependencies(firstRunner));
+        const first = await runTestsCommand(
+          { productDir, worktreeRoot: productDir, passing: false },
+          testingCommandDependencies(firstRunner),
+        );
         const firstDigest = recordedProductInputDigest(first.recorded, descriptorId);
         expect(firstDigest).toBeDefined();
 
         await writeProductInputFile(productDir, productInputPath, secondInputContent);
 
         const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-        const second = await runTestsCommand({ productDir, passing: false }, testingCommandDependencies(secondRunner));
+        const second = await runTestsCommand(
+          { productDir, worktreeRoot: productDir, passing: false },
+          testingCommandDependencies(secondRunner),
+        );
         const secondDigest = recordedProductInputDigest(second.recorded, descriptorId);
         expect(secondDigest).toBeDefined();
         expect(secondDigest).not.toBe(firstDigest);
@@ -126,7 +132,7 @@ async function expectStagedProductInputDigestMatchesCurrent({
 
         const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
         const recorded = await runTestsCommand(
-          { productDir, passing: false, changed: { staged: true } },
+          { productDir, worktreeRoot: productDir, passing: false, changed: { staged: true } },
           {
             registry: testingRegistry,
             runnerDepsFor: () => runner,
@@ -170,7 +176,10 @@ export function registerExecutionRecordingScenarioTests(): void {
         await writeTestFileFixture(productDir, includedFile);
         await writeTestingConfig(productDir, { exclude: [`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${excludedNode}`] });
 
-        await runTestsCommand({ productDir, passing: true }, testingCommandDependencies(runner));
+        await runTestsCommand(
+          { productDir, worktreeRoot: productDir, passing: true },
+          testingCommandDependencies(runner),
+        );
 
         expect(invokedArgs(runner)).not.toContain(excludedFile);
         expect(invokedArgs(runner)).toContain(includedFile);
@@ -192,7 +201,10 @@ export function registerExecutionRecordingScenarioTests(): void {
         await writeTestFileFixture(productDir, includedFile);
         await writeTestingConfig(productDir, { exclude: [`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${excludedNode}`] });
 
-        await runTestsCommand({ productDir, passing: false }, testingCommandDependencies(runner));
+        await runTestsCommand(
+          { productDir, worktreeRoot: productDir, passing: false },
+          testingCommandDependencies(runner),
+        );
 
         expect(invokedArgs(runner)).toContain(excludedFile);
         expect(invokedArgs(runner)).toContain(includedFile);
@@ -213,7 +225,10 @@ export function registerExecutionRecordingScenarioTests(): void {
         // A bare node path carries no product-root prefix, so it matches no discovered path.
         await writeTestingConfig(productDir, { exclude: [node] });
 
-        await runTestsCommand({ productDir, passing: true }, testingCommandDependencies(runner));
+        await runTestsCommand(
+          { productDir, worktreeRoot: productDir, passing: true },
+          testingCommandDependencies(runner),
+        );
 
         expect(invokedArgs(runner)).toContain(nodeFile);
         expect(invokedArgs(runner)).toContain(otherFile);
@@ -228,7 +243,10 @@ export function registerExecutionRecordingScenarioTests(): void {
       await withTestingTempProductDir(async (productDir) => {
         await writeTestFileFixture(productDir, nodeFile);
 
-        await runTestsCommand({ productDir, passing: false }, testingCommandDependencies(runner));
+        await runTestsCommand(
+          { productDir, worktreeRoot: productDir, passing: false },
+          testingCommandDependencies(runner),
+        );
 
         const runs = await readTestingRuns(productDir);
         expect(runs.ok).toBe(true);
@@ -262,7 +280,7 @@ export function registerExecutionRecordingScenarioTests(): void {
 
             const missingInputRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
             const missingInputRun = await runTestsCommand(
-              { productDir, passing: false },
+              { productDir, worktreeRoot: productDir, passing: false },
               testingCommandDependencies(missingInputRunner),
             );
             const missingInputDigest = recordedProductInputDigest(
@@ -275,7 +293,7 @@ export function registerExecutionRecordingScenarioTests(): void {
 
             const presentInputRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
             const presentInputRun = await runTestsCommand(
-              { productDir, passing: false },
+              { productDir, worktreeRoot: productDir, passing: false },
               testingCommandDependencies(presentInputRunner),
             );
             const presentInputDigest = recordedProductInputDigest(
@@ -311,7 +329,7 @@ export function registerExecutionRecordingScenarioTests(): void {
 
         await expect(
           runTestsCommand(
-            { productDir, passing: false, changed: { staged: true } },
+            { productDir, worktreeRoot: productDir, passing: false, changed: { staged: true } },
             {
               registry: testingRegistry,
               runnerDepsFor: () => runner,
@@ -359,7 +377,7 @@ export function registerExecutionRecordingScenarioTests(): void {
 
         await expect(
           runTestsCommand(
-            { productDir, passing: false, changed: { staged: true } },
+            { productDir, worktreeRoot: productDir, passing: false, changed: { staged: true } },
             {
               registry: testingRegistry,
               runnerDepsFor: () => runner,
@@ -407,7 +425,7 @@ export function registerExecutionRecordingScenarioTests(): void {
 
             const firstRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
             const first = await runTestsCommand(
-              { productDir, passing: false },
+              { productDir, worktreeRoot: productDir, passing: false },
               testingCommandDependencies(firstRunner),
             );
 
@@ -415,7 +433,7 @@ export function registerExecutionRecordingScenarioTests(): void {
 
             const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
             const second = await runTestsCommand(
-              { productDir, passing: false },
+              { productDir, worktreeRoot: productDir, passing: false },
               testingCommandDependencies(secondRunner),
             );
 
@@ -445,7 +463,7 @@ export function registerExecutionRecordingScenarioTests(): void {
         await writeTestFileFixture(productDir, nodeFile);
 
         const { dispatch, recorded } = await runNodeCommand(
-          { productDir, nodePath: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${nodePath}` },
+          { productDir, worktreeRoot: productDir, nodePath: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${nodePath}` },
           testingCommandDependencies(runner),
         );
 
@@ -471,7 +489,7 @@ export function registerExecutionRecordingScenarioTests(): void {
         await writeTestFileFixture(productDir, nodeFile);
 
         const { dispatch, recorded } = await runNodeCommand(
-          { productDir, nodePath: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${nodePath}` },
+          { productDir, worktreeRoot: productDir, nodePath: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${nodePath}` },
           testingCommandDependencies(runner),
         );
 
@@ -497,7 +515,7 @@ export function registerExecutionRecordingScenarioTests(): void {
         await writeTestFileFixture(productDir, siblingFile);
 
         const { recorded } = await runNodeCommand(
-          { productDir, nodePath: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${targetNode}` },
+          { productDir, worktreeRoot: productDir, nodePath: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${targetNode}` },
           testingCommandDependencies(runner),
         );
 
@@ -528,7 +546,7 @@ export function registerExecutionRecordingScenarioTests(): void {
         await writeTestFileFixture(productDir, nodeFile);
 
         const { recorded } = await runTestsCommand(
-          { productDir, passing: false },
+          { productDir, worktreeRoot: productDir, passing: false },
           { registry: testingRegistry, runnerDepsFor: () => runner, git: unavailableGit },
         );
 

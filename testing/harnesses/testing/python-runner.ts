@@ -125,7 +125,10 @@ export async function runWithSimulatedReport(
 ) {
   return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
     const runner = createRecordingCommandRunner({ present: true, ...options });
-    return pythonTestingLanguage.runTests({ productDir, testPaths, excludedNodePaths: [] }, runner);
+    return pythonTestingLanguage.runTests(
+      { productDir, worktreeRoot: productDir, testPaths, excludedNodePaths: [] },
+      runner,
+    );
   });
 }
 
@@ -248,7 +251,7 @@ export async function runRealPytestOverSuites(
 
   await withSuites(fixtures, async ({ productDir, suitePaths }) => {
     const result = await pythonTestingLanguage.runTests(
-      { productDir, testPaths: suitePaths, excludedNodePaths: [] },
+      { productDir, worktreeRoot: productDir, testPaths: suitePaths, excludedNodePaths: [] },
       productRootedPytestCommandRunner(productDir),
     );
     run = { suitePaths, result };
@@ -267,7 +270,12 @@ export function registerPythonRunnerScenarioL1Evidence(): void {
       const exitCode = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.exitCode());
       const runner = createRecordingCommandRunner({ present: true, exitCode });
 
-      const result = await pythonTestingLanguage.runTests({ productDir, testPaths, excludedNodePaths }, runner);
+      const result = await pythonTestingLanguage.runTests({
+        productDir,
+        worktreeRoot: productDir,
+        testPaths,
+        excludedNodePaths,
+      }, runner);
 
       expect(result.invoked).toBe(true);
       expect(runner.calls).toHaveLength(1);
@@ -286,7 +294,12 @@ export function registerPythonRunnerScenarioL1Evidence(): void {
       const exitCode = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.exitCode());
       const runner = createRecordingCommandRunner({ present: false, exitCode });
 
-      const result = await pythonTestingLanguage.runTests({ productDir, testPaths, excludedNodePaths: [] }, runner);
+      const result = await pythonTestingLanguage.runTests({
+        productDir,
+        worktreeRoot: productDir,
+        testPaths,
+        excludedNodePaths: [],
+      }, runner);
 
       expect(result.invoked).toBe(false);
       expect(runner.calls).toHaveLength(0);
@@ -298,7 +311,7 @@ export function registerPythonRunnerScenarioL1Evidence(): void {
         async ([exitCode, productDir]) => {
           const runner = createRecordingCommandRunner({ present: true, exitCode });
           const result = await pythonTestingLanguage.runTests(
-            { productDir, testPaths: [], excludedNodePaths: [] },
+            { productDir, worktreeRoot: productDir, testPaths: [], excludedNodePaths: [] },
             runner,
           );
 
@@ -317,7 +330,7 @@ export function registerPythonRunnerScenarioL2Evidence(): void {
     it("invokes pytest against a passing product and exits zero", async () => {
       await withTempPytestProduct(PYTEST_FIXTURE.PASSING, async ({ productDir, suitePath }) => {
         const result = await pythonTestingLanguage.runTests(
-          { productDir, testPaths: [suitePath], excludedNodePaths: [] },
+          { productDir, worktreeRoot: productDir, testPaths: [suitePath], excludedNodePaths: [] },
           productRootedPytestCommandRunner(productDir),
         );
 
@@ -330,7 +343,7 @@ export function registerPythonRunnerScenarioL2Evidence(): void {
     it("invokes pytest against a product with a missing import and exits non-zero", async () => {
       await withTempPytestProduct(PYTEST_FIXTURE.FAILING, async ({ productDir, suitePath }) => {
         const result = await pythonTestingLanguage.runTests(
-          { productDir, testPaths: [suitePath], excludedNodePaths: [] },
+          { productDir, worktreeRoot: productDir, testPaths: [suitePath], excludedNodePaths: [] },
           productRootedPytestCommandRunner(productDir),
         );
 
@@ -351,7 +364,7 @@ export function registerPythonRunnerComplianceEvidence(): void {
         async ([{ present, exitCode }, productDir]) => {
           const runner = createRecordingCommandRunner({ present, exitCode });
           const result = await pythonTestingLanguage.runTests(
-            { productDir, testPaths: [], excludedNodePaths: [] },
+            { productDir, worktreeRoot: productDir, testPaths: [], excludedNodePaths: [] },
             runner,
           );
 

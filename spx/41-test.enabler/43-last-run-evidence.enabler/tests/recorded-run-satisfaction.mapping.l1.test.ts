@@ -47,13 +47,17 @@ describe("recorded run satisfaction", () => {
       await recordPassedRun(repository);
 
       const covered = await findSatisfyingRecordedRun(
-        { productDir: repository.productDir, selectedPaths: [file] },
+        { productDir: repository.productDir, worktreeRoot: repository.productDir, selectedPaths: [file] },
         repository.deps,
       );
       expect(covered.satisfied).toBe(true);
 
       const uncovered = await findSatisfyingRecordedRun(
-        { productDir: repository.productDir, selectedPaths: [file, uncoveredFile] },
+        {
+          productDir: repository.productDir,
+          worktreeRoot: repository.productDir,
+          selectedPaths: [file, uncoveredFile],
+        },
         repository.deps,
       );
       expect(uncovered).toEqual({ satisfied: false, reason: RECORDED_RUN_UNSATISFIED_REASON.NO_COVERING_RUN });

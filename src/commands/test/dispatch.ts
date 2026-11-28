@@ -39,6 +39,8 @@ export interface TestRunnerReport {
 
 export interface TestDispatchOptions {
   readonly productDir: string;
+  /** Local worktree root whose `.spx/worktree/` scope holds each runner's report. */
+  readonly worktreeRoot: string;
   readonly registry: TestingRegistry;
   /** When present, discovered files are filtered by this scope before dispatch (`spx test passing`). */
   readonly passingScope?: PathFilterConfig;
@@ -103,6 +105,7 @@ export async function dispatchSelectedTests(
     const invocation = await group.language.runTests(
       {
         productDir: options.productDir,
+        worktreeRoot: options.worktreeRoot,
         testPaths: group.testPaths,
         excludedNodePaths: runnerExcludedNodePaths,
       },

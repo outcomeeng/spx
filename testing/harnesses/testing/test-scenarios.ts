@@ -154,6 +154,7 @@ async function expectStagedDirtySelectionRejection({
       runStagedChangedTestCommand(
         {
           productDir,
+          worktreeRoot: productDir,
           passing: false,
           ...(targets === undefined ? {} : { targets }),
         },
@@ -185,7 +186,7 @@ export function registerTestScenarioTests(): void {
         await writeTestFileFixture(productDir, tsFile);
         await writeTestFileFixture(productDir, pyFile);
 
-        await runTests({ productDir, registry: testingRegistry }, {
+        await runTests({ productDir, worktreeRoot: productDir, registry: testingRegistry }, {
           runnerDepsFor: (language: TestingLanguageDescriptor) =>
             language === typescriptTestingLanguage ? tsRunner : pyRunner,
         });
@@ -209,7 +210,9 @@ export function registerTestScenarioTests(): void {
         await writeTestFileFixture(productDir, matchedFile);
         await writeTestFileFixture(productDir, unmatchedFile);
 
-        const result = await runTests({ productDir, registry: testingRegistry }, { runnerDepsFor: () => runner });
+        const result = await runTests({ productDir, worktreeRoot: productDir, registry: testingRegistry }, {
+          runnerDepsFor: () => runner,
+        });
 
         expect(result.exitCode).toBe(UNSUPPORTED_TEST_SELECTION_EXIT_CODE);
         expect(result.unmatched).toContain(unmatchedFile);
@@ -229,7 +232,9 @@ export function registerTestScenarioTests(): void {
         await writeTestFileFixture(productDir, testFile);
         await writeTestFileFixture(productDir, supportFile);
 
-        const result = await runTests({ productDir, registry: testingRegistry }, { runnerDepsFor: () => runner });
+        const result = await runTests({ productDir, worktreeRoot: productDir, registry: testingRegistry }, {
+          runnerDepsFor: () => runner,
+        });
 
         expect(result.unmatched).toContain(supportFile);
         expect(result.exitCode).toBe(UNSUPPORTED_TEST_SELECTION_EXIT_CODE);
@@ -250,7 +255,7 @@ export function registerTestScenarioTests(): void {
         await writeTestFileFixture(productDir, tsFile);
         await writeTestFileFixture(productDir, pyFile);
 
-        const result = await runTests({ productDir, registry: testingRegistry }, {
+        const result = await runTests({ productDir, worktreeRoot: productDir, registry: testingRegistry }, {
           runnerDepsFor: (language: TestingLanguageDescriptor) =>
             language === typescriptTestingLanguage ? passingRunner : failingRunner,
         });
@@ -273,7 +278,7 @@ export function registerTestScenarioTests(): void {
         await writeTestFileFixture(productDir, presentFile);
         await writeTestFileFixture(productDir, absentFile);
 
-        const result = await runTests({ productDir, registry: testingRegistry }, {
+        const result = await runTests({ productDir, worktreeRoot: productDir, registry: testingRegistry }, {
           runnerDepsFor: (language: TestingLanguageDescriptor) =>
             language === typescriptTestingLanguage ? presentRunner : absentRunner,
         });
@@ -298,6 +303,7 @@ export function registerTestScenarioTests(): void {
         const result = await runTests(
           {
             productDir,
+            worktreeRoot: productDir,
             registry: testingRegistry,
             targets: { operands: [testFile], recursive: false },
             unresolvedChangedSourceFiles: [unresolvedSourcePath],
@@ -322,7 +328,13 @@ export function registerTestScenarioTests(): void {
         await writeTestFileFixture(productDir, testPath);
 
         const run = await runTestsCommand(
-          { requireExecution: true, productDir, passing: false, changed: { baseRef: GIT_TEST_REF.HEAD_NAME } },
+          {
+            requireExecution: true,
+            productDir,
+            worktreeRoot: productDir,
+            passing: false,
+            changed: { baseRef: GIT_TEST_REF.HEAD_NAME },
+          },
           {
             registry: testingRegistry,
             runnerDepsFor: () => runner,
@@ -397,6 +409,7 @@ export function registerTestScenarioTests(): void {
           {
             requireExecution: true,
             productDir,
+            worktreeRoot: productDir,
             passing: true,
             changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
           },
@@ -439,6 +452,7 @@ export function registerTestScenarioTests(): void {
         const run = await runStagedChangedTestCommand(
           {
             productDir,
+            worktreeRoot: productDir,
             passing: true,
           },
           runner,
@@ -515,6 +529,7 @@ export function registerTestScenarioTests(): void {
         const run = await runStagedChangedTestCommand(
           {
             productDir,
+            worktreeRoot: productDir,
             passing: false,
           },
           runner,
@@ -555,6 +570,7 @@ export function registerTestScenarioTests(): void {
         const run = await runStagedChangedTestCommand(
           {
             productDir,
+            worktreeRoot: productDir,
             passing: false,
           },
           runner,
@@ -702,6 +718,7 @@ export function registerTestScenarioTests(): void {
           {
             requireExecution: true,
             productDir,
+            worktreeRoot: productDir,
             passing: false,
             changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
           },
@@ -727,6 +744,7 @@ export function registerTestScenarioTests(): void {
             {
               requireExecution: true,
               productDir,
+              worktreeRoot: productDir,
               passing: false,
               changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
             },
@@ -847,7 +865,9 @@ export function registerTestScenarioTests(): void {
       await withTestingTempProductDir(async (productDir) => {
         await writeTestFileFixture(productDir, selectedFile);
 
-        const result = await runTests({ productDir, registry: testingRegistry }, { runnerDepsFor: () => absentRunner });
+        const result = await runTests({ productDir, worktreeRoot: productDir, registry: testingRegistry }, {
+          runnerDepsFor: () => absentRunner,
+        });
 
         expect(absentRunner.calls).toHaveLength(0);
         expect(result.exitCode).toBe(NO_RUNNER_INVOCATION_EXIT_CODE);
@@ -869,7 +889,9 @@ export function registerTestScenarioTests(): void {
         await writeTestFileFixture(productDir, excludedFile);
         await writeTestFileFixture(productDir, includedFile);
 
-        await runTests({ productDir, registry: testingRegistry, passingScope }, { runnerDepsFor: () => runner });
+        await runTests({ productDir, worktreeRoot: productDir, registry: testingRegistry, passingScope }, {
+          runnerDepsFor: () => runner,
+        });
 
         expect(invokedArgs(runner)).not.toContain(excludedFile);
         expect(invokedArgs(runner)).toContain(includedFile);
@@ -890,7 +912,9 @@ export function registerTestScenarioTests(): void {
         await writeTestFileFixture(productDir, excludedFile);
         await writeTestFileFixture(productDir, includedFile);
 
-        await runTests({ productDir, registry: testingRegistry }, { runnerDepsFor: () => runner });
+        await runTests({ productDir, worktreeRoot: productDir, registry: testingRegistry }, {
+          runnerDepsFor: () => runner,
+        });
 
         expect(invokedArgs(runner)).toContain(excludedFile);
         expect(invokedArgs(runner)).toContain(includedFile);

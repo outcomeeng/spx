@@ -68,6 +68,10 @@ describe("product context compliance", () => {
 
       expect(observation.verificationOutsideOperand.exitCodes.some((exitCode) => exitCode !== 0)).toBe(true);
       expect(observation.verificationOutsideOperand.stderr).toContain(EXECUTE_RUN_CLI_ERROR.UNRESOLVED_OPERANDS);
+
+      // The nested product's test run records under the worktree root's `.spx/worktree/`, never its own.
+      expect(observation.worktreeRootRunFiles.length).toBeGreaterThan(0);
+      expect(observation.nestedProductHoldsState).toBe(false);
     },
   );
 });

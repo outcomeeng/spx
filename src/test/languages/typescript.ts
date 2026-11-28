@@ -106,8 +106,8 @@ function detect(productDir: string, deps?: Pick<TestRunnerDependencies, "isLangu
   return deps?.isLanguagePresent?.(productDir) ?? detectTypeScript(productDir).present;
 }
 
-function vitestReportPath(productDir: string): string {
-  const domain = domainDir(worktreeScopeDir(productDir), STATE_STORE_DOMAIN.TEST);
+function vitestReportPath(worktreeRoot: string): string {
+  const domain = domainDir(worktreeScopeDir(worktreeRoot), STATE_STORE_DOMAIN.TEST);
   if (!domain.ok) throw new Error(domain.error);
   return join(
     domain.value,
@@ -196,7 +196,7 @@ async function runTests(request: TestRunRequest, deps: TestRunnerDependencies): 
     return { invoked: false };
   }
 
-  const reportPath = vitestReportPath(request.productDir);
+  const reportPath = vitestReportPath(request.worktreeRoot);
   const args = [
     ...VITEST_INVOKE_ARGS,
     VITEST_ROOT_FLAG,

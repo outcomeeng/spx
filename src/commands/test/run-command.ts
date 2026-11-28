@@ -99,6 +99,8 @@ export interface TestCommandDependencies {
 
 export interface RunTestsCommandOptions {
   readonly productDir: string;
+  /** Local worktree root whose `.spx/worktree/` scope holds the run record and runner reports. */
+  readonly worktreeRoot: string;
   /** True for `spx test passing` — apply the configured passing scope before dispatch. */
   readonly passing: boolean;
   /** When present with operands, only the operand-selected files dispatch; passing scope still applies. */
@@ -138,6 +140,8 @@ export type TestsCommandResult = RecordedTestRun | ReusedTestRun;
 
 export interface RunNodeCommandOptions {
   readonly productDir: string;
+  /** Local worktree root whose `.spx/worktree/` scope holds the run record and runner reports. */
+  readonly worktreeRoot: string;
   /** Full product-root path of the node whose tests run, the `spx/<node>` form. */
   readonly nodePath: string;
 }
@@ -523,10 +527,10 @@ async function recordRun(
 }
 
 async function reserveRunFile(
-  productDir: string,
+  worktreeRoot: string,
   recording: RecordingDependencies,
 ): Promise<TestRunFile> {
-  const runFile = await createTestRunFile(productDir, { fs: recording.fs, now: recording.now });
+  const runFile = await createTestRunFile(worktreeRoot, { fs: recording.fs, now: recording.now });
   if (!runFile.ok) {
     throw new Error(`failed to create test run file: ${runFile.error}`);
   }
@@ -631,11 +635,12 @@ export async function executePlannedTestsRun(
 ): Promise<RecordedTestRun> {
   const { options } = plan;
   const recording = resolveRecordingDependencies(deps);
-  const runFile = await reserveRunFile(options.productDir, recording);
+  const runFile = await reserveRunFile(options.worktreeRoot, recording);
   const dispatch = await dispatchSelectedTests(
     plan.selection,
     {
       productDir: options.productDir,
+      worktreeRoot: options.worktreeRoot,
       registry: deps.registry,
       passingScope: plan.passingScope,
       targets: plan.selectedTargets,
@@ -665,9 +670,14 @@ export async function runNodeCommand(
   deps: TestCommandDependencies,
 ): Promise<RecordedTestRun> {
   const recording = resolveRecordingDependencies(deps);
-  const runFile = await reserveRunFile(options.productDir, recording);
+  const runFile = await reserveRunFile(options.worktreeRoot, recording);
   const dispatch = await runTests(
-    { productDir: options.productDir, registry: deps.registry, passingScope: { include: [options.nodePath] } },
+    {
+      productDir: options.productDir,
+      worktreeRoot: options.worktreeRoot,
+      registry: deps.registry,
+      passingScope: { include: [options.nodePath] },
+    },
     { runnerDepsFor: deps.runnerDepsFor },
   );
   const recorded = await recordRun(runFile, options.productDir, dispatch, recording, deps.registry);

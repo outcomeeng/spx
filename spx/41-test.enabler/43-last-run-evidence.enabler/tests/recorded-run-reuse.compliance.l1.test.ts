@@ -27,14 +27,22 @@ describe("taking a result from a recorded run", () => {
       await recordPassedRun(repository);
       const recorded = await snapshotRunDirectory(repository.productDir);
       expect(recorded.size).toBe(1);
-      const request = { productDir: repository.productDir, selectedPaths: [repository.testFile] };
+      const request = {
+        productDir: repository.productDir,
+        worktreeRoot: repository.productDir,
+        selectedPaths: [repository.testFile],
+      };
 
       const satisfied = await findSatisfyingRecordedRun(request, repository.deps);
       expect(satisfied.satisfied).toBe(true);
       expect(await snapshotRunDirectory(repository.productDir)).toEqual(recorded);
 
       const invocationsAfterRecording = repository.runner.calls.length;
-      const reused = await runTestsCommand({ productDir: repository.productDir, passing: false }, repository.deps);
+      const reused = await runTestsCommand({
+        productDir: repository.productDir,
+        worktreeRoot: repository.productDir,
+        passing: false,
+      }, repository.deps);
       expect(reused.kind).toBe(TEST_RESULT_KIND.REUSED);
       expect(repository.runner.calls).toHaveLength(invocationsAfterRecording);
       expect(await snapshotRunDirectory(repository.productDir)).toEqual(recorded);

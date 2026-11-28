@@ -194,7 +194,12 @@ export function withJournaledNode(callback: (node: JournaledNode) => Promise<voi
     const moduleIdOf = (testPath: string): string => join(productDir, testPath);
     await callback({
       repository,
-      resolvers: createNodeStatusResolvers({ productDir, registry: testingRegistry, git: repository.git }),
+      resolvers: createNodeStatusResolvers({
+        productDir,
+        worktreeRoot: productDir,
+        registry: testingRegistry,
+        git: repository.git,
+      }),
       moduleIdOf,
       failingCaseIn: (testPath) => ({
         moduleId: moduleIdOf(testPath),

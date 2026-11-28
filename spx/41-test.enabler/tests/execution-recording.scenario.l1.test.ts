@@ -35,7 +35,10 @@ describe("per-file verdicts in the recorded run", () => {
       await writeTestFileFixture(productDir, failingFile);
       await writeTestFileFixture(productDir, passingFile);
 
-      await runTestsCommand({ productDir, passing: false }, testingCommandDependencies(runner));
+      await runTestsCommand(
+        { productDir, worktreeRoot: productDir, passing: false },
+        testingCommandDependencies(runner),
+      );
 
       const runs = await readTestingRuns(productDir);
       expect(runs.ok).toBe(true);

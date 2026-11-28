@@ -65,7 +65,12 @@ export function withAssertionAuditRepository(
     const productDir = repository.env.productDir;
     const headCommit = (): Promise<string> =>
       runFixtureGit(productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
-    const resolvers = createNodeStatusResolvers({ productDir, registry: testingRegistry, git: repository.git });
+    const resolvers = createNodeStatusResolvers({
+      productDir,
+      worktreeRoot: productDir,
+      registry: testingRegistry,
+      git: repository.git,
+    });
     const reported = async (): Promise<readonly ReportedStatusResult[]> => {
       const node = await readStatusJsonNode(productDir, repository.nodeId, repository.git);
       return node?.claim?.results.filter((result) => result.section === NODE_STATUS_CLAIM_SECTION.AUDIT) ?? [];

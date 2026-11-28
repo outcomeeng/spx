@@ -46,6 +46,8 @@ export interface CurrentRunFacts {
 
 export interface RecordedRunRequest {
   readonly productDir: string;
+  /** Local worktree root whose `.spx/worktree/` scope holds the recorded runs. */
+  readonly worktreeRoot: string;
   /** The test files the request selects, as product-relative POSIX paths. */
   readonly selectedPaths: readonly string[];
 }
@@ -88,7 +90,7 @@ export async function findSatisfyingRecordedRun(
   request: RecordedRunRequest,
   deps: TestCommandDependencies,
 ): Promise<RecordedRunLookup> {
-  const runs = await readTestingRuns(request.productDir, { fs: deps.fs });
+  const runs = await readTestingRuns(request.worktreeRoot, { fs: deps.fs });
   if (!runs.ok) return unsatisfied(RECORDED_RUN_UNSATISFIED_REASON.NO_COVERING_RUN);
   const candidate = selectLatestTerminalTestRunForNode(runs.value.terminalRuns, request.selectedPaths);
   if (candidate === undefined) return unsatisfied(RECORDED_RUN_UNSATISFIED_REASON.NO_COVERING_RUN);

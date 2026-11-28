@@ -9,7 +9,7 @@
  * @module harnesses/product-context/nested-product
  */
 
-import { cp, mkdir, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { access, cp, mkdir, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -27,7 +27,9 @@ import { TESTING_CLI } from "@/interfaces/cli/test";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { EXECUTE_RUN_CLI_SURFACE, VERIFICATION_RUN_CLI_SURFACE } from "@/interfaces/cli/verify";
 import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
+import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { TESTING_SECTION } from "@/test/config";
+import { testingRunsDir } from "@/test/run-state";
 import type { GeneratedProductContextCase } from "@testing/generators/config/product-context";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { type ProductContextCliRun, runProductContextCli } from "@testing/harnesses/product-context/cli";
@@ -76,6 +78,12 @@ export interface NestedProductTargetObservation {
   readonly testOutsideOperand: ProductContextCliRun;
   /** `verification test run` with the operand naming the dropped Node in the enclosing product. */
   readonly verificationOutsideOperand: ProductContextCliRun;
+  /** `test` with no operand, which runs the nested product's own suite and records the run. */
+  readonly testOwnTree: ProductContextCliRun;
+  /** The run files under the test runs directory of the enclosing repository's worktree root after every run. */
+  readonly worktreeRootRunFiles: readonly string[];
+  /** Whether the nested product's directory holds a `.spx/` state directory after every run. */
+  readonly nestedProductHoldsState: boolean;
 }
 
 async function productSpecFile(specDir: string): Promise<string> {
@@ -164,7 +172,7 @@ export async function observeNestedProductTarget(
 
     const run = (args: readonly string[]): Promise<ProductContextCliRun> =>
       runProductContextCli([SPX_GLOBAL_OPTIONS.directory.short, innerProductDir, ...args], { processCwd: tmpdir() });
-    observation = {
+    const commandRuns = {
       innerProductDir,
       innerTitle,
       enclosingTitle,
@@ -189,6 +197,17 @@ export async function observeNestedProductTarget(
         EXECUTE_RUN_CLI_SURFACE.runVerbName,
         outsideNodeOperand,
       ]),
+      testOwnTree: await run([TESTING_CLI.commandName]),
+    };
+    // Git reports the worktree root canonically, so the runs directory is read at that canonical path.
+    const worktreeRootRunsDir = testingRunsDir(await realpath(env.productDir));
+    observation = {
+      ...commandRuns,
+      worktreeRootRunFiles: await readdir(worktreeRootRunsDir).catch(() => []),
+      nestedProductHoldsState: await access(join(innerProductDir, STATE_STORE_SCOPE_PATH.SPX_DIR)).then(
+        () => true,
+        () => false,
+      ),
     };
   });
   if (observation === undefined) throw new Error("nested product target observation was not captured");

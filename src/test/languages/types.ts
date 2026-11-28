@@ -145,6 +145,8 @@ export interface JournalStreamRunDependencies {
 export interface TestRunRequest {
   /** Product directory passed to the runner as its working root. */
   readonly productDir: string;
+  /** Local worktree root whose `.spx/worktree/` scope holds the runner's report. */
+  readonly worktreeRoot: string;
   /** Discovered test file paths to run; empty runs the runner's full scope. */
   readonly testPaths: readonly string[];
   /** Node paths excluded from the passing scope, mapped to runner exclusion flags. */

@@ -54,7 +54,7 @@ async function reuseRecordedRun(
   if (groupTestFiles(selection.selected, deps.registry.languages).unmatched.length > 0) return undefined;
 
   const lookup = await findSatisfyingRecordedRun(
-    { productDir: options.productDir, selectedPaths: selection.selected },
+    { productDir: options.productDir, worktreeRoot: options.worktreeRoot, selectedPaths: selection.selected },
     deps,
   );
   if (!lookup.satisfied) return undefined;

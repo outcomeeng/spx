@@ -79,7 +79,7 @@ describe("passing scope is policy from config, never inferred from last-run stat
       expect(resolvePassingScope(sectionValue)).toEqual(passingScopeBefore);
 
       const withStateRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      await runTestsCommand({ productDir, passing: true }, testCommandDeps(withStateRunner));
+      await runTestsCommand({ productDir, worktreeRoot: productDir, passing: true }, testCommandDeps(withStateRunner));
       expect(invokedArgs(withStateRunner)).not.toContain(excludedFile);
       expect(invokedArgs(withStateRunner)).toContain(includedFile);
 
@@ -92,7 +92,10 @@ describe("passing scope is policy from config, never inferred from last-run stat
       expect(resolvePassingScope(sectionValue)).toEqual(passingScopeBefore);
 
       const afterDeleteRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      await runTestsCommand({ productDir, passing: true }, testCommandDeps(afterDeleteRunner));
+      await runTestsCommand(
+        { productDir, worktreeRoot: productDir, passing: true },
+        testCommandDeps(afterDeleteRunner),
+      );
       expect(invokedArgs(afterDeleteRunner)).not.toContain(excludedFile);
       expect(invokedArgs(afterDeleteRunner)).toContain(includedFile);
     });

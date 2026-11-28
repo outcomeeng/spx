@@ -130,7 +130,13 @@ export async function recordPassedRun(
   targets?: TargetSelection,
 ): Promise<TestsCommandResult> {
   return await runTestsCommand(
-    { productDir: repository.productDir, passing: false, targets, requireExecution: true },
+    {
+      productDir: repository.productDir,
+      worktreeRoot: repository.productDir,
+      passing: false,
+      targets,
+      requireExecution: true,
+    },
     repository.deps,
   );
 }
@@ -141,7 +147,10 @@ export async function recordPassedRun(
  */
 export function recordedRunCliDependencies(repository: RecordedRunRepository): TestingCliDependencies {
   const run: TestingCliDependencies["runTests"] = (productDir, passing, targets, changed, requireExecution) =>
-    runTestsCommand({ productDir, passing, targets, changed, requireExecution }, repository.deps);
+    runTestsCommand(
+      { productDir, worktreeRoot: productDir, passing, targets, changed, requireExecution },
+      repository.deps,
+    );
   return {
     resolveProductDir: () => Promise.resolve(repository.productDir),
     runTests: run,
@@ -159,7 +168,7 @@ export function recordedRunCliDependencies(repository: RecordedRunRepository): T
 async function recordFailedRun(repository: RecordedRunRepository): Promise<void> {
   const failing = createRecordingCommandRunner({ present: true, exitCode: FAILING_RUNNER_EXIT_CODE });
   await runTestsCommand(
-    { productDir: repository.productDir, passing: false, requireExecution: true },
+    { productDir: repository.productDir, worktreeRoot: repository.productDir, passing: false, requireExecution: true },
     { ...repository.deps, runnerDepsFor: () => failing },
   );
 }
@@ -172,7 +181,7 @@ async function recordRunWithOmittedVerdicts(repository: RecordedRunRepository): 
     report: SIMULATED_REPORT.MISSING,
   });
   await runTestsCommand(
-    { productDir: repository.productDir, passing: false, requireExecution: true },
+    { productDir: repository.productDir, worktreeRoot: repository.productDir, passing: false, requireExecution: true },
     { ...repository.deps, runnerDepsFor: () => omitting },
   );
 }

@@ -145,7 +145,7 @@ describe("a sealed test run journal supplies the verdict of each linked referenc
       const [named, unnamed] = repository.testPaths;
       const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
       await runTestsCommand(
-        { productDir: repository.env.productDir, passing: false },
+        { productDir: repository.env.productDir, worktreeRoot: repository.env.productDir, passing: false },
         { registry: testingRegistry, runnerDepsFor: () => runner },
       );
       await record({

@@ -185,18 +185,19 @@ export function formatTestRunTimestamp(date: Date): string {
   return formatRunTimestamp(date);
 }
 
-export function testingRunsDir(productDir: string): string {
-  const worktreeScope = worktreeScopeDir(productDir);
+/** The test domain's runs directory under the `.spx/worktree/` scope of a local worktree root. */
+export function testingRunsDir(worktreeRoot: string): string {
+  const worktreeScope = worktreeScopeDir(worktreeRoot);
   const result = stateStoreRunsDir(worktreeScope, STATE_STORE_DOMAIN.TEST);
   if (!result.ok) throw new Error(result.error);
   return result.value;
 }
 
 export async function createTestRunFile(
-  productDir: string,
+  worktreeRoot: string,
   options: CreateTestRunFileOptions = {},
 ): Promise<Result<TestRunFile>> {
-  const worktreeScope = worktreeScopeDir(productDir);
+  const worktreeScope = worktreeScopeDir(worktreeRoot);
   const created = await createJsonlRunFile(worktreeScope, STATE_STORE_DOMAIN.TEST, options);
   if (!created.ok) {
     return {
@@ -224,11 +225,11 @@ export async function writeTerminalTestRunState(
 }
 
 export async function readTestingRuns(
-  productDir: string,
+  worktreeRoot: string,
   options: ReadTestRunStateOptions = {},
 ): Promise<Result<TestingRuns>> {
   const fs = options.fs ?? defaultFileSystem;
-  const runsDir = testingRunsDir(productDir);
+  const runsDir = testingRunsDir(worktreeRoot);
 
   let entries: readonly TestRunFileEntry[];
   try {

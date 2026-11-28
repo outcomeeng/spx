@@ -97,6 +97,7 @@ export function withAttributionTree(
     const [firstLinkedTarget = ""] = linkedTargets;
     const resolvers = createNodeStatusResolvers({
       productDir: env.productDir,
+      worktreeRoot: env.productDir,
       registry: testingRegistry,
       git: isolatedFixtureGitDependencies,
     });

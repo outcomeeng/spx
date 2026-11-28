@@ -25,6 +25,8 @@ const PATH_SEPARATOR = "/";
 /** Dependencies the production resolver composes over the testing domain. */
 export interface NodeOutcomeResolverDependencies {
   readonly productDir: string;
+  /** Local worktree root whose `.spx/worktree/` scope holds the recorded test runs. */
+  readonly worktreeRoot: string;
   readonly registry: TestingRegistry;
   readonly fs?: TestRunStateFileSystem;
 }
@@ -90,7 +92,7 @@ function coveredPathCollectionKey(coveredPaths: readonly string[]): string {
 // reference reports not-run.
 async function loadResolverEvidence(deps: NodeOutcomeResolverDependencies): Promise<ResolverEvidence> {
   const discoveredTestPaths = await discoverTestFiles(deps.productDir);
-  const runs = await readTestingRuns(deps.productDir, deps);
+  const runs = await readTestingRuns(deps.worktreeRoot, deps);
   return { discoveredTestPaths, terminalRuns: runs.ok ? runs.value.terminalRuns : [] };
 }
 

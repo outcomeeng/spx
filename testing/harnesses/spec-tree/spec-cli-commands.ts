@@ -75,7 +75,7 @@ export async function commitPathsInGit(productDir: string, paths: readonly strin
 
 /** The production resolver over recorded testing evidence, as the `--update` descriptor composes it. */
 export function recordedEvidenceResolverFor(productDir: string): NodeOutcomeResolver {
-  return createNodeOutcomeResolver({ productDir, registry: testingRegistry });
+  return createNodeOutcomeResolver({ productDir, worktreeRoot: productDir, registry: testingRegistry });
 }
 
 /**
@@ -237,7 +237,10 @@ type RecordingRunnerDeps = ReturnType<NonNullable<Parameters<typeof runTestsComm
 
 /** Records one full testing run of `productDir` through the injected `runner`, as the `--update` path reads it back. */
 export async function recordTestingRun(productDir: string, runner: RecordingRunnerDeps): Promise<void> {
-  await runTestsCommand({ productDir, passing: false }, { registry: testingRegistry, runnerDepsFor: () => runner });
+  await runTestsCommand({ productDir, worktreeRoot: productDir, passing: false }, {
+    registry: testingRegistry,
+    runnerDepsFor: () => runner,
+  });
 }
 
 /**
