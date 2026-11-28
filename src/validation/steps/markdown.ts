@@ -16,12 +16,18 @@ import { toMessage } from "@/lib/error-message";
 import { defaultGitDependencies } from "@/lib/git/root";
 import { listTrackedPaths, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import { createNodeStatusExcludeReader } from "@/lib/node-status";
-import { resolveSpecTreeGrammarSelection, SPEC_TREE_CONFIG, type SpecTreeGrammarSelection } from "@/lib/spec-tree";
+import {
+  assertionEvidenceReading,
+  resolveSpecTreeGrammarSelection,
+  SPEC_TREE_CONFIG,
+  type SpecTreeGrammarSelection,
+} from "@/lib/spec-tree";
 
 // @ts-expect-error markdownlint-cli2 has no TypeScript type declarations
 import { main as markdownlintMain } from "markdownlint-cli2";
 import relativeLinksRule from "markdownlint-rule-relative-links";
 
+import { MARKDOWN_LEADING_SLUG_RULE_CONFIG, markdownLeadingSlugRule } from "./markdown-leading-slug-rule";
 import {
   MARKDOWN_LINK_SHAPE_RULE_CONFIG,
   markdownLinkShapeRule,
@@ -218,7 +224,7 @@ export function buildMarkdownlintConfig(directoryName: string): {
     [MARKDOWN_CONFIG_CONTROL_KEYS.DUPLICATE_HEADINGS]: md024Disabled ? false : { siblings_only: true },
     [MARKDOWN_CONFIG_CONTROL_KEYS.CUSTOM_RULES]: [
       ...(directoryName === SPEC_TREE_CONFIG.ROOT_DIRECTORY
-        ? [markdownLinkShapeRule, markdownNodeSpecRule]
+        ? [markdownLinkShapeRule, markdownNodeSpecRule, markdownLeadingSlugRule]
         : [relativeLinksRule]),
     ],
   };
@@ -549,6 +555,14 @@ async function validateTarget(
   const linkRuleConfig = (rule: MarkdownlintRule): true | Record<string, unknown> => {
     if (!productDir) return true;
     const rootConfig = { [MARKDOWN_LINK_SHAPE_RULE_CONFIG.ROOT_PATH]: productDir };
+    if (rule === markdownLeadingSlugRule) {
+      return {
+        [MARKDOWN_LEADING_SLUG_RULE_CONFIG.ROOT_PATH]: productDir,
+        [MARKDOWN_LEADING_SLUG_RULE_CONFIG.NODE_SPEC_PATHS]: nodeSpecs === undefined ? [] : nodeSpecs.map(({ path }) => path),
+        [MARKDOWN_LEADING_SLUG_RULE_CONFIG.SLUG_ROWS]: grammarSelection !== undefined
+          && assertionEvidenceReading(grammarSelection.selected).slugRows,
+      };
+    }
     if (rule === markdownNodeSpecRule) {
       return {
         ...rootConfig,
