@@ -5,7 +5,7 @@
     "test": {
       "tests/git-command-test-harness.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "06fef52090e439c88a35e8fbbd2f03175c4c752b",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/21-git-command-test-harness.enabler/git-command-test-harness.md",

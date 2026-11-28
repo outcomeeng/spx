@@ -5,7 +5,7 @@
     "test": {
       "tests/test-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "06fef52090e439c88a35e8fbbd2f03175c4c752b",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/32-occupancy-store.enabler/21-test-harness.enabler/test-harness.md",

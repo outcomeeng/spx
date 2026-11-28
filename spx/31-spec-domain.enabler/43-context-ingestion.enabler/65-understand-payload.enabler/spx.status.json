@@ -5,7 +5,7 @@
     "test": {
       "tests/understand-payload.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "06fef52090e439c88a35e8fbbd2f03175c4c752b",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/SKILL.md",
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",
@@ -79,6 +79,11 @@
           "src/interfaces/cli/product-context.ts",
           "src/interfaces/cli/spec-context-contract.ts",
           "src/interfaces/cli/spec.ts",
+          "src/lib/agent-environment/agent-module.ts",
+          "src/lib/agent-environment/agents/antigravity.ts",
+          "src/lib/agent-environment/agents/claude-code.ts",
+          "src/lib/agent-environment/agents/codex.ts",
+          "src/lib/agent-environment/index.ts",
           "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
@@ -174,6 +179,7 @@
           "testing/generators/config/config.ts",
           "testing/generators/config/descriptors.ts",
           "testing/generators/git-name/git-name.ts",
+          "testing/generators/methodology/plugin.ts",
           "testing/generators/methodology/tree.ts",
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
@@ -196,7 +202,7 @@
       },
       "tests/understand-payload.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "06fef52090e439c88a35e8fbbd2f03175c4c752b",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/tests/understand-payload.mapping.l1.test.ts",
@@ -256,6 +262,11 @@
           "src/interfaces/cli/product-context.ts",
           "src/interfaces/cli/spec-context-contract.ts",
           "src/interfaces/cli/spec.ts",
+          "src/lib/agent-environment/agent-module.ts",
+          "src/lib/agent-environment/agents/antigravity.ts",
+          "src/lib/agent-environment/agents/claude-code.ts",
+          "src/lib/agent-environment/agents/codex.ts",
+          "src/lib/agent-environment/index.ts",
           "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
@@ -351,6 +362,7 @@
           "testing/generators/config/config.ts",
           "testing/generators/config/descriptors.ts",
           "testing/generators/git-name/git-name.ts",
+          "testing/generators/methodology/plugin.ts",
           "testing/generators/methodology/tree.ts",
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
@@ -372,7 +384,7 @@
       },
       "tests/understand-payload.mapping.l2.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "06fef52090e439c88a35e8fbbd2f03175c4c752b",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/SKILL.md",
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",
@@ -556,7 +568,7 @@
       },
       "tests/understand-payload.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "06fef52090e439c88a35e8fbbd2f03175c4c752b",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/tests/understand-payload.scenario.l1.test.ts",
@@ -616,6 +628,11 @@
           "src/interfaces/cli/product-context.ts",
           "src/interfaces/cli/spec-context-contract.ts",
           "src/interfaces/cli/spec.ts",
+          "src/lib/agent-environment/agent-module.ts",
+          "src/lib/agent-environment/agents/antigravity.ts",
+          "src/lib/agent-environment/agents/claude-code.ts",
+          "src/lib/agent-environment/agents/codex.ts",
+          "src/lib/agent-environment/index.ts",
           "src/lib/agent-environment/session-token.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/agent-run-journal/index.ts",
@@ -711,6 +728,7 @@
           "testing/generators/config/config.ts",
           "testing/generators/config/descriptors.ts",
           "testing/generators/git-name/git-name.ts",
+          "testing/generators/methodology/plugin.ts",
           "testing/generators/methodology/tree.ts",
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
@@ -732,7 +750,7 @@
       },
       "tests/understand-payload.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "06fef52090e439c88a35e8fbbd2f03175c4c752b",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/SKILL.md",
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",
