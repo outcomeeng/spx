@@ -31,7 +31,7 @@ Each evidence tag form on an assertion line maps to one evidence reference by th
 | pathless-audit | an audit tag with no rule slug                       | audit, unkeyed                                  | none                                            |
 | legacy-review  | a review tag with no link                            | audit, unkeyed                                  | none                                            |
 
-### Test.Mapping: leading-slug
+### Test.Mapping: [leading-slug](tests/leading-slug.mapping.l1.test.ts)
 
 The leading-slug reader maps each line of a node spec or decision record, of either file form, to the leading slug it opens: a row is a list item that starts its line outside a fenced code block and opens with a slug in the methodology's slug grammar, plain or as the text of a link, then a colon at the end of the line or before a space, and a Mapping or Evaluate heading carries the slug of its subsection; every other line maps to none, and no line fails the read.
 
@@ -56,7 +56,7 @@ The leading-slug reader maps each line of a node spec or decision record, of eit
 | double-hyphen          | `- line--verbatim: NEVER: a task drops a character.`                                       | none             |
 | fenced-row             | `- line-verbatim: NEVER: a task drops a character.` inside a fenced code block             | none             |
 
-### Test.Mapping: row-references
+### Test.Mapping: [row-references](tests/row-references.mapping.l1.test.ts)
 
 Under a methodology declaration that selects the 4.0 grammar, an untagged row or a Mapping or Evaluate heading of a node spec of either file form maps to at most one evidence reference: a slug linked to a test file, eval rule, or probe protocol maps to a reference of that verification type keyed by its node-local path, which resolves or dangles as a tag's link target does, and a plain leading slug under a group heading that reads `Audit` or `Audit: <subject>`, at any heading level, maps to an audit reference keyed by that slug; under a declaration that selects only the 3.x grammar, no such row or heading maps to a reference.
 
