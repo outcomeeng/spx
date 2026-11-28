@@ -1,5 +1,5 @@
 {
-  "state": "specified",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -1610,7 +1610,25 @@
     },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "f959b70445f6798bb8cccffa9f9f99a434af78b0",
+        "read": [
+          "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/probe-evidence-model.md",
+          "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/tests/probe-payloads.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/tests/probe-run.scenario.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/tests/probe-scope-units.mapping.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/tests/probe-terminal.mapping.l1.test.ts",
+          "src/domains/verify/verify.ts",
+          "testing/generators/verify/probe.ts",
+          "testing/generators/verify/verify.ts",
+          "testing/harnesses/verify/probe.ts",
+          "testing/harnesses/verify/repository.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_04-27-37-465-e00872114dc1"
       }
     }
   }

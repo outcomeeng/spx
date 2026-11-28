@@ -1,5 +1,5 @@
 {
-  "state": "specified",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -4826,15 +4826,61 @@
     },
     "audit": {
       "payload-directory-addressing": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "f959b70445f6798bb8cccffa9f9f99a434af78b0",
+        "read": [
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/verify.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_04-31-28-743-435350cd7263"
       },
       "seal-removes-payload-directory": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "f959b70445f6798bb8cccffa9f9f99a434af78b0",
+        "read": [
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/verify.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_04-31-28-743-435350cd7263"
       }
     },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "f959b70445f6798bb8cccffa9f9f99a434af78b0",
+        "read": [
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-drive-mode.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-finish-malformed-context.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-finish-reconcile.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-finish-repeat.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-finish-sealing.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-lifecycle.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-lifecycle.scenario.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-payload-removal.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-render.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-render.scenario.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-status.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-terminal-reason.compliance.l1.test.ts",
+          "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/verify.ts",
+          "testing/harnesses/verify/repository.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_04-28-22-601-460335be811b"
       }
     }
   }
