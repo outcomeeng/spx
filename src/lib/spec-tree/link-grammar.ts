@@ -117,6 +117,12 @@ export const SPEC_TREE_AUDIT_TAG_TEXT = {
 /** Separates an audit tag's text from its rule slug. */
 export const SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR = ":";
 
+/** A linked audit tag's target: the file `audits/{rule-slug}.md` that names the rule slug. */
+export const SPEC_TREE_AUDIT_LINK = {
+  DIRECTORY_NAME: "audits",
+  EXTENSION: ".md",
+} as const;
+
 /** The heading that opens a spec's assertions section. */
 export const SPEC_TREE_ASSERTIONS_HEADING = "## Assertions";
 

@@ -23,6 +23,7 @@ import {
   OUTPUT_KINDS,
   SPEC_TREE_ASSERTION_BULLET_PREFIX,
   SPEC_TREE_ASSERTIONS_HEADING,
+  SPEC_TREE_AUDIT_LINK,
   SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR,
   SPEC_TREE_AUDIT_TAG_TEXT,
   SPEC_TREE_CONFIG,
@@ -39,13 +40,13 @@ import {
   type SpecTreeNodeSourceEntry,
   type SpecTreeVerificationType,
 } from "@/lib/spec-tree";
-import { evidenceSubject } from "@testing/generators/spec-tree/evidence-file-name";
 import { sampleGeneratedValue } from "@testing/generators/sample";
+import { evidenceSubject } from "@testing/generators/spec-tree/evidence-file-name";
 import {
+  arbitraryVersionOnLine,
   declarationSelectionCases,
   fourZeroOnlyOutputKinds,
   lineComponent,
-  arbitraryVersionOnLine,
 } from "@testing/generators/spec-tree/grammar-selection";
 import { admittedChildKindsOracle } from "@testing/generators/spec-tree/kind-grammar";
 import { SPEC_TREE_TEST_GENERATOR, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
@@ -56,6 +57,7 @@ export const EVIDENCE_ASSERTION_FORM = {
   EVAL_LINK: "eval-link",
   PROBE_LINK: "probe-link",
   AUDIT_SLUG: "audit-slug",
+  AUDIT_LINK: "audit-link",
   AUDIT_PATHLESS: "audit-pathless",
   AUDIT_LEGACY: "audit-legacy",
   UNTAGGED: "untagged",
@@ -270,6 +272,20 @@ function assertionOfForm(
     case EVIDENCE_ASSERTION_FORM.AUDIT_SLUG:
       return {
         line: assertionLine(text, `[${SPEC_TREE_AUDIT_TAG_TEXT.CURRENT}${SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR}${slug}]`),
+        reference: {
+          verificationType: SPEC_TREE_VERIFICATION_TYPE.AUDIT,
+          key: { kind: SPEC_TREE_EVIDENCE_KEY_KIND.SLUG, slug },
+        },
+        linkPath: undefined,
+        slug,
+        text,
+      };
+    case EVIDENCE_ASSERTION_FORM.AUDIT_LINK:
+      return {
+        line: assertionLine(
+          text,
+          `[${SPEC_TREE_AUDIT_TAG_TEXT.CURRENT}](${SPEC_TREE_AUDIT_LINK.DIRECTORY_NAME}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}${slug}${SPEC_TREE_AUDIT_LINK.EXTENSION})`,
+        ),
         reference: {
           verificationType: SPEC_TREE_VERIFICATION_TYPE.AUDIT,
           key: { kind: SPEC_TREE_EVIDENCE_KEY_KIND.SLUG, slug },
@@ -970,7 +986,8 @@ export const EVIDENCE_READING_DECLARATION = {
   THREE_TWO: "3.2",
 } as const;
 
-export type EvidenceReadingDeclaration = (typeof EVIDENCE_READING_DECLARATION)[keyof typeof EVIDENCE_READING_DECLARATION];
+export type EvidenceReadingDeclaration =
+  (typeof EVIDENCE_READING_DECLARATION)[keyof typeof EVIDENCE_READING_DECLARATION];
 
 /** A generated methodology declaration of the given kind, each version in either accepted form. */
 export function evidenceReadingDeclaration(kind: EvidenceReadingDeclaration): EvidenceDeclaration {

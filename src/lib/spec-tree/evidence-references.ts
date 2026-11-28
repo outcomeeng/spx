@@ -3,6 +3,7 @@ import { readSpecTreeLeadingSlugs, SPEC_TREE_LEADING_SLUG_SITE, type SpecTreeLea
 import {
   SPEC_TREE_ASSERTION_BULLET_PREFIX,
   SPEC_TREE_ASSERTIONS_HEADING,
+  SPEC_TREE_AUDIT_LINK,
   SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR,
   SPEC_TREE_AUDIT_TAG_TEXT,
   SPEC_TREE_EVIDENCE_LINK_TEXT,
@@ -87,6 +88,8 @@ const LINK_TAG_GROUP = {
   HREF: "href",
   AUDIT_TEXT: "auditText",
   SLUG: "slug",
+  AUDIT_LINK_TEXT: "auditLinkText",
+  AUDIT_HREF: "auditHref",
 } as const;
 
 function escapeRegExp(value: string): string {
@@ -98,14 +101,17 @@ function alternation(values: readonly string[]): string {
 }
 
 /**
- * An evidence tag inside an assertion line: a link whose text names an evidence type, or an audit
- * tag with an optional rule slug that no link target follows. Code-span content is excluded
- * before matching.
+ * An evidence tag inside an assertion line: a link whose text names an evidence type, an `audit`
+ * link to the file that names its rule slug, or an audit tag with an optional rule slug that no
+ * link target follows. Code-span content is excluded before matching.
  */
 const EVIDENCE_TAG_PATTERN = new RegExp(
   String.raw`\[(?<${LINK_TAG_GROUP.TEXT}>${
     alternation(Object.values(SPEC_TREE_EVIDENCE_LINK_TEXT))
   })\]\((?<${LINK_TAG_GROUP.HREF}>[^)]*)\)`
+    + String.raw`|\[(?<${LINK_TAG_GROUP.AUDIT_LINK_TEXT}>${
+      escapeRegExp(SPEC_TREE_AUDIT_TAG_TEXT.CURRENT)
+    })\]\((?<${LINK_TAG_GROUP.AUDIT_HREF}>[^)]*)\)`
     + String.raw`|\[(?<${LINK_TAG_GROUP.AUDIT_TEXT}>${alternation(Object.values(SPEC_TREE_AUDIT_TAG_TEXT))})`
     + String.raw`(?:${escapeRegExp(SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR)}(?<${LINK_TAG_GROUP.SLUG}>[^\]\s]+))?\](?!\()`,
   "gu",
@@ -161,7 +167,8 @@ function evidenceTagGroups(line: string, reading: SpecTreeAssertionEvidenceReadi
     .filter((match) => {
       const groups: TagGroups = match.groups ?? {};
       const auditTag = groups[LINK_TAG_GROUP.AUDIT_TEXT] !== undefined;
-      if (auditTag && !reading.tags) return false;
+      const auditLink = groups[LINK_TAG_GROUP.AUDIT_LINK_TEXT] !== undefined;
+      if ((auditTag || auditLink) && !reading.tags) return false;
       const pathless = auditTag && groups[LINK_TAG_GROUP.SLUG] === undefined;
       return !pathless || TAG_POSITION_TAIL_PATTERN.test(text.slice(match.index + match[0].length));
     })
@@ -215,7 +222,8 @@ async function tagReference(
       target,
     };
   }
-  const slug = groups[LINK_TAG_GROUP.SLUG];
+  const auditHref = groups[LINK_TAG_GROUP.AUDIT_HREF];
+  const slug = auditHref === undefined ? groups[LINK_TAG_GROUP.SLUG] : ruleSlugOfAuditLink(auditHref);
   if (slug === undefined) {
     return { verificationType: SPEC_TREE_VERIFICATION_TYPE.AUDIT, key: { kind: SPEC_TREE_EVIDENCE_KEY_KIND.UNKEYED } };
   }
@@ -224,6 +232,20 @@ async function tagReference(
   }
   auditSlugs.add(slug);
   return { verificationType: SPEC_TREE_VERIFICATION_TYPE.AUDIT, key: { kind: SPEC_TREE_EVIDENCE_KEY_KIND.SLUG, slug } };
+}
+
+/**
+ * The rule slug an `audit` link names: the file name of its target in `audits/` without the `.md`
+ * extension, or none when the target is no such file.
+ */
+function ruleSlugOfAuditLink(href: string): string | undefined {
+  const segments = href.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+  const fileName = segments.at(-1) ?? "";
+  if (segments.at(-2) !== SPEC_TREE_AUDIT_LINK.DIRECTORY_NAME || !fileName.endsWith(SPEC_TREE_AUDIT_LINK.EXTENSION)) {
+    return undefined;
+  }
+  const slug = fileName.slice(0, -SPEC_TREE_AUDIT_LINK.EXTENSION.length);
+  return slug.length > 0 ? slug : undefined;
 }
 
 /**
