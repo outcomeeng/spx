@@ -11,6 +11,10 @@ CAN read methodology selection through the static config registry without depend
 
 ## Assertions
 
+### Audit: generator ownership
+
+- methodology-version-generator: ALWAYS: `testing/generators/methodology/tree.ts` is the generator this Node governs; it draws methodology versions in both accepted forms, methodology lines, malformed version text, and migrating version pairs, and it draws no plugin content, `supports` range, or methodology source record
+
 ### Scenarios
 
 - Given a product config declares top-level `methodology.source`, `methodology.version`, and `methodology.migratingFrom`, when config resolves, then the resolved methodology section carries all three values ([test](tests/methodology-config.scenario.l1.test.ts))

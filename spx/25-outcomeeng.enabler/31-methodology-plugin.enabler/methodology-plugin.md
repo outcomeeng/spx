@@ -10,6 +10,10 @@ CAN serve the foundation for the methodology version a product declares from spx
 
 ## Assertions
 
+### Audit: generator ownership
+
+- methodology-plugin-generator: ALWAYS: `testing/generators/methodology/plugin.ts` is the generator this Node governs; it draws plugin contents with their instruction templates, coding-agent names drawn from the ids the agent registry declares, `supports` ranges that contain, exclude, or span a version, and methodology source records, and it takes any methodology version it needs from `testing/generators/methodology/tree.ts`
+
 ### Properties
 
 - A shipped tree is addressed by methodology line — the `MAJOR.MINOR` of a declared methodology version — then coding agent, then plugin name, resolved from spx's package root; a consumer product commits no tree, and no consumer path participates in resolution ([test](tests/tree-address.property.l1.test.ts))
