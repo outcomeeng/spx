@@ -138,7 +138,7 @@
     "audit": {
       "default-branch-cli-refresh": {
         "verdict": "passed",
-        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
+        "commit": "777c003f4782a475108617996b7b2d20b736091f",
         "read": [
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
           "spx/local/merging.md"
@@ -147,7 +147,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-28_02-13-21-830-9f32dad4e197"
+        "run": "2026-11-28_03-04-22-193-d4ddb6d1dcd3"
       }
     },
     "evidence": {
