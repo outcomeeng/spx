@@ -27,7 +27,7 @@ import {
   PLUGIN_MANIFEST_FIELDS,
   UNDERSTAND_SKILL_RELATIVE_DIR,
 } from "@/lib/methodology";
-import { type GeneratedPluginsContent, instructionTemplateText } from "@testing/generators/methodology/tree";
+import { type GeneratedPluginsContent, instructionTemplateText } from "@testing/generators/methodology/plugin";
 import {
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,

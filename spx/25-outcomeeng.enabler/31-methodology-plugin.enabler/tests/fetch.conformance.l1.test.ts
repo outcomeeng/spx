@@ -14,7 +14,8 @@ import {
   SOURCE_RECORD_RELATIVE_PATH,
   UNDERSTAND_SKILL_RELATIVE_DIR,
 } from "@/lib/methodology";
-import { arbitraryMethodologyVersion, arbitraryPluginsContent } from "@testing/generators/methodology/tree";
+import { arbitraryPluginsContent } from "@testing/generators/methodology/plugin";
+import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withPluginsRepository } from "@testing/harnesses/methodology/plugins-repository";
 

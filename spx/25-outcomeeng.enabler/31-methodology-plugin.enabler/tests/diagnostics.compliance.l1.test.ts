@@ -13,12 +13,14 @@ import {
 import {
   arbitraryDisagreeingPluginsContent,
   arbitraryDistinctCodingAgentNames,
-  arbitraryMethodologyLineVersion,
-  arbitraryMethodologyVersionsOnDistinctLines,
   arbitraryPluginsContent,
   generatedSourceRecordProviding,
   supportsRangeContaining,
   supportsRangeExcluding,
+} from "@testing/generators/methodology/plugin";
+import {
+  arbitraryMethodologyLineVersion,
+  arbitraryMethodologyVersionsOnDistinctLines,
 } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withPluginsRepository } from "@testing/harnesses/methodology/plugins-repository";

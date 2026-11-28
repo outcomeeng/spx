@@ -9,7 +9,7 @@ import {
   SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
   SPEC_CONTEXT_SELECTION_REASON,
 } from "@/lib/spec-tree";
-import { methodologyFoundationDocumentPath } from "@testing/generators/methodology/tree";
+import { methodologyFoundationDocumentPath } from "@testing/generators/methodology/plugin";
 import { rootedSpecPath } from "@testing/generators/spec-tree/rich-context";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {

@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_TREE_ROOT, PLUGINS_REPOSITORY, runMethodologyFetch } from "@/lib/methodology";
-import { arbitraryMethodologyVersion, arbitraryPluginsContent } from "@testing/generators/methodology/tree";
+import { arbitraryPluginsContent } from "@testing/generators/methodology/plugin";
+import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { readDirectoryTree, withPluginsRepository } from "@testing/harnesses/methodology/plugins-repository";
 import {
   assertProperty,
