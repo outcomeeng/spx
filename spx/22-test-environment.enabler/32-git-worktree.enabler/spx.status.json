@@ -1,5 +1,5 @@
 {
-  "state": "specified",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -95,33 +95,189 @@
     },
     "audit": {
       "async-only": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "97334095c07b45fe9194846697f5097d76955fc2",
+        "read": [
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/helpers.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/ignore-sources.mapping.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/lifecycle.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/process-env.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/safety.compliance.l1.test.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_06-25-51-172-4af4fa3deec1"
       },
       "cleaned-subprocess-environment": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "97334095c07b45fe9194846697f5097d76955fc2",
+        "read": [
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/helpers.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/ignore-sources.mapping.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/lifecycle.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/process-env.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/safety.compliance.l1.test.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_06-25-51-172-4af4fa3deec1"
       },
       "finally-cleanup": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "97334095c07b45fe9194846697f5097d76955fc2",
+        "read": [
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/helpers.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/ignore-sources.mapping.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/lifecycle.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/process-env.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/safety.compliance.l1.test.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_06-25-51-172-4af4fa3deec1"
       },
       "generated-values": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "97334095c07b45fe9194846697f5097d76955fc2",
+        "read": [
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/helpers.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/ignore-sources.mapping.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/lifecycle.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/process-env.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/safety.compliance.l1.test.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_06-25-51-172-4af4fa3deec1"
       },
       "no-concurrent-callers": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "97334095c07b45fe9194846697f5097d76955fc2",
+        "read": [
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/helpers.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/ignore-sources.mapping.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/lifecycle.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/process-env.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/safety.compliance.l1.test.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_06-25-51-172-4af4fa3deec1"
       },
       "no-config-parameter": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "97334095c07b45fe9194846697f5097d76955fc2",
+        "read": [
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/helpers.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/ignore-sources.mapping.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/lifecycle.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/process-env.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/safety.compliance.l1.test.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_06-25-51-172-4af4fa3deec1"
       },
       "no-filesystem-mocks": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "97334095c07b45fe9194846697f5097d76955fc2",
+        "read": [
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/helpers.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/ignore-sources.mapping.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/lifecycle.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/process-env.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/safety.compliance.l1.test.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_06-25-51-172-4af4fa3deec1"
       },
       "shared-git-helpers": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "97334095c07b45fe9194846697f5097d76955fc2",
+        "read": [
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/helpers.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/ignore-sources.mapping.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/lifecycle.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/process-env.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/safety.compliance.l1.test.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_06-25-51-172-4af4fa3deec1"
       }
     },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "97334095c07b45fe9194846697f5097d76955fc2",
+        "read": [
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/helpers.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/ignore-sources.mapping.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/lifecycle.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/process-env.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/safety.compliance.l1.test.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/git-worktree/git-worktree.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/process-env/process-env.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_06-24-41-714-b0bfa0954e00"
       }
     }
   }
