@@ -5,7 +5,7 @@
     "test": {
       "tests/change-identity.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -404,7 +404,7 @@
       },
       "tests/change-identity.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -812,7 +812,7 @@
       },
       "tests/content-identity-input-check.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -1222,7 +1222,7 @@
       },
       "tests/content-identity-start.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -1632,7 +1632,7 @@
       },
       "tests/file-scope.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -2032,7 +2032,7 @@
       },
       "tests/record-run.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -2432,7 +2432,7 @@
       },
       "tests/run-expectations-option.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -2840,7 +2840,7 @@
       },
       "tests/run-finish-unaccounted.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -3248,7 +3248,7 @@
       },
       "tests/run-paths.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -3656,7 +3656,7 @@
       },
       "tests/run-paths.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -4065,7 +4065,7 @@
       },
       "tests/run-payload.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -4473,7 +4473,7 @@
       },
       "tests/run-reconcile.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -4881,7 +4881,7 @@
       },
       "tests/run-reconcile.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -5289,7 +5289,7 @@
       },
       "tests/verifier.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -5688,7 +5688,7 @@
       },
       "tests/verifier.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",

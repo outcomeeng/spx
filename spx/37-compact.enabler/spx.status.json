@@ -5,7 +5,7 @@
     "test": {
       "tests/compact-cli-io.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d1492498d5018f50534aa700d593563386eb2d3b",
+        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/37-compact.enabler/compact.md",
