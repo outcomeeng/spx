@@ -5,7 +5,7 @@
     "test": {
       "tests/assertion-audit-fold.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -228,7 +228,7 @@
       },
       "tests/assertion-audit-fold.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -619,7 +619,7 @@
       },
       "tests/lockfile-pin.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",

@@ -5,7 +5,7 @@
     "test": {
       "tests/product-context.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/65-product-directory-api.enabler/product-directory-api.md",
@@ -410,7 +410,7 @@
       },
       "tests/product-context.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/65-product-directory-api.enabler/product-directory-api.md",

@@ -96,7 +96,7 @@
       },
       "tests/journal-cli-registry.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",

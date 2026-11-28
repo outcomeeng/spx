@@ -5,7 +5,7 @@
     "test": {
       "tests/verify-drive-mode.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -404,7 +404,7 @@
       },
       "tests/verify-finish-malformed-context.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -808,7 +808,7 @@
       },
       "tests/verify-finish-reconcile.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -1213,7 +1213,7 @@
       },
       "tests/verify-finish-repeat.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -1617,7 +1617,7 @@
       },
       "tests/verify-finish-sealing.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -2021,7 +2021,7 @@
       },
       "tests/verify-lifecycle.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -2420,7 +2420,7 @@
       },
       "tests/verify-lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -2819,7 +2819,7 @@
       },
       "tests/verify-payload-removal.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -3223,7 +3223,7 @@
       },
       "tests/verify-render.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -3622,7 +3622,7 @@
       },
       "tests/verify-render.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -4021,7 +4021,7 @@
       },
       "tests/verify-status.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -4420,7 +4420,7 @@
       },
       "tests/verify-terminal-reason.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
+        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -4827,7 +4827,7 @@
     "audit": {
       "payload-directory-addressing": {
         "verdict": "passed",
-        "commit": "2aa6388e263415e21ef2753213dfd27e24477d0b",
+        "commit": "7cb4bb896fedadee5ed9769b7a31dbf4453a7da7",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
           "src/commands/verify/cli.ts",
@@ -4842,7 +4842,7 @@
       },
       "seal-removes-payload-directory": {
         "verdict": "passed",
-        "commit": "2aa6388e263415e21ef2753213dfd27e24477d0b",
+        "commit": "7cb4bb896fedadee5ed9769b7a31dbf4453a7da7",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
           "src/commands/verify/cli.ts",
