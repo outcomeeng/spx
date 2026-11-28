@@ -126,8 +126,8 @@ export async function foldNodeClaim(input: NodeClaimFoldInput): Promise<NodeStat
   const evidenceKinds = input.declaration.malleability === NODE_STATUS_MALLEABILITY.IMPLEMENTATION
     ? linkedEvidenceKinds(input.evidencePaths)
     : [];
-  // Every Audit Assertion takes an entry, a 3.x audit tag and a 4.0 Audit row alike; one no run yields reads not-run.
-  const auditKeys = [...new Set([...input.declaration.auditRuleSlugs, ...input.declaration.auditRowSlugs])];
+  // Every keyed audit reference takes an entry, a 3.x audit tag and a 4.0 Audit row alike; one no run yields reads not-run.
+  const auditKeys = input.declaration.auditSlugs;
   const attributed = input.resolveAttributedResults === undefined
       || (auditKeys.length === 0 && evidenceKinds.length === 0)
     ? {}

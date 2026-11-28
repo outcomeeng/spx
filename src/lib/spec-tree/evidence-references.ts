@@ -123,7 +123,11 @@ const LINE_NUMBER_BASE = 1;
 const HEADING_PATTERN = /^#{1,6} /u;
 const AUDIT_GROUP_HEADING_PATTERN = /^#{1,6} Audit(?:: .+)?\s*$/u;
 
-/** The lines of the Assertions section, each with its line number in the spec. */
+/**
+ * The lines of the Assertions section, each with its line number in the spec. A level-2 heading
+ * that reads `Audit` or `Audit: <subject>` opens an Audit group of the section; any other level-2
+ * heading ends it.
+ */
 function assertionSectionLines(specText: string): readonly SectionLine[] {
   const lines = specText.split(LINE_BREAK_PATTERN);
   const start = lines.findIndex((line) => line.trim() === SPEC_TREE_ASSERTIONS_HEADING);
@@ -131,7 +135,7 @@ function assertionSectionLines(specText: string): readonly SectionLine[] {
   const section: SectionLine[] = [];
   for (let index = start + 1; index < lines.length; index++) {
     const text = lines[index] ?? "";
-    if (text.startsWith(SPEC_TREE_SECTION_HEADING_PREFIX)) break;
+    if (text.startsWith(SPEC_TREE_SECTION_HEADING_PREFIX) && !AUDIT_GROUP_HEADING_PATTERN.test(text)) break;
     section.push({ lineNumber: index + LINE_NUMBER_BASE, text });
   }
   return section;
