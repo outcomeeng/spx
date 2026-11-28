@@ -69,7 +69,7 @@ CAN catch broken cross-references and structural defects before they reach the r
 - ALWAYS: when the product root is a git repository, a link inside `spx/` that resolves to no file git tracks fails markdown validation as a broken link ([test](tests/markdown-validation.compliance.l1.test.ts))
 - ALWAYS: inside `spx/`, a decision path — a path that begins `spx/`, ends in `.adr.md` or `.pdr.md`, and resolves to a decision tracked in the product — written as text outside a link, bare or in an inline code span, fails markdown validation, naming the file, the line, and the path; a decision filename without the `spx/` prefix, an `spx/` path that resolves to no tracked decision, and a decision path inside a fenced code block are not checked ([test](tests/markdown-validation.compliance.l1.test.ts))
 
-### Test.Mapping: slug-errors
+### Test.Mapping: [slug-errors](tests/slug-errors.mapping.l1.test.ts)
 
 Inside `spx/`, under a methodology declaration that selects the 4.0 grammar, markdown validation maps the leading slugs the spec-tree leading-slug reader reads from one node spec or decision record to the errors it reports, each naming the file, the line, and the slug: one for each row or heading that repeats an earlier leading slug of the file, and one for each row or heading whose leading slug is the reserved word `title`; a row with no leading slug is admitted.
 
@@ -86,4 +86,4 @@ Inside `spx/`, under a methodology declaration that selects the 4.0 grammar, mar
 
 ### Test.Compliance: slug scope
 
-- slug-scope: ALWAYS: markdown validation judges the leading slugs of every node spec and decision record inside `spx/` that a run validates, of either file form, and judges no leading slug in any other Markdown file, such as `ISSUES.md`, `PLAN.md`, an Outcome record, a Knowledge entry, or a file in `docs/`, nor any leading slug under a methodology declaration that selects only the 3.x grammar
+- [slug-scope](tests/slug-scope.compliance.l1.test.ts): ALWAYS: markdown validation judges the leading slugs of every node spec and decision record inside `spx/` that a run validates, of either file form, and judges no leading slug in any other Markdown file, such as `ISSUES.md`, `PLAN.md`, an Outcome record, a Knowledge entry, or a file in `docs/`, nor any leading slug under a methodology declaration that selects only the 3.x grammar
