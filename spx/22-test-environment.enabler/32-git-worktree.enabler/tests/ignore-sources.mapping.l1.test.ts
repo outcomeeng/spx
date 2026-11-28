@@ -51,18 +51,22 @@ describe("withGitWorktreeEnv — ignore sources", () => {
         const ignoredPath = buildIgnoredPath(pattern, nestedDirectory);
         const content = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.fileContent());
 
-        await configureIgnoreSource(env, pattern, nestedDirectory);
+        const listVisible = async (): Promise<readonly string[]> =>
+          (await env.runGit([
+            GIT_TEST_SUBCOMMANDS.LS_FILES,
+            GIT_TEST_FLAGS.CACHED,
+            GIT_TEST_FLAGS.OTHERS,
+            GIT_TEST_FLAGS.EXCLUDE_STANDARD,
+            GIT_TEST_FLAGS.FULL_NAME,
+          ])).split("\n").filter(Boolean);
+
         await env.writeUntracked(ignoredPath, content);
+        const listedBeforeIgnore = await listVisible();
+        await configureIgnoreSource(env, pattern, nestedDirectory);
+        const listedAfterIgnore = await listVisible();
 
-        const visible = await env.runGit([
-          GIT_TEST_SUBCOMMANDS.LS_FILES,
-          GIT_TEST_FLAGS.CACHED,
-          GIT_TEST_FLAGS.OTHERS,
-          GIT_TEST_FLAGS.EXCLUDE_STANDARD,
-          GIT_TEST_FLAGS.FULL_NAME,
-        ]);
-
-        expect(visible.split("\n").filter(Boolean)).not.toContain(ignoredPath);
+        expect(listedBeforeIgnore).toContain(ignoredPath);
+        expect(listedAfterIgnore).not.toContain(ignoredPath);
       });
     },
   );
