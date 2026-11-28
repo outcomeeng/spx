@@ -3,18 +3,17 @@ import importPlugin from "eslint-plugin-import";
 import sonarjs from "eslint-plugin-sonarjs";
 import unicorn from "eslint-plugin-unicorn";
 import globals from "globals";
+import { createJiti } from "jiti";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
 
 // Import custom rules and restricted syntax selectors
-import customRules from "./eslint-rules";
 import { NO_ASYNC_SPAWN_OUTSIDE_LIFECYCLE_RULE_ID } from "./eslint-rules/no-async-spawn-outside-lifecycle";
 import { NO_BARE_STRING_UNIONS_RULE_ID } from "./eslint-rules/no-bare-string-unions";
 import { NO_BDD_TRY_CATCH_ANTI_PATTERN_RULE_ID } from "./eslint-rules/no-bdd-try-catch-anti-pattern";
 import { NO_DEEP_RELATIVE_IMPORTS_RULE_ID } from "./eslint-rules/no-deep-relative-imports";
 import { NO_HARDCODED_SESSION_FRONTMATTER_KEYS_RULE_ID } from "./eslint-rules/no-hardcoded-session-frontmatter-keys";
-import { NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID } from "./eslint-rules/no-hardcoded-spec-tree-node-kinds";
-import { NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID } from "./eslint-rules/no-hardcoded-spec-tree-node-states";
 import { NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID } from "./eslint-rules/no-import-source-extensions";
 import { NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_ID } from "./eslint-rules/no-process-cwd-for-product-roots";
 import { NO_REGISTRY_POSITION_ACCESS_RULE_ID } from "./eslint-rules/no-registry-position-access";
@@ -34,6 +33,27 @@ import {
 } from "./eslint-rules/restricted-syntax";
 import { readTypeScriptExcludeGlobs } from "./src/validation/eslint-config-exclusions";
 import { LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./src/validation/lint-policy-constants";
+
+type CustomRulesModule = typeof import("./eslint-rules");
+type NodeKindsRuleModule = typeof import("./eslint-rules/no-hardcoded-spec-tree-node-kinds");
+type NodeStatesRuleModule = typeof import("./eslint-rules/no-hardcoded-spec-tree-node-states");
+
+// ESLint loads this file through a jiti instance that resolves none of the
+// project's path aliases. The custom rules read source registries through the
+// spec-tree library index, which imports aliased modules, so they load through
+// a jiti instance that maps `@` to `src/`.
+const SOURCE_ALIAS_LOADER = createJiti(import.meta.url, {
+  alias: { "@": fileURLToPath(new URL("src", import.meta.url)) },
+});
+const customRules = await SOURCE_ALIAS_LOADER.import<CustomRulesModule["default"]>("./eslint-rules", {
+  default: true,
+});
+const { NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID } = await SOURCE_ALIAS_LOADER.import<NodeKindsRuleModule>(
+  "./eslint-rules/no-hardcoded-spec-tree-node-kinds",
+);
+const { NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID } = await SOURCE_ALIAS_LOADER.import<NodeStatesRuleModule>(
+  "./eslint-rules/no-hardcoded-spec-tree-node-states",
+);
 
 const TEST_LINT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file;
 const TEST_LINT_DEBT_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.key;
@@ -283,13 +303,9 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
 
     // Spec-tree library boundary: every module outside the library reaches its
     // contracts through `src/lib/spec-tree/index.ts`, never an internal module.
-    // The custom lint rules under `eslint-rules/` load through ESLint's native
-    // module loader, which resolves none of the project's path aliases, and the
-    // library index imports aliased modules, so they read the alias-free config
-    // module directly.
     {
       files: ["**/*.ts", "**/*.tsx"],
-      ignores: ["src/lib/spec-tree/**", "eslint-rules/**"],
+      ignores: ["src/lib/spec-tree/**"],
       rules: {
         "no-restricted-imports": ["error", {
           patterns: [{

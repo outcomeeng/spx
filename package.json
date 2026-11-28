@@ -85,6 +85,7 @@
     "fast-check": "^4.7.0",
     "globals": "^17.5.0",
     "ink-testing-library": "^4.0.0",
+    "jiti": "^2.7.0",
     "jsonc-parser": "^3.3.1",
     "knip": "^6.16.1",
     "lefthook": "^2.1.9",
