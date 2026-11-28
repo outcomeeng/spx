@@ -5,7 +5,7 @@
     "test": {
       "tests/helpers.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "f4c5b4848068664489d68cef16d0c243cb163809",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
@@ -23,7 +23,7 @@
       },
       "tests/ignore-sources.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "f4c5b4848068664489d68cef16d0c243cb163809",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
@@ -41,7 +41,7 @@
       },
       "tests/lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "f4c5b4848068664489d68cef16d0c243cb163809",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
@@ -60,7 +60,7 @@
       },
       "tests/process-env.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "f4c5b4848068664489d68cef16d0c243cb163809",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
@@ -75,7 +75,7 @@
       },
       "tests/safety.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "f4c5b4848068664489d68cef16d0c243cb163809",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
@@ -91,6 +91,32 @@
           "testing/harnesses/process-env/process-env.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
+      }
+    },
+    "audit": {
+      "async-only": {
+        "verdict": "not-run"
+      },
+      "cleaned-subprocess-environment": {
+        "verdict": "not-run"
+      },
+      "finally-cleanup": {
+        "verdict": "not-run"
+      },
+      "generated-values": {
+        "verdict": "not-run"
+      },
+      "no-concurrent-callers": {
+        "verdict": "not-run"
+      },
+      "no-config-parameter": {
+        "verdict": "not-run"
+      },
+      "no-filesystem-mocks": {
+        "verdict": "not-run"
+      },
+      "shared-git-helpers": {
+        "verdict": "not-run"
       }
     },
     "evidence": {
