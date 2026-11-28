@@ -1,5 +1,5 @@
 {
-  "state": "failing",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -8344,10 +8344,34 @@
     },
     "audit": {
       "payload-directory-addressing": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "6c7451dd4534d5eab8cca9e042f119a8d3a8ea0c",
+        "read": [
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/verify.ts",
+          "src/lib/state-store/index.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_02-10-44-345-42831e4b3644"
       },
       "payload-directory-sweep": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "6c7451dd4534d5eab8cca9e042f119a8d3a8ea0c",
+        "read": [
+          "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/verify.ts",
+          "src/lib/state-store/index.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_02-12-36-927-980ea975982a"
       }
     },
     "evidence": {
