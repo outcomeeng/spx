@@ -1615,7 +1615,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "f959b70445f6798bb8cccffa9f9f99a434af78b0",
+        "commit": "2ce8247d7e9301fbb732ce3f833814f0fbed891e",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/probe-evidence-model.md",
           "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/tests/probe-payloads.compliance.l1.test.ts",

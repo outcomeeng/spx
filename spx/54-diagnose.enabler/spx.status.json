@@ -133,7 +133,7 @@
       },
       "tests/diagnose-cli.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "bbea444e74c2868eb6267e8d8226ac7267a36c5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -335,7 +335,7 @@
       },
       "tests/error-sanitization.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "bbea444e74c2868eb6267e8d8226ac7267a36c5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -778,7 +778,7 @@
       },
       "tests/resolve.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "bbea444e74c2868eb6267e8d8226ac7267a36c5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",

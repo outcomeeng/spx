@@ -5,7 +5,7 @@
     "test": {
       "tests/context-manifest.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "bbea444e74c2868eb6267e8d8226ac7267a36c5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/54-read-set-projection.enabler/read-set-projection.md",
@@ -183,7 +183,7 @@
       },
       "tests/context-manifest.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "bbea444e74c2868eb6267e8d8226ac7267a36c5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/54-read-set-projection.enabler/read-set-projection.md",
@@ -359,7 +359,7 @@
       },
       "tests/read-set.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "bbea444e74c2868eb6267e8d8226ac7267a36c5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/54-read-set-projection.enabler/read-set-projection.md",
@@ -537,7 +537,7 @@
       },
       "tests/read-set.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "bbea444e74c2868eb6267e8d8226ac7267a36c5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/54-read-set-projection.enabler/read-set-projection.md",
