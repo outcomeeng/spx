@@ -1,5 +1,5 @@
 {
-  "state": "specified",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -26,7 +26,7 @@
       },
       "tests/scope-addressing.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f4c5b4848068664489d68cef16d0c243cb163809",
+        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/32-scope-addressing.enabler/scope-addressing.md",
@@ -89,7 +89,21 @@
     },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "read": [
+          "spx/18-state.enabler/32-scope-addressing.enabler/scope-addressing.md",
+          "spx/18-state.enabler/32-scope-addressing.enabler/tests/branch-identity.property.l1.test.ts",
+          "spx/18-state.enabler/32-scope-addressing.enabler/tests/scope-addressing.scenario.l1.test.ts",
+          "spx/18-state.enabler/32-scope-addressing.enabler/tests/scope-token.property.l1.test.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/session/harness.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_05-59-20-400-ac0a0bc8068c"
       }
     }
   }

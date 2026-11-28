@@ -5,7 +5,7 @@
     "test": {
       "tests/git-command-test-harness.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c36f631764c57980ccaad0ad75ca7167671180b6",
+        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/21-git-command-test-harness.enabler/git-command-test-harness.md",
@@ -77,7 +77,7 @@
       },
       "tests/git-command-test-harness.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c36f631764c57980ccaad0ad75ca7167671180b6",
+        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/21-git-command-test-harness.enabler/git-command-test-harness.md",
@@ -91,7 +91,7 @@
       },
       "tests/git-command-test-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c36f631764c57980ccaad0ad75ca7167671180b6",
+        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/21-git-command-test-harness.enabler/git-command-test-harness.md",

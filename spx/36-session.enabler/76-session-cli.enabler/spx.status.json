@@ -60,7 +60,7 @@
       },
       "tests/session-cli.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "f4c5b4848068664489d68cef16d0c243cb163809",
+        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/76-session-cli.enabler/session-cli.md",
@@ -214,7 +214,7 @@
       },
       "tests/session-cli.property.l2.test.ts": {
         "verdict": "passed",
-        "commit": "f4c5b4848068664489d68cef16d0c243cb163809",
+        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/76-session-cli.enabler/session-cli.md",
@@ -244,7 +244,7 @@
       },
       "tests/session-cli.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f4c5b4848068664489d68cef16d0c243cb163809",
+        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/76-session-cli.enabler/session-cli.md",
