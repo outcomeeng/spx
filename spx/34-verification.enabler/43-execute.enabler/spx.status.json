@@ -5,7 +5,7 @@
     "test": {
       "tests/execute.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/43-execute.enabler/execute.md",
@@ -396,6 +396,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
@@ -407,7 +408,7 @@
       },
       "tests/execute.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/43-execute.enabler/execute.md",
@@ -798,6 +799,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
@@ -809,7 +811,7 @@
       },
       "tests/execute.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/43-execute.enabler/execute.md",
@@ -1200,6 +1202,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",

@@ -5,7 +5,7 @@
     "test": {
       "tests/audit-claim-entry.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/audit.md",
@@ -186,6 +186,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/verify/audit-claim-entry.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts"
         ]
       }

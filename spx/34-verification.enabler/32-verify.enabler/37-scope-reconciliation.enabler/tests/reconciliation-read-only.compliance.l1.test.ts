@@ -8,12 +8,13 @@ import { RECONCILIATION_TEST_GENERATOR } from "@testing/generators/verify/reconc
 import {
   sampleVerifyTestValue,
   VERIFY_CHANGE_OPERATION,
+  VERIFY_CHANGESET_EVIDENCE_TYPES,
   VERIFY_TEST_GENERATOR,
 } from "@testing/generators/verify/verify";
 import { withVerifyChangeInventoryRepository } from "@testing/harnesses/verify/repository";
 
 describe("verify scope reconciliation read-only", () => {
-  it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
+  it.each(VERIFY_CHANGESET_EVIDENCE_TYPES)(
     "appends no journal event and changes no HEAD, ref, index, or working tree while reconciling a %s run to a reconciled result",
     async (verificationType) => {
       await withVerifyChangeInventoryRepository(VERIFY_CHANGE_OPERATION.DELETE, async (repository) => {

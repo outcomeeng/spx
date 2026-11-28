@@ -327,7 +327,7 @@
       },
       "tests/spec-tree-fixtures.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
@@ -772,6 +772,10 @@
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/tests/audit-scope.scenario.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/tests/audit-terminal-metadata.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/tests/audit-claim-entry.mapping.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/tests/probe-payloads.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/tests/probe-run.scenario.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/tests/probe-scope-units.mapping.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/tests/probe-terminal.mapping.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/tests/review-evidence-validation.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/tests/review-payload.conformance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/tests/review-payload.property.l1.test.ts",

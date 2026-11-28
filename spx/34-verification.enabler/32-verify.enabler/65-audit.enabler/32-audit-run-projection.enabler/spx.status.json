@@ -5,7 +5,7 @@
     "test": {
       "tests/audit-context-selectors.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/audit-run-projection.md",
@@ -165,13 +165,14 @@
           "testing/generators/sample.ts",
           "testing/generators/state-store/state-store.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts"
         ]
       },
       "tests/audit-file-root.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/audit-run-projection.md",
@@ -564,6 +565,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/git-test-constants.ts",
           "testing/harnesses/property/property.ts",
@@ -575,7 +577,7 @@
       },
       "tests/audit-review-unit.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/audit-run-projection.md",
@@ -735,13 +737,14 @@
           "testing/generators/sample.ts",
           "testing/generators/state-store/state-store.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts"
         ]
       },
       "tests/audit-rollup.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/audit-run-projection.md",
@@ -901,12 +904,13 @@
           "testing/generators/sample.ts",
           "testing/generators/state-store/state-store.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts"
         ]
       },
       "tests/audit-scope.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/audit-run-projection.md",
@@ -1066,12 +1070,13 @@
           "testing/generators/sample.ts",
           "testing/generators/state-store/state-store.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts"
         ]
       },
       "tests/audit-terminal-metadata.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/audit-run-projection.md",
@@ -1464,6 +1469,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/git-test-constants.ts",
           "testing/harnesses/property/property.ts",

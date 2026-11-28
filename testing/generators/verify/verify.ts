@@ -23,6 +23,8 @@ import {
   type FindingDispositionEvidence,
   ISSUES_ENTRY_FIELD,
   type IssuesEntryReference,
+  PROBE_PAYLOAD_FIELD,
+  PROBE_UNIT_KIND,
   REVIEW_ANCHOR_SIDE,
   REVIEW_FINDING_DISPOSITION,
   REVIEW_PAYLOAD_FIELD,
@@ -56,6 +58,7 @@ import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
 import { arbitrarySourceFilePath, arbitraryTestFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
+import { PROBE_TEST_GENERATOR } from "@testing/generators/verify/probe";
 
 const VERIFY_VERIFICATION_TYPES: readonly string[] = Object.values(VERIFY_VERIFICATION_TYPE);
 const VERIFY_SCOPE_TYPES = Object.values(VERIFY_SCOPE_TYPE);
@@ -954,6 +957,24 @@ export function formatTwoPathNameStatusZ(records: readonly VerifyNameStatusTwoPa
 }
 
 /**
+ * The verification types whose evidence a changeset-scoped run records: every type but `probe`, whose
+ * protocol-root rule admits a first scope unit only in a file-scoped run on a `probe.md`.
+ */
+export type ChangesetEvidenceType = Exclude<VerifyVerificationType, typeof VERIFY_VERIFICATION_TYPE.PROBE>;
+
+export const VERIFY_CHANGESET_EVIDENCE_TYPES: readonly ChangesetEvidenceType[] = Object.values(
+  VERIFY_VERIFICATION_TYPE,
+).filter((verificationType): verificationType is ChangesetEvidenceType =>
+  verificationType !== VERIFY_VERIFICATION_TYPE.PROBE
+);
+
+/**
+ * The verification types whose run `finish` seals with no scope or finding evidence: every type but
+ * `probe`, which `finish` seals only once the run recorded an artifact and an assertion unit.
+ */
+export const VERIFY_EVIDENCE_FREE_SEALING_TYPES: readonly ChangesetEvidenceType[] = VERIFY_CHANGESET_EVIDENCE_TYPES;
+
+/**
  * A valid scope unit of each verification type that a run may record as its first unit, given the
  * run's scope identity: a parentless, required audit unit whose subject is the run's scope identity
  * (the anchoring a file-scoped audit run demands of its root), a review unit, and a test module.
@@ -969,6 +990,11 @@ const RUN_FIRST_SCOPE_UNIT: {
     })),
   [VERIFY_VERIFICATION_TYPE.REVIEW]: () => arbitraryReviewScopeUnit(),
   [VERIFY_VERIFICATION_TYPE.TEST]: () => fc.record({ [TEST_PAYLOAD_FIELD.MODULE_ID]: arbitraryTestFilePath() }),
+  [VERIFY_VERIFICATION_TYPE.PROBE]: (scopeIdentity) =>
+    fc.constant({
+      [PROBE_PAYLOAD_FIELD.UNIT_KIND]: PROBE_UNIT_KIND.PROTOCOL,
+      [PROBE_PAYLOAD_FIELD.SUBJECT]: scopeIdentity,
+    }),
 };
 
 /**
@@ -1179,11 +1205,13 @@ function arbitraryJudgedEvidenceTerminalCase(
     ),
     [VERIFY_VERIFICATION_TYPE.REVIEW]: RUN_FIRST_SCOPE_UNIT[VERIFY_VERIFICATION_TYPE.REVIEW](scopeIdentity),
     [VERIFY_VERIFICATION_TYPE.TEST]: RUN_FIRST_SCOPE_UNIT[VERIFY_VERIFICATION_TYPE.TEST](scopeIdentity),
+    [VERIFY_VERIFICATION_TYPE.PROBE]: RUN_FIRST_SCOPE_UNIT[VERIFY_VERIFICATION_TYPE.PROBE](scopeIdentity),
   };
   const terminalStatus: Readonly<Record<VerifyVerificationType, string>> = {
     [VERIFY_VERIFICATION_TYPE.AUDIT]: JOURNAL_RUN_STATE_STATUS.REJECTED,
     [VERIFY_VERIFICATION_TYPE.REVIEW]: JOURNAL_RUN_STATE_STATUS.REJECTED,
     [VERIFY_VERIFICATION_TYPE.TEST]: JOURNAL_RUN_STATE_STATUS.FAILED,
+    [VERIFY_VERIFICATION_TYPE.PROBE]: JOURNAL_RUN_STATE_STATUS.FAILED,
   };
   return unit[verificationType].map((drawn) => ({
     payload: scopeUnitWithJudgedPaths(drawn, judgedPaths),
@@ -1348,12 +1376,13 @@ export const VERIFY_TEST_GENERATOR = {
   /**
    * The layout of a real repository whose changeset head is named by a branch rather than a commit:
    * the branch name, drawn from the changeset revision domain minus the `HEAD` name Git reserves,
-   * and the product-relative file the head commit adds.
+   * and the product-relative file the head commit adds: a probe protocol path, so a file-scoped run of
+   * every verification type, `probe` included, takes that file as its scope.
    */
   headCommitRepository: (): fc.Arbitrary<{ readonly headBranch: string; readonly filePath: string }> =>
     fc.record({
       headBranch: VERIFY_TEST_GENERATOR.changesetRef().filter((ref) => ref !== GIT_ROOT_COMMAND.HEAD),
-      filePath: arbitrarySourceFilePath(),
+      filePath: PROBE_TEST_GENERATOR.protocolPath(),
     }),
   /** The layout of a real repository for one change operation: the head branch and two distinct product-relative paths. */
   changeOperationPaths: (): fc.Arbitrary<VerifyChangeOperationPaths> =>

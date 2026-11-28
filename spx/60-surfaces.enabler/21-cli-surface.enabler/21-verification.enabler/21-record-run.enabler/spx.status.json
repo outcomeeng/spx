@@ -5,7 +5,7 @@
     "test": {
       "tests/change-identity.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -396,6 +396,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
@@ -404,7 +405,7 @@
       },
       "tests/change-identity.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -796,6 +797,7 @@
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/constants.ts",
@@ -812,7 +814,7 @@
       },
       "tests/content-identity-input-check.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -1206,6 +1208,7 @@
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
           "testing/generators/verify/content-identity.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/constants.ts",
@@ -1222,7 +1225,7 @@
       },
       "tests/content-identity-start.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -1616,6 +1619,7 @@
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
           "testing/generators/verify/content-identity.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/constants.ts",
@@ -1632,7 +1636,7 @@
       },
       "tests/file-scope.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -2024,6 +2028,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
@@ -2032,7 +2037,7 @@
       },
       "tests/record-run.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -2423,6 +2428,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
@@ -2432,7 +2438,7 @@
       },
       "tests/run-evidence-help.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -2824,6 +2830,7 @@
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/constants.ts",
@@ -2842,7 +2849,7 @@
       },
       "tests/run-expectations-option.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -3234,6 +3241,7 @@
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/constants.ts",
@@ -3250,7 +3258,7 @@
       },
       "tests/run-finish-accounting.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -3642,6 +3650,7 @@
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/constants.ts",
@@ -3658,7 +3667,7 @@
       },
       "tests/run-finish-unaccounted.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -4050,6 +4059,7 @@
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/constants.ts",
@@ -4066,7 +4076,7 @@
       },
       "tests/run-paths.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -4458,6 +4468,7 @@
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/constants.ts",
@@ -4474,7 +4485,7 @@
       },
       "tests/run-paths.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -4867,6 +4878,7 @@
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/constants.ts",
@@ -4883,7 +4895,7 @@
       },
       "tests/run-payload.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -5275,6 +5287,7 @@
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/constants.ts",
@@ -5291,7 +5304,7 @@
       },
       "tests/run-reconcile.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -5683,6 +5696,7 @@
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/constants.ts",
@@ -5699,7 +5713,7 @@
       },
       "tests/run-reconcile.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -6091,6 +6105,7 @@
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/constants.ts",
@@ -6107,7 +6122,7 @@
       },
       "tests/verifier.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -6498,6 +6513,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
@@ -6506,7 +6522,7 @@
       },
       "tests/verifier.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -6897,6 +6913,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
@@ -6907,7 +6924,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "7cb4bb896fedadee5ed9769b7a31dbf4453a7da7",
+        "commit": "47ecd327b0345582f978fc277bbd45c0ccdae71f",
         "read": [
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/change-identity.scenario.l1.test.ts",
@@ -6927,6 +6944,8 @@
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-reconcile.scenario.l2.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/verifier.compliance.l1.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/verifier.scenario.l1.test.ts",
+          "src/domains/verify/payload-fields.ts",
+          "src/interfaces/cli/verify.ts",
           "testing/harnesses/verify/built-cli.ts",
           "testing/harnesses/verify/evidence-help.ts"
         ],
@@ -6934,7 +6953,7 @@
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-28_02-21-37-953-a9de8a38b7b8"
+        "run": "2026-11-28_04-47-59-114-3002e47aa2eb"
       }
     }
   }

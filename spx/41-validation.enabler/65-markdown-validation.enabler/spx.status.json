@@ -5,7 +5,7 @@
     "test": {
       "tests/markdown-validation-command.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "30a081ea2200bbd68ee4d1ab97129ddc21dfa1c0",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -760,7 +760,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "30a081ea2200bbd68ee4d1ab97129ddc21dfa1c0",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
@@ -1060,6 +1060,7 @@
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/audit-run-projection.md",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/PLAN.md",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/audit.md",
+          "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/probe-evidence-model.md",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/15-review-payload.pdr.md",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/review-evidence-model.md",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/21-review-run-set-connection.adr.md",

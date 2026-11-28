@@ -5,7 +5,7 @@
     "test": {
       "tests/context-failure.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "bbea444e74c2868eb6267e8d8226ac7267a36c5c",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -185,7 +185,7 @@
       },
       "tests/context-success.mapping.l2.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "bbea444e74c2868eb6267e8d8226ac7267a36c5c",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -364,7 +364,7 @@
       },
       "tests/context-target.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "bbea444e74c2868eb6267e8d8226ac7267a36c5c",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -545,7 +545,7 @@
       },
       "tests/spec-cli-contract.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "bbea444e74c2868eb6267e8d8226ac7267a36c5c",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -726,7 +726,7 @@
       },
       "tests/spec-cli-contract.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "bbea444e74c2868eb6267e8d8226ac7267a36c5c",
         "read": [
           "package.json",
           "pnpm-lock.yaml",

@@ -2,16 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { VERIFY_RECONCILIATION_RESULT_FIELD } from "@/domains/verify/reconciliation";
-import { findTerminalEvent, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import { findTerminalEvent } from "@/domains/verify/verify";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { CHANGE_RUNS_TEST_GENERATOR } from "@testing/generators/verify/change-runs";
-import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
+import {
+  sampleVerifyTestValue,
+  VERIFY_CHANGESET_EVIDENCE_TYPES,
+  VERIFY_TEST_GENERATOR,
+} from "@testing/generators/verify/verify";
 import { type VerifyFinishRepository, withVerifyFinishRepository } from "@testing/harnesses/verify/repository";
 import { observeFinishAttempt } from "@testing/harnesses/verify/terminal-projection";
 
 describe("verify finish reconciliation of a bound run", () => {
   it.each(
-    Object.values(VERIFY_VERIFICATION_TYPE).flatMap((verificationType) => [
+    VERIFY_CHANGESET_EVIDENCE_TYPES.flatMap((verificationType) => [
       {
         verificationType,
         condition: "whose recorded evidence leaves an inventory entry unaccounted",
@@ -77,7 +81,7 @@ describe("verify finish reconciliation of a bound run", () => {
     },
   );
 
-  it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
+  it.each(VERIFY_CHANGESET_EVIDENCE_TYPES)(
     "reconciles the final recorded evidence of a bound %s run at finish, so an earlier passing prefix authorizes no sealing",
     async (verificationType) => {
       await withVerifyFinishRepository(async (repository) => {

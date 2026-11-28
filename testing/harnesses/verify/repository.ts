@@ -305,7 +305,7 @@ interface VerifyRunStarter {
     verificationType?: string,
     expectations?: string,
   ): Promise<StartedRepositoryRun>;
-  appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
+  appendScope(run: StartedRepositoryRun, payload: JsonValue, key?: string): Promise<AppendedRepositoryScope>;
   reportWritePaths(scopeType: string, scope: string, verificationType?: string): Promise<CliCommandResult>;
   reconcile(run: StartedRepositoryRun): Promise<CliCommandResult>;
   finish(run: StartedRepositoryRun, terminalStatus: string): Promise<CliCommandResult>;
@@ -436,7 +436,7 @@ function createVerifyRunStarter(cwd: string, git: GitDependencies): VerifyRunSta
           .map(eventDataRecord),
       };
     },
-    appendScope: async (run, payload) => {
+    appendScope: async (run, payload, key = idempotencyKey) => {
       if (run.runToken === undefined) {
         throw new Error(`verify repository harness: scope add needs a started run: ${run.started.output}`);
       }
@@ -447,7 +447,7 @@ function createVerifyRunStarter(cwd: string, git: GitDependencies): VerifyRunSta
           scope: run.scope,
           run: run.runToken,
           payload: JSON.stringify(payload),
-          idempotencyKey,
+          idempotencyKey: key,
         },
         deps,
       );
@@ -949,6 +949,47 @@ export async function withVerifyFinishRepository<T>(
         await runGit(productDir, [GIT_TEST_SUBCOMMANDS.BRANCH, GIT_TEST_FLAGS.FORCE, layout.headBranch, advanced]);
         await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.DETACH, initial.headCommit]);
       },
+    });
+  });
+}
+
+/**
+ * A real repository whose checkout stands at the commit that adds `filePath`, so a file-scoped run
+ * started on `filePath` records a head commit that holds it. Each `appendScope` records a new event
+ * under its own idempotency key.
+ */
+export interface VerifyCommittedFileRepository {
+  readonly productDir: string;
+  readonly filePath: string;
+  startFileRun(verificationType: string): Promise<StartedRepositoryRun>;
+  appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
+  finish(run: StartedRepositoryRun, terminalStatus: string): Promise<CliCommandResult>;
+  readEvents(run: StartedRepositoryRun): Promise<readonly JournalEvent[]>;
+}
+
+/**
+ * Create the committed-file repository in a temporary directory and hand it to the callback. The
+ * directory and every run recorded under its `.spx/` store are removed when the callback settles.
+ */
+export async function withVerifyCommittedFileRepository<T>(
+  callback: (repository: VerifyCommittedFileRepository) => Promise<T>,
+): Promise<T> {
+  return withTempDir(VERIFY_REPOSITORY_TEMP_PREFIX, async (tempDir) => {
+    const productDir = await realpath(tempDir);
+    const { filePath } = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.headCommitRepository());
+    await initializeVerifyRepository(productDir, filePath);
+    const starter = createVerifyRunStarter(productDir, realVerifyGitDependencies());
+    let appended = 0;
+    return callback({
+      productDir,
+      filePath,
+      startFileRun: async (verificationType) => starter.startRun(VERIFY_SCOPE_TYPE.FILE, filePath, verificationType),
+      appendScope: async (run, payload) => {
+        appended += 1;
+        return starter.appendScope(run, payload, `committed-file-scope-${appended}`);
+      },
+      finish: starter.finish,
+      readEvents: starter.readEvents,
     });
   });
 }

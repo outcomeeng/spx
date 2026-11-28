@@ -15,6 +15,7 @@ import {
 } from "@/domains/verify/evidence-rejection";
 import type { JournalEvent, JournalEventInput, JsonValue } from "@/lib/agent-run-journal";
 import { RUNTIME_EVENT_NAMESPACE_DEFAULT } from "@/lib/agent-run-journal/config";
+import { parseSpecTreeNodeDirectoryName, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { branchScopeDir, compareAsciiStrings, composeScopeDir, runsDir, validateScopeToken } from "@/lib/state-store";
 import {
   type AvailableContentDigests,
@@ -107,6 +108,7 @@ export const VERIFY_VERIFICATION_TYPE = {
   AUDIT: "audit",
   REVIEW: "review",
   TEST: "test",
+  PROBE: "probe",
 } as const;
 
 export type VerifyVerificationType = (typeof VERIFY_VERIFICATION_TYPE)[keyof typeof VERIFY_VERIFICATION_TYPE];
@@ -483,6 +485,8 @@ export const TERMINAL_REQUIREMENT = {
   METADATA_MATCHES_EVIDENCE: "the terminal metadata agrees with the run's recorded evidence",
   NO_METADATA_ACCEPTED: "the verification type seals with no terminal metadata",
   PASSED_HAS_NO_FINDINGS: "a run sealing as passed recorded no findings",
+  PROBE_RETAINS_ARTIFACT: "a probe run recorded an artifact unit",
+  PROBE_OBSERVES_ASSERTION: "a probe run recorded an assertion unit",
 } as const;
 
 export type TerminalRequirement = (typeof TERMINAL_REQUIREMENT)[keyof typeof TERMINAL_REQUIREMENT];
@@ -494,6 +498,27 @@ function rejectTerminal(
   requirement: TerminalRequirement,
 ): TerminalMetadataValidationResult {
   return { ok: false, error, reason: `${TERMINAL_REASON_PREFIX}${requirement}` };
+}
+
+const TERMINAL_STATUS_LIST_PREFIX = ": ";
+const TERMINAL_STATUS_LIST_SEPARATOR = ", ";
+
+/**
+ * Refuse a terminal completion naming the terminal statuses the requirement admits, in the order
+ * given. The statuses are product-authored vocabulary, never the caller's supplied status.
+ */
+function rejectTerminalNamingStatuses(
+  error: TerminalMetadataValidationError,
+  requirement: TerminalRequirement,
+  statuses: readonly string[],
+): TerminalMetadataValidationResult {
+  return {
+    ok: false,
+    error,
+    reason: `${TERMINAL_REASON_PREFIX}${requirement}${TERMINAL_STATUS_LIST_PREFIX}${
+      statuses.join(TERMINAL_STATUS_LIST_SEPARATOR)
+    }`,
+  };
 }
 
 function rejectTerminalMetadata(reason: string): TerminalMetadataValidationResult {
@@ -1855,6 +1880,262 @@ export function validateTestTerminal(input: TerminalValidationInput): TerminalMe
   return { ok: true, value: undefined };
 }
 
+/** The field names the `probe` scope and finding payload schemas declare. */
+export const PROBE_PAYLOAD_FIELD = {
+  UNIT_KIND: "unitKind",
+  SUBJECT: "subject",
+  SLUG: "slug",
+  REASON: "reason",
+  ASSERTION_SUBJECT: "assertionSubject",
+  ARTIFACT_SUBJECT: "artifactSubject",
+  MESSAGE: "message",
+  EVIDENCE: "evidence",
+  OBSERVED: "observed",
+  EXPECTED: "expected",
+} as const;
+
+/** The kinds of unit a `probe` run records as scope evidence. */
+export const PROBE_UNIT_KIND = {
+  /** The `probe.md` protocol the run executes; the run's first unit, equal to its file scope. */
+  PROTOCOL: "protocol",
+  /** An Assertion the run observes, by the row's slug in its subject spec. */
+  ASSERTION: "assertion",
+  /** A retained artifact of the run, a file beside the protocol. */
+  ARTIFACT: "artifact",
+  /** A row or area the run left unexercised, with the reason. */
+  UNEXERCISED: "unexercised",
+} as const;
+
+export type ProbeUnitKind = (typeof PROBE_UNIT_KIND)[keyof typeof PROBE_UNIT_KIND];
+
+/** One unit a `probe` run records as scope evidence, owned by the verify domain. */
+export type ProbeScopeUnit =
+  | {
+    readonly unitKind: typeof PROBE_UNIT_KIND.PROTOCOL | typeof PROBE_UNIT_KIND.ARTIFACT;
+    readonly subject: string;
+  }
+  | { readonly unitKind: typeof PROBE_UNIT_KIND.ASSERTION; readonly subject: string; readonly slug: string }
+  | { readonly unitKind: typeof PROBE_UNIT_KIND.UNEXERCISED; readonly subject: string; readonly reason: string };
+
+/** One departure a `probe` run records as a finding, owned by the verify domain. */
+export interface ProbeFinding {
+  readonly assertionSubject: string;
+  readonly slug: string;
+  readonly artifactSubject: string;
+  readonly message: string;
+  readonly evidence: { readonly observed: string; readonly expected: string };
+}
+
+const PROBE_PROTOCOL_FILENAME = "probe.md";
+const PROBES_DIRECTORY = "probes";
+const PATH_SEGMENT_SEPARATOR = "/";
+/** A slug: lowercase letters and digits in hyphen-joined groups. */
+const PROBE_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** A probe artifact's file name: a slug, a dot, and an extension of letters and digits. */
+const PROBE_ARTIFACT_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*\.[A-Za-z0-9]+$/;
+
+function isProbeUnitKind(value: JsonValue | undefined): value is ProbeUnitKind {
+  return typeof value === "string" && (Object.values(PROBE_UNIT_KIND) as readonly string[]).includes(value);
+}
+
+/** Read a payload field as a product-relative path, normalized; absent or unsafe reads as undefined. */
+function readProbeSubjectPath(payload: { readonly [key: string]: JsonValue }, field: string): string | undefined {
+  const value = readRequiredString(payload, field);
+  return value === undefined ? undefined : normalizeVerificationContextFileSubjectPath(value);
+}
+
+/**
+ * Validate a `probe` scope payload: its `unitKind`, its product-relative `subject`, and the further
+ * field its kind requires — `slug` for an assertion unit, `reason` for an unexercised unit, none for
+ * a protocol or artifact unit.
+ */
+export function validateProbeScope(payload: JsonValue): EvidenceValidationResult<ProbeScopeUnit> {
+  if (!isJsonRecord(payload)) return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.PAYLOAD_IS_OBJECT);
+  const unitKind = payload[PROBE_PAYLOAD_FIELD.UNIT_KIND];
+  if (!isProbeUnitKind(unitKind)) return rejectEvidenceField(PROBE_PAYLOAD_FIELD.UNIT_KIND);
+  const subject = readProbeSubjectPath(payload, PROBE_PAYLOAD_FIELD.SUBJECT);
+  if (subject === undefined) return rejectEvidenceField(PROBE_PAYLOAD_FIELD.SUBJECT);
+  if (unitKind === PROBE_UNIT_KIND.ASSERTION) {
+    const slug = readRequiredString(payload, PROBE_PAYLOAD_FIELD.SLUG);
+    if (slug === undefined || !PROBE_SLUG_PATTERN.test(slug)) return rejectEvidenceField(PROBE_PAYLOAD_FIELD.SLUG);
+    return acceptEvidence({ unitKind, subject, slug });
+  }
+  if (unitKind === PROBE_UNIT_KIND.UNEXERCISED) {
+    const reason = readRequiredString(payload, PROBE_PAYLOAD_FIELD.REASON);
+    if (reason === undefined) return rejectEvidenceField(PROBE_PAYLOAD_FIELD.REASON);
+    return acceptEvidence({ unitKind, subject, reason });
+  }
+  return acceptEvidence({ unitKind, subject });
+}
+
+/** The segments a protocol path holds after its Node path: `probes/`, the probe directory, `probe.md`. */
+const PROBE_PROTOCOL_TAIL_LENGTH = 3;
+
+/**
+ * Whether a path names a `probe.md` directly inside a directory under a Node's `probes/`: the spec
+ * tree's root directory, one or more Node directories, the last of them an output Node, since a
+ * Product holds no `probes/`, then `probes/<slug>/probe.md`.
+ */
+function isProbeProtocolPath(path: string): boolean {
+  const segments = path.split(PATH_SEGMENT_SEPARATOR);
+  const tail = segments.slice(-PROBE_PROTOCOL_TAIL_LENGTH);
+  const nodePath = segments.slice(1, -PROBE_PROTOCOL_TAIL_LENGTH);
+  const owner = nodePath.length === 0 ? null : parseSpecTreeNodeDirectoryName(nodePath[nodePath.length - 1] ?? "");
+  return (
+    segments[0] === SPEC_TREE_CONFIG.ROOT_DIRECTORY
+    && tail.length === PROBE_PROTOCOL_TAIL_LENGTH
+    && tail[0] === PROBES_DIRECTORY
+    && PROBE_SLUG_PATTERN.test(tail[1] ?? "")
+    && tail[2] === PROBE_PROTOCOL_FILENAME
+    && owner !== null
+    && owner.suffix !== SPEC_TREE_CONFIG.PRODUCT.NODE_SUFFIX
+    && nodePath.every((segment) => parseSpecTreeNodeDirectoryName(segment) !== null)
+  );
+}
+
+/** The directory of a protocol path: every segment but its file name. */
+function protocolDirectoryOf(protocolSubject: string): string {
+  return protocolSubject.slice(0, protocolSubject.lastIndexOf(PATH_SEGMENT_SEPARATOR));
+}
+
+/** Whether an artifact path names a `<slug>.<ext>` file, other than `probe.md`, directly in the directory. */
+function isProbeArtifactPath(path: string, protocolDirectory: string): boolean {
+  const prefix = `${protocolDirectory}${PATH_SEGMENT_SEPARATOR}`;
+  if (!path.startsWith(prefix)) return false;
+  const name = path.slice(prefix.length);
+  return name !== PROBE_PROTOCOL_FILENAME && PROBE_ARTIFACT_NAME_PATTERN.test(name);
+}
+
+function probeScopeUnitsFromEvents(events: readonly JournalEvent[]): readonly ProbeScopeUnit[] {
+  return events.flatMap((event) => {
+    if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) return [];
+    const scope = validateProbeScope(event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD]);
+    return scope.ok ? [scope.value] : [];
+  });
+}
+
+/**
+ * Validate a `probe` scope payload against the run: the first unit is the protocol unit equal to the
+ * run's file scope, no later unit is a protocol unit, and an artifact unit names a file directly in
+ * the protocol's directory.
+ */
+function validateProbeScopeForRun(input: EvidenceValidationInput): EvidenceValidationResult<ProbeScopeUnit> {
+  const validated = validateProbeScope(input.payload);
+  if (!validated.ok) return validated;
+  const unit = validated.value;
+  const recorded = probeScopeUnitsFromEvents(input.events);
+  const protocol = recorded.find((candidate) => candidate.unitKind === PROBE_UNIT_KIND.PROTOCOL);
+  if (protocol === undefined) {
+    const roots = unit.unitKind === PROBE_UNIT_KIND.PROTOCOL
+      && input.selector.scopeType === VERIFY_SCOPE_TYPE.FILE
+      && unit.subject === input.selector.scopeIdentity
+      && isProbeProtocolPath(unit.subject);
+    return roots ? validated : rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.PROBE_PROTOCOL_ROOTS_RUN);
+  }
+  if (unit.unitKind === PROBE_UNIT_KIND.PROTOCOL) {
+    return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.PROBE_PROTOCOL_IS_FIRST_UNIT);
+  }
+  if (
+    unit.unitKind === PROBE_UNIT_KIND.ARTIFACT
+    && !isProbeArtifactPath(unit.subject, protocolDirectoryOf(protocol.subject))
+  ) {
+    return rejectEvidenceRequirementAt(EVIDENCE_REQUIREMENT.PROBE_ARTIFACT_IN_PROTOCOL_DIRECTORY, [[
+      PROBE_PAYLOAD_FIELD.SUBJECT,
+    ]]);
+  }
+  return validated;
+}
+
+/** Validate a `probe` finding payload: the assertion and artifact it names, its message, and its evidence. */
+export function validateProbeFinding(payload: JsonValue): EvidenceValidationResult<ProbeFinding> {
+  if (!isJsonRecord(payload)) return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.PAYLOAD_IS_OBJECT);
+  const assertionSubject = readProbeSubjectPath(payload, PROBE_PAYLOAD_FIELD.ASSERTION_SUBJECT);
+  if (assertionSubject === undefined) return rejectEvidenceField(PROBE_PAYLOAD_FIELD.ASSERTION_SUBJECT);
+  const slug = readRequiredString(payload, PROBE_PAYLOAD_FIELD.SLUG);
+  if (slug === undefined || !PROBE_SLUG_PATTERN.test(slug)) return rejectEvidenceField(PROBE_PAYLOAD_FIELD.SLUG);
+  const artifactSubject = readProbeSubjectPath(payload, PROBE_PAYLOAD_FIELD.ARTIFACT_SUBJECT);
+  if (artifactSubject === undefined) return rejectEvidenceField(PROBE_PAYLOAD_FIELD.ARTIFACT_SUBJECT);
+  const message = readRequiredString(payload, PROBE_PAYLOAD_FIELD.MESSAGE);
+  if (message === undefined) return rejectEvidenceField(PROBE_PAYLOAD_FIELD.MESSAGE);
+  const evidence = payload[PROBE_PAYLOAD_FIELD.EVIDENCE];
+  if (!isJsonRecord(evidence)) return rejectEvidenceField(PROBE_PAYLOAD_FIELD.EVIDENCE);
+  const observed = readRequiredString(evidence, PROBE_PAYLOAD_FIELD.OBSERVED);
+  if (observed === undefined) return rejectEvidenceField(PROBE_PAYLOAD_FIELD.EVIDENCE, PROBE_PAYLOAD_FIELD.OBSERVED);
+  const expected = readRequiredString(evidence, PROBE_PAYLOAD_FIELD.EXPECTED);
+  if (expected === undefined) return rejectEvidenceField(PROBE_PAYLOAD_FIELD.EVIDENCE, PROBE_PAYLOAD_FIELD.EXPECTED);
+  return acceptEvidence({ assertionSubject, slug, artifactSubject, message, evidence: { observed, expected } });
+}
+
+/** Validate a `probe` finding against the run: the assertion and artifact units it names are recorded. */
+function validateProbeFindingForRun(input: EvidenceValidationInput): EvidenceValidationResult<ProbeFinding> {
+  const validated = validateProbeFinding(input.payload);
+  if (!validated.ok) return validated;
+  const finding = validated.value;
+  const recorded = probeScopeUnitsFromEvents(input.events);
+  const assertionRecorded = recorded.some((unit) =>
+    unit.unitKind === PROBE_UNIT_KIND.ASSERTION
+    && unit.subject === finding.assertionSubject
+    && unit.slug === finding.slug
+  );
+  if (!assertionRecorded) return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.PROBE_FINDING_ASSERTION_IS_RECORDED);
+  const artifactRecorded = recorded.some((unit) =>
+    unit.unitKind === PROBE_UNIT_KIND.ARTIFACT && unit.subject === finding.artifactSubject
+  );
+  if (!artifactRecorded) return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.PROBE_FINDING_ARTIFACT_IS_RECORDED);
+  return validated;
+}
+
+/** The terminal statuses a `probe` run seals with: the Author's attested verdict. */
+const PROBE_TERMINAL_STATUSES: readonly string[] = [
+  JOURNAL_RUN_STATE_STATUS.PASSED,
+  JOURNAL_RUN_STATE_STATUS.FAILED,
+];
+
+/**
+ * Validate a `probe` run's terminal completion: no terminal metadata, a status of `passed` or
+ * `failed`, an artifact and an assertion unit recorded, and the status the recorded findings require —
+ * `failed` when the run recorded a finding, `passed` when it recorded none.
+ */
+export function validateProbeTerminal(input: TerminalValidationInput): TerminalMetadataValidationResult {
+  if (input.metadata !== undefined) {
+    return rejectTerminal(
+      TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID,
+      TERMINAL_REQUIREMENT.NO_METADATA_ACCEPTED,
+    );
+  }
+  if (!PROBE_TERMINAL_STATUSES.includes(input.terminalStatus)) {
+    return rejectTerminalNamingStatuses(
+      TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+      TERMINAL_REQUIREMENT.STATUS_IN_TYPE_VOCABULARY,
+      PROBE_TERMINAL_STATUSES,
+    );
+  }
+  const recorded = probeScopeUnitsFromEvents(input.events);
+  if (!recorded.some((unit) => unit.unitKind === PROBE_UNIT_KIND.ARTIFACT)) {
+    return rejectTerminal(
+      TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+      TERMINAL_REQUIREMENT.PROBE_RETAINS_ARTIFACT,
+    );
+  }
+  if (!recorded.some((unit) => unit.unitKind === PROBE_UNIT_KIND.ASSERTION)) {
+    return rejectTerminal(
+      TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+      TERMINAL_REQUIREMENT.PROBE_OBSERVES_ASSERTION,
+    );
+  }
+  const required = countVerifyFindings(input.events) > 0
+    ? JOURNAL_RUN_STATE_STATUS.FAILED
+    : JOURNAL_RUN_STATE_STATUS.PASSED;
+  if (input.terminalStatus !== required) {
+    return rejectTerminalNamingStatuses(
+      TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+      TERMINAL_REQUIREMENT.STATUS_MATCHES_EVIDENCE,
+      [required],
+    );
+  }
+  return { ok: true, value: undefined };
+}
+
 function auditScopeUnitsFromEvents(events: readonly JournalEvent[]): readonly AuditScopeUnit[] {
   return events.flatMap((event) => {
     if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) return [];
@@ -2118,6 +2399,11 @@ const EVIDENCE_VALIDATORS: Readonly<
     [VERIFY_EVIDENCE_KIND.SCOPE]: scopeEvidenceValidator(evidencePayloadValidator(validateTestScope)),
     [VERIFY_EVIDENCE_KIND.FINDING]: evidencePayloadValidator(validateTestFinding),
     [VERIFY_EVIDENCE_KIND.TERMINAL_METADATA]: validateTestTerminal,
+  },
+  [VERIFY_VERIFICATION_TYPE.PROBE]: {
+    [VERIFY_EVIDENCE_KIND.SCOPE]: scopeEvidenceValidator(validateProbeScopeForRun),
+    [VERIFY_EVIDENCE_KIND.FINDING]: validateProbeFindingForRun,
+    [VERIFY_EVIDENCE_KIND.TERMINAL_METADATA]: validateProbeTerminal,
   },
 };
 

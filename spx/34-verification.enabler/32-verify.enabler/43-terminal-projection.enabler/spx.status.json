@@ -5,7 +5,7 @@
     "test": {
       "tests/verify-drive-mode.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -396,6 +396,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
@@ -404,7 +405,7 @@
       },
       "tests/verify-finish-malformed-context.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -796,6 +797,7 @@
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/git-test-constants.ts",
@@ -808,7 +810,7 @@
       },
       "tests/verify-finish-reconcile.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -1200,6 +1202,7 @@
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/git-test-constants.ts",
@@ -1213,7 +1216,7 @@
       },
       "tests/verify-finish-repeat.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -1605,6 +1608,7 @@
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/git-test-constants.ts",
@@ -1617,7 +1621,7 @@
       },
       "tests/verify-finish-sealing.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -2009,6 +2013,7 @@
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
           "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/git-test-constants.ts",
@@ -2021,7 +2026,7 @@
       },
       "tests/verify-lifecycle.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -2412,6 +2417,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
@@ -2420,7 +2426,7 @@
       },
       "tests/verify-lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -2811,6 +2817,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
@@ -2819,7 +2826,7 @@
       },
       "tests/verify-payload-removal.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -3210,6 +3217,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/git-test-constants.ts",
@@ -3223,7 +3231,7 @@
       },
       "tests/verify-render.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -3614,6 +3622,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
@@ -3622,7 +3631,7 @@
       },
       "tests/verify-render.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -4013,6 +4022,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
@@ -4021,7 +4031,7 @@
       },
       "tests/verify-status.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -4412,6 +4422,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/state/in-memory-file-system.ts",
@@ -4420,7 +4431,7 @@
       },
       "tests/verify-terminal-reason.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -4814,6 +4825,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/git-test-constants.ts",
           "testing/harnesses/property/property.ts",
@@ -4827,39 +4839,37 @@
     "audit": {
       "payload-directory-addressing": {
         "verdict": "passed",
-        "commit": "7cb4bb896fedadee5ed9769b7a31dbf4453a7da7",
+        "commit": "47ecd327b0345582f978fc277bbd45c0ccdae71f",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
           "src/commands/verify/cli.ts",
-          "src/domains/verify/verify.ts",
-          "src/lib/state-store/index.ts"
+          "src/domains/verify/verify.ts"
         ],
         "actor": {
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-28_02-15-04-834-b562f61f2cf3"
+        "run": "2026-11-28_04-51-27-021-89f0b524a759"
       },
       "seal-removes-payload-directory": {
         "verdict": "passed",
-        "commit": "7cb4bb896fedadee5ed9769b7a31dbf4453a7da7",
+        "commit": "47ecd327b0345582f978fc277bbd45c0ccdae71f",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
           "src/commands/verify/cli.ts",
-          "src/domains/verify/verify.ts",
-          "src/lib/state-store/index.ts"
+          "src/domains/verify/verify.ts"
         ],
         "actor": {
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-28_02-16-04-879-4a731a8b40f7"
+        "run": "2026-11-28_04-51-27-021-89f0b524a759"
       }
     },
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "2ce8247d7e9301fbb732ce3f833814f0fbed891e",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-drive-mode.compliance.l1.test.ts",
@@ -4874,21 +4884,15 @@
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-render.scenario.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-status.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-terminal-reason.compliance.l1.test.ts",
-          "src/domains/test/changed-set-planning.ts",
-          "src/domains/verification-exec/scope.ts",
-          "src/lib/node-status/claim-state.ts",
-          "src/lib/node-status/link-format.ts",
-          "src/lib/node-status/provider.ts",
-          "src/lib/node-status/spec-declaration.ts",
-          "src/lib/spec-tree/index.ts",
-          "src/lib/test-targeting/index.ts",
-          "testing/generators/literal/snippets.ts"
+          "testing/generators/verify/change-runs.ts",
+          "testing/generators/verify/verify.ts",
+          "testing/harnesses/verify/repository.ts"
         ],
         "actor": {
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-23_02-12-47-759-5e1b0ff2be82"
+        "run": "2026-11-28_04-28-22-601-460335be811b"
       }
     }
   }

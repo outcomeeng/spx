@@ -8,7 +8,11 @@ import {
   VERIFY_SCOPE_TYPE,
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
-import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
+import {
+  sampleVerifyTestValue,
+  VERIFY_CHANGESET_EVIDENCE_TYPES,
+  VERIFY_TEST_GENERATOR,
+} from "@testing/generators/verify/verify";
 import {
   withVerifyHeadCommitRepository,
   withVerifyOutsideRepositoryDirectory,
@@ -18,7 +22,7 @@ import {
 // that adds `filePath`. A changeset run ending at that branch judges the head commit, which holds
 // `filePath`; a file-scope run judges the checkout's HEAD, the base commit, which holds no file.
 describe("verify scope judged paths", () => {
-  it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
+  it.each(VERIFY_CHANGESET_EVIDENCE_TYPES)(
     "records each judged file a %s run's head commit holds by its product-relative path",
     async (verificationType) => {
       await withVerifyHeadCommitRepository(async (repository) => {
@@ -38,7 +42,7 @@ describe("verify scope judged paths", () => {
     },
   );
 
-  it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
+  it.each(VERIFY_CHANGESET_EVIDENCE_TYPES)(
     "rejects a judged file the %s run's head commit does not hold, though the checkout carries it, and appends nothing",
     async (verificationType) => {
       await withVerifyHeadCommitRepository(async (repository) => {

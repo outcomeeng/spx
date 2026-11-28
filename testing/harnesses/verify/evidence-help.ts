@@ -15,12 +15,15 @@ import {
   AUDIT_COVERAGE_STATUS,
   AUDIT_FINDING_SEVERITY,
   AUDIT_KIND,
+  PROBE_UNIT_KIND,
   REVIEW_ANCHOR_SIDE,
   REVIEW_FINDING_DISPOSITION,
   REVIEW_SCOPE_COVERAGE_STATE,
   TEST_PAYLOAD_FIELD,
   validateAuditFinding,
   validateAuditScope,
+  validateProbeFinding,
+  validateProbeScope,
   validateReviewFinding,
   validateReviewScope,
   validateTestFinding,
@@ -34,6 +37,7 @@ import { EVIDENCE_PAYLOAD_HELP } from "@/interfaces/cli/verify";
 import type { JsonValue } from "@/lib/agent-run-journal";
 import { arbitraryDomainLiteral, arbitraryTestFilePath } from "@testing/generators/literal/literal";
 import { arbitraryAuditFinding, auditFindingAtSeverity } from "@testing/generators/verify/audit";
+import { PROBE_TEST_GENERATOR } from "@testing/generators/verify/probe";
 import {
   arbitraryBaseRefEvidence,
   arbitraryIssuesEntryReference,
@@ -73,6 +77,10 @@ const PURE_EVIDENCE_VALIDATORS: Readonly<
   [VERIFY_VERIFICATION_TYPE.TEST]: {
     [EVIDENCE_HELP_KIND.SCOPE]: validateTestScope,
     [EVIDENCE_HELP_KIND.FINDING]: validateTestFinding,
+  },
+  [VERIFY_VERIFICATION_TYPE.PROBE]: {
+    [EVIDENCE_HELP_KIND.SCOPE]: validateProbeScope,
+    [EVIDENCE_HELP_KIND.FINDING]: validateProbeFinding,
   },
 };
 
@@ -147,6 +155,17 @@ function testFindingCases(): readonly JsonValue[] {
   ];
 }
 
+/** One accepted scope unit of each probe unit kind, so each kind's conditional field is present once. */
+function probeScopeCases(): readonly JsonValue[] {
+  const units = sampleVerifyTestValue(PROBE_TEST_GENERATOR.runUnits());
+  return [units.protocolUnit, units.assertionUnit, units.artifactUnit, units.unexercisedUnit].map(json);
+}
+
+function probeFindingCases(): readonly JsonValue[] {
+  const units = sampleVerifyTestValue(PROBE_TEST_GENERATOR.runUnits());
+  return [json(sampleVerifyTestValue(PROBE_TEST_GENERATOR.findingFor(units)))];
+}
+
 const EVIDENCE_HELP_CASES: Readonly<
   Record<VerifyVerificationType, Readonly<Record<EvidenceHelpKind, () => readonly JsonValue[]>>>
 > = {
@@ -161,6 +180,10 @@ const EVIDENCE_HELP_CASES: Readonly<
   [VERIFY_VERIFICATION_TYPE.TEST]: {
     [EVIDENCE_HELP_KIND.SCOPE]: testScopeCases,
     [EVIDENCE_HELP_KIND.FINDING]: testFindingCases,
+  },
+  [VERIFY_VERIFICATION_TYPE.PROBE]: {
+    [EVIDENCE_HELP_KIND.SCOPE]: probeScopeCases,
+    [EVIDENCE_HELP_KIND.FINDING]: probeFindingCases,
   },
 };
 
@@ -240,6 +263,7 @@ export function enumeratedValueCandidates(): readonly string[] {
       ...Object.values(REVIEW_ANCHOR_SIDE),
       ...Object.values(REVIEW_FINDING_DISPOSITION),
       ...Object.values(REVIEW_SCOPE_COVERAGE_STATE),
+      ...Object.values(PROBE_UNIT_KIND),
     ]),
   ];
 }

@@ -7,12 +7,12 @@ import {
   expectationsOfRun,
   runJudgedDeletionsOf,
   runJudgedPathsOf,
-  VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
 import { RECONCILIATION_TEST_GENERATOR } from "@testing/generators/verify/reconciliation";
 import {
   sampleVerifyTestValue,
   VERIFY_CHANGE_OPERATION,
+  VERIFY_CHANGESET_EVIDENCE_TYPES,
   VERIFY_TEST_GENERATOR,
 } from "@testing/generators/verify/verify";
 import {
@@ -35,7 +35,7 @@ describe("verify scope reconciliation determinism", () => {
     );
   });
 
-  it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
+  it.each(VERIFY_CHANGESET_EVIDENCE_TYPES)(
     "derives the same result from a %s run however the working tree and index are dirtied",
     async (verificationType) => {
       await withVerifyChangeInventoryRepository(VERIFY_CHANGE_OPERATION.DELETE, async (repository) => {

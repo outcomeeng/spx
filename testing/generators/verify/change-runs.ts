@@ -1,15 +1,11 @@
 import * as fc from "fast-check";
 
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
-import {
-  REVIEW_TERMINAL_STATUSES,
-  VERIFY_VERIFICATION_TYPE,
-  type VerifyVerificationType,
-} from "@/domains/verify/verify";
+import { REVIEW_TERMINAL_STATUSES, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 import { VERIFY_CLI } from "@/interfaces/cli/verify";
 import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/types";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
-import { VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
+import { type ChangesetEvidenceType, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 
 /**
  * One repository layout for listing a Change's verification runs: the Change whose runs are
@@ -73,21 +69,22 @@ export function arbitraryChangeRunsScenario(): fc.Arbitrary<ChangeRunsScenario> 
 }
 
 /**
- * For every verification type, a terminal status `finish` seals a run of that type with when the run
- * carries no scope or finding evidence: any status of the review vocabulary for a review run, which
- * no evidence constrains; `rejected` for an audit run, because an audit that recorded no scope unit
- * covered nothing; and any status of the deterministic runner vocabulary for a test run, whose
- * evidence-free run records no failure.
+ * For every verification type whose run `finish` seals with no scope or finding evidence, a terminal
+ * status it seals with: any status of the review vocabulary for a review run, which no evidence
+ * constrains; `rejected` for an audit run, because an audit that recorded no scope unit covered
+ * nothing; and any status of the deterministic runner vocabulary for a test run, whose evidence-free
+ * run records no failure. A `probe` run has none: `finish` seals it only once it recorded an artifact
+ * and an assertion unit.
  */
 export function arbitraryEvidenceFreeTerminalStatuses(): fc.Arbitrary<
-  Readonly<Record<VerifyVerificationType, string>>
+  Readonly<Record<ChangesetEvidenceType, string>>
 > {
   return fc.record(
     {
       [VERIFY_VERIFICATION_TYPE.REVIEW]: fc.constantFrom(...REVIEW_TERMINAL_STATUSES),
       [VERIFY_VERIFICATION_TYPE.AUDIT]: fc.constant(JOURNAL_RUN_STATE_STATUS.REJECTED),
       [VERIFY_VERIFICATION_TYPE.TEST]: fc.constantFrom(...Object.values(JOURNAL_RUN_TERMINAL_STATUS)),
-    } satisfies Record<VerifyVerificationType, fc.Arbitrary<string>>,
+    } satisfies Record<ChangesetEvidenceType, fc.Arbitrary<string>>,
   );
 }
 
@@ -205,6 +202,6 @@ export const CHANGE_RUNS_TEST_GENERATOR = {
   runComparisonInvocation: (runCount: number): fc.Arbitrary<RunComparisonInvocation> =>
     arbitraryRunComparisonInvocation(runCount),
   comparedRunCountViolations: (): ComparedRunCountViolations => comparedRunCountViolations(),
-  evidenceFreeTerminalStatuses: (): fc.Arbitrary<Readonly<Record<VerifyVerificationType, string>>> =>
+  evidenceFreeTerminalStatuses: (): fc.Arbitrary<Readonly<Record<ChangesetEvidenceType, string>>> =>
     arbitraryEvidenceFreeTerminalStatuses(),
 } as const;

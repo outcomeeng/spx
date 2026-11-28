@@ -9,6 +9,7 @@ import {
 } from "@/domains/verify/verify";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { CHANGE_RUNS_TEST_GENERATOR } from "@testing/generators/verify/change-runs";
+import { VERIFY_EVIDENCE_FREE_SEALING_TYPES } from "@testing/generators/verify/verify";
 import {
   parseChangeRunsReport,
   type StartedChangeRun,
@@ -27,9 +28,11 @@ describe("Change runs listing mapping", () => {
           for (const driveMode of Object.values(VERIFY_DRIVE_MODE)) {
             const request = { verificationType, scopeType, driveMode, change: scenario.change };
             started.push({ run: await repository.startRun(request) });
+            const sealing = VERIFY_EVIDENCE_FREE_SEALING_TYPES.find((candidate) => candidate === verificationType);
+            if (sealing === undefined) continue;
             const finished = await repository.startRun(request);
-            await repository.finish(finished, terminalStatuses[verificationType]);
-            started.push({ run: finished, terminalStatus: terminalStatuses[verificationType] });
+            await repository.finish(finished, terminalStatuses[sealing]);
+            started.push({ run: finished, terminalStatus: terminalStatuses[sealing] });
           }
         }
       }

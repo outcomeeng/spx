@@ -57,6 +57,15 @@ export const EVIDENCE_REQUIREMENT = {
   JUDGED_DELETIONS_NEED_CHANGE_INVENTORY:
     "a run recording judged deletions carries the change inventory recorded at its start",
   JUDGED_DELETION_LISTED_AS_DELETED: "every judged deletion names a path the run's change inventory lists as deleted",
+  PROBE_PROTOCOL_ROOTS_RUN:
+    "a probe run opens, in a file-scoped run, with a protocol unit whose subject is the run's file selector and names a probe.md directly inside a directory under a Node's probes/",
+  PROBE_PROTOCOL_IS_FIRST_UNIT: "a probe run records its protocol unit as its first unit only",
+  PROBE_ARTIFACT_IN_PROTOCOL_DIRECTORY:
+    "an artifact unit's subject names a file of the form <slug>.<ext>, other than probe.md, directly inside the protocol unit's directory",
+  PROBE_FINDING_ASSERTION_IS_RECORDED:
+    "a probe finding names, by its subject and slug, an assertion unit already recorded in the run",
+  PROBE_FINDING_ARTIFACT_IS_RECORDED:
+    "a probe finding names, by its subject, an artifact unit already recorded in the run",
 } as const;
 
 export type EvidenceRequirement = (typeof EVIDENCE_REQUIREMENT)[keyof typeof EVIDENCE_REQUIREMENT];

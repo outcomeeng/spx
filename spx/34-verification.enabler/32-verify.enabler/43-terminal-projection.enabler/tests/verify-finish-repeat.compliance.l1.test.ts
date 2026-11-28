@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { VERIFY_RECONCILIATION_RESULT_FIELD } from "@/domains/verify/reconciliation";
-import { VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { CHANGE_RUNS_TEST_GENERATOR } from "@testing/generators/verify/change-runs";
+import { VERIFY_CHANGESET_EVIDENCE_TYPES } from "@testing/generators/verify/verify";
 import { withVerifyFinishRepository } from "@testing/harnesses/verify/repository";
 
 describe("verify repeated finish of a bound run", () => {
-  it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
+  it.each(VERIFY_CHANGESET_EVIDENCE_TYPES)(
     "returns the recorded terminal projection of a bound %s run without reconciling again, though its inventory drifted since the first finish",
     async (verificationType) => {
       await withVerifyFinishRepository(async (repository) => {

@@ -15,6 +15,8 @@ import {
   AUDIT_KIND,
   AUDIT_PAYLOAD_FIELD,
   ISSUES_ENTRY_FIELD,
+  PROBE_PAYLOAD_FIELD,
+  PROBE_UNIT_KIND,
   REVIEW_ANCHOR_SIDE,
   REVIEW_FINDING_DISPOSITION,
   REVIEW_PAYLOAD_FIELD,
@@ -264,6 +266,50 @@ const TEST_FINDING_FIELDS: readonly EvidencePayloadField[] = [
   required([TEST_PAYLOAD_FIELD.ERRORS], EVIDENCE_FIELD_VALUE.STRING_ARRAY),
 ];
 
+const PROBE_PATH_CONSTRAINT = "a product-relative path";
+const PROBE_SLUG_CONSTRAINT = "lowercase letters and digits in hyphen-joined groups";
+
+function probeUnitKindCondition(unitKind: string): string {
+  return `when ${PROBE_PAYLOAD_FIELD.UNIT_KIND} is ${unitKind}`;
+}
+
+const PROBE_SCOPE_FIELDS: readonly EvidencePayloadField[] = [
+  required([PROBE_PAYLOAD_FIELD.UNIT_KIND], EVIDENCE_FIELD_VALUE.STRING, Object.values(PROBE_UNIT_KIND)),
+  {
+    ...required([PROBE_PAYLOAD_FIELD.SUBJECT], EVIDENCE_FIELD_VALUE.NON_EMPTY_STRING),
+    constraint: PROBE_PATH_CONSTRAINT,
+  },
+  {
+    ...conditional(
+      [PROBE_PAYLOAD_FIELD.SLUG],
+      EVIDENCE_FIELD_VALUE.NON_EMPTY_STRING,
+      probeUnitKindCondition(PROBE_UNIT_KIND.ASSERTION),
+    ),
+    constraint: PROBE_SLUG_CONSTRAINT,
+  },
+  conditional(
+    [PROBE_PAYLOAD_FIELD.REASON],
+    EVIDENCE_FIELD_VALUE.NON_EMPTY_STRING,
+    probeUnitKindCondition(PROBE_UNIT_KIND.UNEXERCISED),
+  ),
+];
+
+const PROBE_FINDING_FIELDS: readonly EvidencePayloadField[] = [
+  {
+    ...required([PROBE_PAYLOAD_FIELD.ASSERTION_SUBJECT], EVIDENCE_FIELD_VALUE.NON_EMPTY_STRING),
+    constraint: PROBE_PATH_CONSTRAINT,
+  },
+  { ...required([PROBE_PAYLOAD_FIELD.SLUG], EVIDENCE_FIELD_VALUE.NON_EMPTY_STRING), constraint: PROBE_SLUG_CONSTRAINT },
+  {
+    ...required([PROBE_PAYLOAD_FIELD.ARTIFACT_SUBJECT], EVIDENCE_FIELD_VALUE.NON_EMPTY_STRING),
+    constraint: PROBE_PATH_CONSTRAINT,
+  },
+  required([PROBE_PAYLOAD_FIELD.MESSAGE], EVIDENCE_FIELD_VALUE.NON_EMPTY_STRING),
+  required([PROBE_PAYLOAD_FIELD.EVIDENCE], EVIDENCE_FIELD_VALUE.OBJECT),
+  required([PROBE_PAYLOAD_FIELD.EVIDENCE, PROBE_PAYLOAD_FIELD.OBSERVED], EVIDENCE_FIELD_VALUE.NON_EMPTY_STRING),
+  required([PROBE_PAYLOAD_FIELD.EVIDENCE, PROBE_PAYLOAD_FIELD.EXPECTED], EVIDENCE_FIELD_VALUE.NON_EMPTY_STRING),
+];
+
 /**
  * The payload fields of each verification type whose validators the run lifecycle registers. The
  * record is keyed by every verification type, so a type the lifecycle adds has no validators
@@ -281,6 +327,10 @@ export const EVIDENCE_PAYLOAD_FIELDS: Readonly<Record<VerifyVerificationType, Ev
   [VERIFY_VERIFICATION_TYPE.TEST]: {
     [VERIFY_EVIDENCE_KIND.SCOPE]: TEST_SCOPE_FIELDS,
     [VERIFY_EVIDENCE_KIND.FINDING]: TEST_FINDING_FIELDS,
+  },
+  [VERIFY_VERIFICATION_TYPE.PROBE]: {
+    [VERIFY_EVIDENCE_KIND.SCOPE]: PROBE_SCOPE_FIELDS,
+    [VERIFY_EVIDENCE_KIND.FINDING]: PROBE_FINDING_FIELDS,
   },
 };
 

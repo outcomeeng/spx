@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_EXIT_CODE, type VerifyFinishReport } from "@/commands/verify/cli";
-import { VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { CHANGE_RUNS_TEST_GENERATOR } from "@testing/generators/verify/change-runs";
-import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
+import {
+  sampleVerifyTestValue,
+  VERIFY_CHANGESET_EVIDENCE_TYPES,
+  VERIFY_TEST_GENERATOR,
+} from "@testing/generators/verify/verify";
 import { withVerifyFinishRepository } from "@testing/harnesses/verify/repository";
 
 describe("verify finish sealing of a bound run that reconciles", () => {
-  it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
+  it.each(VERIFY_CHANGESET_EVIDENCE_TYPES)(
     "seals a bound %s run whose changeset inventory is empty exactly as an unbound run with the same evidence",
     async (verificationType) => {
       await withVerifyFinishRepository(async (repository) => {
@@ -33,7 +36,7 @@ describe("verify finish sealing of a bound run that reconciles", () => {
     },
   );
 
-  it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
+  it.each(VERIFY_CHANGESET_EVIDENCE_TYPES)(
     "seals a bound %s run whose accounted evidence its verification type rejects as rejected rather than refusing it",
     async (verificationType) => {
       await withVerifyFinishRepository(async (repository) => {
