@@ -1,10 +1,7 @@
-import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 
 import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
-const GIT_EXECUTABLE = "git";
-const GIT_TOPLEVEL_ARGS = ["rev-parse", "--show-toplevel"] as const;
 const GIT_NOT_REPO_MARKER = "not a git repository";
 
 export type ResolvedProductDir = {
@@ -12,18 +9,23 @@ export type ResolvedProductDir = {
   readonly warning?: TerminalText;
 };
 
-export type ProductDirResolverDeps = {
-  readonly readGitToplevel: (cwd: string) => string | undefined;
+/** What the CLI invocation learns about a directory's local product root before it builds the product context. */
+export type LocalProductRootReading = {
+  readonly productDir: string;
+  readonly isGitRepo: boolean;
 };
 
-export function resolveProductDir(
-  cwd: string,
-  deps: ProductDirResolverDeps = DEFAULT_PRODUCT_DIR_RESOLVER_DEPS,
-): ResolvedProductDir {
+/**
+ * Reads the local product root of a directory. The CLI invocation supplies it from the state module,
+ * which alone resolves product roots; config never derives one itself.
+ */
+export type LocalProductRootReader = (cwd: string) => LocalProductRootReading;
+
+export function resolveProductDir(cwd: string, readLocalProductRoot: LocalProductRootReader): ResolvedProductDir {
   const resolvedCwd = resolve(cwd);
-  const toplevel = deps.readGitToplevel(resolvedCwd);
-  if (toplevel !== undefined && toplevel.length > 0) {
-    return { productDir: resolve(toplevel) };
+  const reading = readLocalProductRoot(resolvedCwd);
+  if (reading.isGitRepo) {
+    return { productDir: resolve(reading.productDir) };
   }
 
   return {
@@ -35,17 +37,3 @@ export function resolveProductDir(
     }.`,
   };
 }
-
-const DEFAULT_PRODUCT_DIR_RESOLVER_DEPS: ProductDirResolverDeps = {
-  readGitToplevel: (cwd) => {
-    try {
-      return execFileSync(GIT_EXECUTABLE, [...GIT_TOPLEVEL_ARGS], { // NOSONAR - spx intentionally uses the caller's git executable.
-        cwd,
-        stdio: ["ignore", "pipe", "pipe"],
-        encoding: "utf8",
-      }).trim();
-    } catch {
-      return undefined;
-    }
-  },
-};

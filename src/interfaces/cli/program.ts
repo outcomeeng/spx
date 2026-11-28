@@ -1,12 +1,18 @@
 import { type Argument, Command, InvalidArgumentError, type Option } from "commander";
 
-import { type ResolvedProductDir, resolveProductDir } from "@/domains/config/root";
+import type { ResolvedProductDir } from "@/domains/config/root";
 import type { Domain } from "@/interfaces/cli/domain";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { methodologyTreeRootDir } from "@/lib/methodology";
 import { authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
-import { type CliIo, createCliInvocation, DEFAULT_CLI_IO, SPX_GLOBAL_OPTIONS } from "./product-context";
+import {
+  type CliIo,
+  createCliInvocation,
+  DEFAULT_CLI_IO,
+  resolveInvocationProductDir,
+  SPX_GLOBAL_OPTIONS,
+} from "./product-context";
 import { CLI_DOMAINS } from "./registry";
 
 export const SPX_PROGRAM_NAME = "spx";
@@ -163,7 +169,7 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
       ? {}
       : { methodologyTreeRoot: methodologyTreeRootDir(options.packageRoot) }),
     processCwd: options.processCwd ?? CONFIG_PROCESS_CWD.read,
-    resolveProductDir: options.resolveProductDir ?? resolveProductDir,
+    resolveProductDir: options.resolveProductDir ?? resolveInvocationProductDir,
     writeWarning: (warning) => {
       if (warning !== undefined) {
         io.writeStderr(renderTerminalText(terminal`${warning}\n`));

@@ -1,6 +1,10 @@
 import { execa } from "execa";
+import { execFileSync } from "node:child_process";
+import { existsSync, realpathSync } from "node:fs";
+import { access, realpath } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
+import { CONFIG_FILE_DEFINITIONS, CONFIG_FILE_FORMAT_ORDER } from "@/config/filenames";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
@@ -250,6 +254,149 @@ export async function detectWorktreeProductRoot(
       warning: NOT_GIT_REPO_WARNING_TEXT,
     };
   }
+}
+
+/** Reports whether a recognized `spx.config.*` file stands directly in a directory. */
+export type ConfigPresenceProbe = (directory: string) => Promise<boolean>;
+
+/** Synchronous form of {@link ConfigPresenceProbe}. */
+export type SyncConfigPresenceProbe = (directory: string) => boolean;
+
+/** Resolves a path to its canonical form, or returns it unchanged when it cannot be resolved. */
+export type CanonicalPathProbe = (path: string) => Promise<string>;
+
+/** Synchronous form of {@link CanonicalPathProbe}. */
+export type SyncCanonicalPathProbe = (path: string) => string;
+
+const RECOGNIZED_CONFIG_FILENAMES: readonly string[] = CONFIG_FILE_FORMAT_ORDER.map(
+  (format) => CONFIG_FILE_DEFINITIONS[format].filename,
+);
+
+export const defaultConfigPresenceProbe: ConfigPresenceProbe = async (directory) => {
+  for (const filename of RECOGNIZED_CONFIG_FILENAMES) {
+    try {
+      await access(join(directory, filename));
+      return true;
+    } catch {
+      continue;
+    }
+  }
+  return false;
+};
+
+export const defaultSyncConfigPresenceProbe: SyncConfigPresenceProbe = (directory) =>
+  RECOGNIZED_CONFIG_FILENAMES.some((filename) => existsSync(join(directory, filename)));
+
+export const defaultCanonicalPathProbe: CanonicalPathProbe = async (path) => {
+  try {
+    return await realpath(path);
+  } catch {
+    return path;
+  }
+};
+
+export const defaultSyncCanonicalPathProbe: SyncCanonicalPathProbe = (path) => {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+};
+
+/** The probes the asynchronous local-product-root resolution reads the filesystem through. */
+export interface LocalProductRootProbes {
+  readonly hasConfig: ConfigPresenceProbe;
+  readonly canonicalPath: CanonicalPathProbe;
+}
+
+export const defaultLocalProductRootProbes: LocalProductRootProbes = {
+  hasConfig: defaultConfigPresenceProbe,
+  canonicalPath: defaultCanonicalPathProbe,
+};
+
+/** The probes the synchronous local-product-root resolution reads git and the filesystem through. */
+export interface SyncLocalProductRootProbes {
+  /** The `git rev-parse --show-toplevel` value for a directory, or undefined outside a git repository. */
+  readonly readGitToplevel: (cwd: string) => string | undefined;
+  readonly hasConfig: SyncConfigPresenceProbe;
+  readonly canonicalPath: SyncCanonicalPathProbe;
+}
+
+/**
+ * Reads `git rev-parse --show-toplevel` for `cwd` synchronously, under the same git-environment
+ * isolation as {@link defaultGitDependencies}; undefined outside a git repository or when git cannot run.
+ */
+export function readGitToplevelSync(cwd: string): string | undefined {
+  try {
+    const stdout = execFileSync(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_SHOW_TOPLEVEL_ARGS], { // NOSONAR - spx intentionally uses the caller's git executable.
+      cwd,
+      env: withoutGitEnvironment(process.env),
+      stdio: ["ignore", "pipe", "pipe"],
+      encoding: "utf8",
+    });
+    const toplevel = extractStdout(stdout);
+    return toplevel.length === 0 ? undefined : toplevel;
+  } catch {
+    return undefined;
+  }
+}
+
+export const defaultSyncLocalProductRootProbes: SyncLocalProductRootProbes = {
+  readGitToplevel: readGitToplevelSync,
+  hasConfig: defaultSyncConfigPresenceProbe,
+  canonicalPath: defaultSyncCanonicalPathProbe,
+};
+
+// The directories from the invocation directory up to the git toplevel, both included, nearest
+// first. An invocation directory outside the toplevel yields none.
+function localProductRootCandidates(invocationDir: string, toplevel: string): readonly string[] {
+  const candidates: string[] = [];
+  let directory = invocationDir;
+  for (;;) {
+    candidates.push(directory);
+    if (directory === toplevel) return candidates;
+    const parent = dirname(directory);
+    if (parent === directory) return [];
+    directory = parent;
+  }
+}
+
+/**
+ * Resolves the local product root `spx/15-worktree-management.pdr.md` defines: the nearest directory from `cwd` up to the git toplevel, itself included, that holds a recognized
+ * `spx.config.*`; the git toplevel when none does; and `cwd`, with the not-a-repository warning,
+ * outside a git repository.
+ */
+export async function resolveLocalProductRoot(
+  cwd: string = CONFIG_PROCESS_CWD.read(),
+  deps: GitDependencies = defaultGitDependencies,
+  probes: LocalProductRootProbes = defaultLocalProductRootProbes,
+): Promise<GitProductDirResult> {
+  const worktree = await detectWorktreeProductRoot(cwd, deps);
+  if (!worktree.isGitRepo) return worktree;
+
+  const toplevel = await probes.canonicalPath(worktree.productDir);
+  for (const directory of localProductRootCandidates(await probes.canonicalPath(resolve(cwd)), toplevel)) {
+    if (await probes.hasConfig(directory)) return { productDir: directory, isGitRepo: true };
+  }
+  return worktree;
+}
+
+/** Synchronous form of {@link resolveLocalProductRoot}, for callers that resolve before any await. */
+export function resolveLocalProductRootSync(
+  cwd: string,
+  probes: SyncLocalProductRootProbes = defaultSyncLocalProductRootProbes,
+): GitProductDirResult {
+  const resolvedCwd = resolve(cwd);
+  const gitToplevel = probes.readGitToplevel(resolvedCwd);
+  if (gitToplevel === undefined) {
+    return { productDir: resolvedCwd, isGitRepo: false, warning: NOT_GIT_REPO_WARNING_TEXT };
+  }
+
+  const toplevel = probes.canonicalPath(gitToplevel);
+  for (const directory of localProductRootCandidates(probes.canonicalPath(resolvedCwd), toplevel)) {
+    if (probes.hasConfig(directory)) return { productDir: directory, isGitRepo: true };
+  }
+  return { productDir: resolve(gitToplevel), isGitRepo: true };
 }
 
 function stripTrailingPathSeparators(value: string): string {

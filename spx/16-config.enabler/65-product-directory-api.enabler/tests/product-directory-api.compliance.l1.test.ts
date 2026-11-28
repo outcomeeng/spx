@@ -13,7 +13,7 @@ describe("product directory API vocabulary", () => {
     const cwd = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
     const gitToplevel = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
 
-    const result = resolveProductDir(cwd, { readGitToplevel: () => gitToplevel });
+    const result = resolveProductDir(cwd, () => ({ productDir: gitToplevel, isGitRepo: true }));
 
     expect(result).toEqual({ productDir: gitToplevel });
     for (const legacyField of LEGACY_PRODUCT_ROOT_FIELD_NAMES) {
@@ -24,7 +24,7 @@ describe("product directory API vocabulary", () => {
   it("resolveProductDir fallback exposes productDir without legacy root aliases", async () => {
     const cwd = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
 
-    const result = resolveProductDir(cwd, { readGitToplevel: () => undefined });
+    const result = resolveProductDir(cwd, (invocationDir) => ({ productDir: invocationDir, isGitRepo: false }));
 
     expect(result.productDir).toBe(cwd);
     expect(renderTerminalText(result.warning ?? authoredText(""))).toContain(cwd);

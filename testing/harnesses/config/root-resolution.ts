@@ -1,8 +1,7 @@
 import { mkdir, realpath } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { resolveProductDir } from "@/domains/config/root";
-import { type CliIo, createCliInvocation } from "@/interfaces/cli/product-context";
+import { type CliIo, createCliInvocation, resolveInvocationProductDir } from "@/interfaces/cli/product-context";
 import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
@@ -46,7 +45,7 @@ export async function withProductDirectoryRootObservation(
   consume: AsyncObservationConsumer<ProductRootObservation>,
 ): Promise<void> {
   await withGitProduct(async (productDir) => {
-    const resolved = resolveProductDir(productDir);
+    const resolved = resolveInvocationProductDir(productDir);
     await consume({
       actualProductDir: await realpath(resolved.productDir),
       expectedProductDir: await realpath(productDir),
@@ -61,7 +60,7 @@ export async function withSubdirectoryRootObservation(
   await withGitProduct(async (productDir) => {
     const subdirectory = resolve(productDir, "nested", "deep");
     await mkdir(subdirectory, { recursive: true });
-    const resolved = resolveProductDir(subdirectory);
+    const resolved = resolveInvocationProductDir(subdirectory);
     await consume({
       actualProductDir: await realpath(resolved.productDir),
       expectedProductDir: await realpath(productDir),

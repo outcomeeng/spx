@@ -2,6 +2,15 @@ import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import { resolve } from "node:path";
 
 import { type ResolvedProductDir, resolveProductDir } from "@/domains/config/root";
+import { resolveLocalProductRootSync } from "@/lib/git/root";
+
+/**
+ * Resolves the product directory of an effective invocation directory: the local product root the
+ * state module resolves, passed into config, which reads only that directory.
+ */
+export function resolveInvocationProductDir(effectiveInvocationDir: string): ResolvedProductDir {
+  return resolveProductDir(effectiveInvocationDir, (cwd) => resolveLocalProductRootSync(cwd));
+}
 
 export const SPX_GLOBAL_OPTIONS = {
   directory: {
@@ -87,7 +96,7 @@ export function createCliInvocation(options: CliInvocationOptions): CliInvocatio
       }
 
       const effectiveInvocationDir = resolveEffectiveInvocationDir();
-      const resolved = (options.resolveProductDir ?? resolveProductDir)(effectiveInvocationDir);
+      const resolved = (options.resolveProductDir ?? resolveInvocationProductDir)(effectiveInvocationDir);
       cachedContext = {
         effectiveInvocationDir,
         productDir: resolved.productDir,

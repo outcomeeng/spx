@@ -38,9 +38,8 @@ import {
   searchAgentSessions,
   transcriptHasAcceptedBranchCommand,
 } from "@/domains/agent/search";
-import { resolveProductDir } from "@/domains/config/root";
 import { AGENT_CLI, type AgentSinceDiagnostic, createAgentDomain } from "@/interfaces/cli/agent";
-import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
+import { resolveInvocationProductDir, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import {
   GIT_ROOT_COMMAND,
@@ -709,7 +708,7 @@ export async function withAgentSearchFallbackScopeEvidence(
     arbitraryAgentSessionId(),
     SEARCH_SAMPLE.FALLBACK_FOREIGN_SESSION_ID,
   );
-  const warning = resolveProductDir(fallbackProductScopeRoot).warning;
+  const warning = resolveInvocationProductDir(fallbackProductScopeRoot).warning;
   if (warning === undefined) {
     throw new Error("agent search fallback scope fixture must be outside a git worktree");
   }
