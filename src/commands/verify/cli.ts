@@ -74,6 +74,7 @@ import {
   validateJudgedDeletionsAgainstInventory,
   validateJudgedPathsAtHead,
   VERIFY_APPEND_EVENT_TYPE,
+  VERIFY_CHANGE_KIND,
   VERIFY_CONTENT_ERROR,
   VERIFY_DRIVE_MODE,
   VERIFY_EVIDENCE_KIND,
@@ -82,6 +83,7 @@ import {
   VERIFY_INPUT_CHECK_RESULT,
   VERIFY_PAYLOAD_ERROR,
   VERIFY_SCOPE_ERROR,
+  VERIFY_SCOPE_PAYLOAD_FIELD,
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERB,
@@ -479,8 +481,53 @@ function errorResult(error: string): CliCommandResult {
   return { exitCode: VERIFY_CLI_EXIT_CODE.ERROR, output: error };
 }
 
+/** The field of the reconcile and finish report that names, for each unaccounted path, the field that would account for it. */
+export const VERIFY_RECONCILE_REPORT_FIELD = {
+  ACCOUNTING_FIELDS: "accountingFields",
+} as const;
+
+/** The fields of one accounting entry: the unaccounted path and the scope-unit field that would account for it. */
+export const VERIFY_ACCOUNTING_ENTRY_FIELD = {
+  PATH: "path",
+  FIELD: "field",
+} as const;
+
+/** One unaccounted path with the scope-unit field that would account for it. */
+export interface VerifyAccountingEntry {
+  readonly [VERIFY_ACCOUNTING_ENTRY_FIELD.PATH]: string;
+  readonly [VERIFY_ACCOUNTING_ENTRY_FIELD.FIELD]:
+    (typeof VERIFY_SCOPE_PAYLOAD_FIELD)[keyof typeof VERIFY_SCOPE_PAYLOAD_FIELD];
+}
+
+/**
+ * The reconcile and finish report: the reconciliation result, and for each unaccounted path the
+ * scope-unit field that would account for it — `judgedDeletions` for a path the recorded inventory
+ * lists as deleted, `judgedPaths` for every other one.
+ */
+export type VerifyReconcileReport = VerifyScopeReconciliation & {
+  readonly [VERIFY_RECONCILE_REPORT_FIELD.ACCOUNTING_FIELDS]: readonly VerifyAccountingEntry[];
+};
+
+function reconcileReport(
+  reconciliation: VerifyScopeReconciliation,
+  recordedInventory: readonly VerifyChangeInventoryEntry[],
+): VerifyReconcileReport {
+  const deleted = new Set(
+    recordedInventory.filter((entry) => entry.changeKind === VERIFY_CHANGE_KIND.DELETED).map((entry) => entry.path),
+  );
+  return {
+    ...reconciliation,
+    [VERIFY_RECONCILE_REPORT_FIELD.ACCOUNTING_FIELDS]: reconciliation.unaccounted.map((path) => ({
+      [VERIFY_ACCOUNTING_ENTRY_FIELD.PATH]: path,
+      [VERIFY_ACCOUNTING_ENTRY_FIELD.FIELD]: deleted.has(path)
+        ? VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_DELETIONS
+        : VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS,
+    })),
+  };
+}
+
 /** A reconciliation that does not reconcile: the structured result on standard output with a non-zero exit. */
-function unreconciledResult(reconciliation: VerifyScopeReconciliation): CliCommandResult {
+function unreconciledResult(reconciliation: VerifyReconcileReport): CliCommandResult {
   return {
     exitCode: VERIFY_CLI_EXIT_CODE.ERROR,
     output: JSON.stringify(reconciliation),
@@ -2423,7 +2470,7 @@ async function reconcileRunEvidence(
   events: readonly JournalEvent[],
   deps: VerifyCliDeps,
 ): Promise<
-  { readonly ok: true; readonly value: VerifyScopeReconciliation } | {
+  { readonly ok: true; readonly value: VerifyReconcileReport } | {
     readonly ok: false;
     readonly error: CliCommandResult;
   }
@@ -2450,13 +2497,16 @@ async function reconcileRunEvidence(
   }
   return {
     ok: true,
-    value: reconcileScope({
-      recordedInventory: recordedInventory.value,
-      expectations: expectations.value,
-      judgedPaths: runJudgedPathsOf(events),
-      judgedDeletions: runJudgedDeletionsOf(events),
-      resolvedInventory: resolvedInventory.value,
-    }),
+    value: reconcileReport(
+      reconcileScope({
+        recordedInventory: recordedInventory.value,
+        expectations: expectations.value,
+        judgedPaths: runJudgedPathsOf(events),
+        judgedDeletions: runJudgedDeletionsOf(events),
+        resolvedInventory: resolvedInventory.value,
+      }),
+      recordedInventory.value,
+    ),
   };
 }
 
