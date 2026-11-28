@@ -54,3 +54,7 @@ The write set is git-tracked membership, not the broader git-visible scope `spx/
 - NEVER: declare the four lifecycle string literals anywhere outside `SPEC_TREE_NODE_STATE` ([audit])
 - NEVER: read EXCLUDE membership through file-inclusion scope resolution — lifecycle EXCLUDE membership belongs to node-status, while file-inclusion governs walked file scope ([audit])
 - NEVER: the node-status library composes a language-specific test runner — outcomes arrive through the injected resolver ([audit])
+
+### Audit: audit slugs
+
+- audit-slugs-from-the-reader: ALWAYS: the `--update` orchestration takes the audit slugs a node declares from the keyed audit references the spec-tree library reads from the node's spec, and folds one result per slug; the node-status library matches no audit tag or Audit row in spec text itself, so a tag inside a code span or outside the Assertions section keys no entry
