@@ -51,6 +51,16 @@ describe("product root result shape", () => {
     expect(result.productDir).toBe(cwd);
   });
 
+  it("maps the non-git worktree outcome: productDir is the effective invocation directory and the worktree result omits worktreeRoot", async () => {
+    const invocationDir = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
+
+    const result = await detectWorktreeProductRoot(invocationDir, createFailingGitDeps(STATE_GIT_FAILURE_MODE.NON_GIT));
+
+    expect(result.isGitRepo).toBe(false);
+    expect(result.productDir).toBe(invocationDir);
+    expect("worktreeRoot" in result).toBe(false);
+  });
+
   it("maps the git-error outcome: the catch path returns worktreeRoot=cwd with isGitRepo false", async () => {
     const cwd = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
 
