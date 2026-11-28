@@ -59,3 +59,13 @@
 **Impact:** a reader of the spec meets two grammars, and the file breaks root PDR 13's rule that an artifact a coding agent changes leaves in the target methodology version's form.
 
 **Settlement condition:** the spec stands in 4.0 form as `node-status.spec.md`, with its front matter and slugged rows.
+
+## An `evidence` pin reads helpers another Node owns
+
+Methodology 4.0's status claim pins an `evidence` result to the Node's spec, its `tests/` or `evals/` directory and the implementation files its linked verification reaches, apart from any helper, harness, generator or fixture that another Node owns. A change to such a helper invalidates the `evidence` entry of its owning Node and of no other Node. `15-status-file-contract.pdr.md` states the pin with no such exception, and the fold writes every reached file into the read set.
+
+**Evidence:** the SPX Advisor, on outcomeeng/changes#336 (mail 38014, thread evidence-pin-defect). The `evidence` `test` pin of `spx/13-cli.enabler/21-lifecycle-recording-harness.enabler` reads `testing/harnesses/property/property.ts`, which `spx/22-test-environment.enabler/32-property-harness.enabler` owns. The `evidence` pins of five Nodes under `spx/34-verification.enabler/32-verify.enabler` read `testing/generators/verify/verify.ts`.
+
+**Impact:** an edit to an owned helper drops each Node that uses it from `passing` to `specified` and forces an Evidence Audit that methodology does not require. 336's import-path edit to those two helpers forces ten.
+
+**Settlement condition:** the PDR and the fold leave out of an `evidence` pin every file another Node owns, and a test shows that an edit to such a file leaves every non-owning Node's `evidence` entry current.
