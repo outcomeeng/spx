@@ -2,17 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { VERIFY_RUN_COMPARISON_STATUS } from "@/domains/verify/change-runs";
-import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import { VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { CHANGE_RUNS_TEST_GENERATOR } from "@testing/generators/verify/change-runs";
-import { VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
+import { VERIFY_CHANGESET_EVIDENCE_TYPES, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import { parseRunComparisonReport, withChangeRunsRepository } from "@testing/harnesses/verify/change-runs";
 
 // A first commit adds every file the two runs judge; a second commit rewrites exactly one file both
 // runs judge. The first run judges the first commit, the second run judges the second, each through a
 // changeset scope ending at its commit, and each records one path the other run never judged.
 describe("Change run comparison mapping", () => {
-  it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
+  it.each(VERIFY_CHANGESET_EVIDENCE_TYPES)(
     "maps the path both %s runs judged whose blob differs between their head commits to changed, every other path both judged to unchanged, and lists no path only one run judged",
     async (verificationType) => {
       const scenario = sampleGeneratedValue(CHANGE_RUNS_TEST_GENERATOR.scenario());

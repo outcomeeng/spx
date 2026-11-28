@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { VERIFY_DRIVE_MODE, VERIFY_PAYLOAD_PATH, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import { VERIFY_EVIDENCE_FREE_SEALING_TYPES } from "@testing/generators/verify/verify";
 import {
   isDirectory,
   payloadDirectoriesIn,
@@ -50,28 +51,32 @@ describe("verify start payload directory", () => {
   it("removes the payload directory of every run whose journal carries a terminal-completion event or a seal, under every verification type and branch scope, and keeps every other one", async () => {
     await withPayloadDirectoryRepository(async (payloads) => {
       // Every run starts before any closes, because each start sweeps the runs already closed.
-      const groups = [];
+      // A run of a type `finish` seals with no evidence also closes by a terminal-completion event alone.
+      const open = [];
+      const closing = [];
       for (const branch of [undefined, sampleBranchName()]) {
         for (const verificationType of Object.values(VERIFY_VERIFICATION_TYPE)) {
-          groups.push({
-            open: await payloads.startRun({ verificationType, branch }),
-            terminalOnly: await payloads.startRun({ verificationType, branch }),
-            sealedOnly: await payloads.startRun({ verificationType, branch }),
-          });
+          open.push(await payloads.startRun({ verificationType, branch }));
+          closing.push({ run: await payloads.startRun({ verificationType, branch }), close: payloads.sealOnly });
+          if (VERIFY_EVIDENCE_FREE_SEALING_TYPES.some((sealing) => sealing === verificationType)) {
+            closing.push({
+              run: await payloads.startRun({ verificationType, branch }),
+              close: payloads.recordTerminalEventOnly,
+            });
+          }
         }
       }
       const kept: string[] = [];
+      for (const run of open) {
+        expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        kept.push(payloadDirectoryOf(run), await stageUnjournaledPayloadDirectory(run));
+      }
       const removed: string[] = [];
-      for (const { open, terminalOnly, sealedOnly } of groups) {
-        for (const run of [open, terminalOnly, sealedOnly]) {
-          expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-        }
-        const terminal = await payloads.recordTerminalEventOnly(terminalOnly);
-        const sealed = await payloads.sealOnly(sealedOnly);
-        expect(terminal.exitCode, terminal.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-        expect(sealed.exitCode, sealed.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-        kept.push(payloadDirectoryOf(open), await stageUnjournaledPayloadDirectory(open));
-        removed.push(payloadDirectoryOf(terminalOnly), payloadDirectoryOf(sealedOnly));
+      for (const { run, close } of closing) {
+        expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        const closed = await close(run);
+        expect(closed.exitCode, closed.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        removed.push(payloadDirectoryOf(run));
       }
       for (const directory of [...kept, ...removed]) {
         expect(await isDirectory(directory), directory).toBe(true);

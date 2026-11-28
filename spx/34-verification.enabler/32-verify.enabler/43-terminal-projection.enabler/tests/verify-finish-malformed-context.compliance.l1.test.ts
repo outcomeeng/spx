@@ -6,15 +6,18 @@ import {
   VERIFY_EXPECTATIONS_ERROR,
   VERIFY_EXPECTATIONS_FIELD,
   VERIFY_RUN_CONTEXT_EVENT_FIELD,
-  VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { CHANGE_RUNS_TEST_GENERATOR } from "@testing/generators/verify/change-runs";
-import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
+import {
+  sampleVerifyTestValue,
+  VERIFY_CHANGESET_EVIDENCE_TYPES,
+  VERIFY_TEST_GENERATOR,
+} from "@testing/generators/verify/verify";
 import { withVerifyFinishRepository } from "@testing/harnesses/verify/repository";
 
 describe("verify finish of a run whose recorded run context carries expectations", () => {
-  describe.each(Object.values(VERIFY_VERIFICATION_TYPE))("%s run", (verificationType) => {
+  describe.each(VERIFY_CHANGESET_EVIDENCE_TYPES)("%s run", (verificationType) => {
     it.each(Object.values(VERIFY_EXPECTATIONS_FIELD))(
       "refuses the first finish when the recorded expectations are malformed on %s, naming the field and recording nothing",
       async (field) => {

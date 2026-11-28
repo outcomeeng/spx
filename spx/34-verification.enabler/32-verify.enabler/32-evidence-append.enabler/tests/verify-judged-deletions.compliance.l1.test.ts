@@ -6,6 +6,7 @@ import { VERIFY_SCOPE_PAYLOAD_FIELD, VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE
 import {
   sampleVerifyTestValue,
   VERIFY_CHANGE_OPERATION,
+  VERIFY_CHANGESET_EVIDENCE_TYPES,
   VERIFY_TEST_GENERATOR,
 } from "@testing/generators/verify/verify";
 import {
@@ -18,7 +19,7 @@ import {
 // not list at all, is not a judged deletion the run may record. A file-scope run records no change
 // inventory, so it has no deletion to judge.
 describe("verify scope judged deletions", () => {
-  it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
+  it.each(VERIFY_CHANGESET_EVIDENCE_TYPES)(
     "records each judged deletion a %s run's change inventory lists as deleted by its product-relative path",
     async (verificationType) => {
       await withVerifyChangeInventoryRepository(VERIFY_CHANGE_OPERATION.DELETE, async (repository) => {
@@ -38,7 +39,7 @@ describe("verify scope judged deletions", () => {
     },
   );
 
-  it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
+  it.each(VERIFY_CHANGESET_EVIDENCE_TYPES)(
     "rejects a judged deletion the %s run's change inventory does not list, and appends nothing",
     async (verificationType) => {
       await withVerifyChangeInventoryRepository(VERIFY_CHANGE_OPERATION.DELETE, async (repository) => {
@@ -64,7 +65,7 @@ describe("verify scope judged deletions", () => {
     },
   );
 
-  it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
+  it.each(VERIFY_CHANGESET_EVIDENCE_TYPES)(
     "rejects, in a %s run whose change inventory lists the path as modified, a judged deletion naming it, and appends nothing",
     async (verificationType) => {
       await withVerifyChangeInventoryRepository(VERIFY_CHANGE_OPERATION.MODIFY, async (repository) => {
