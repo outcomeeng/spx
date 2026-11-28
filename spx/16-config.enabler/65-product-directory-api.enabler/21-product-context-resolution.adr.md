@@ -10,6 +10,7 @@ One product context keeps root-affecting behavior independent of the command int
 
 - The same process directory and `-C` argument produce the same product context for every command domain.
 - A command's root resolution is a pure function of the product context, the state class it touches, and injected git/filesystem probes.
+- tracked-product-dir: The context's tracked product directory is the local product root of [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md), which the CLI invocation resolves through the state module and passes into the context; no module the config node governs calls the state module.
 
 ## Verification
 

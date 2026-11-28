@@ -94,7 +94,7 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 - ALWAYS: provide a typed `spx verification run` lifecycle agents and launchers drive to record and stream verification runs, persisting each run's append-only event journal under `.spx/branch/{branch-slug}/` and validating the run type, scope, and finding payload before recording durable evidence ([audit])
 - ALWAYS: deliver a rendered verification, validation, or test result to the environment-bound backend, upserting one backend target per marker and naming no result kind, so consumers publish results without holding backend-specific I/O ([audit])
 - ALWAYS: manage methodology context source/version, harness environment configuration, `AGENTS.md`, each registered agent's native configuration, configured plugin marketplaces, plugins, and skills deterministically through typed product configuration ([audit])
-- ALWAYS: a command that resolves a product root resolves it via `git rev-parse` with fallback to `$PWD` — consistent behavior across worktrees and subdirectories ([audit])
+- product-root-resolution: ALWAYS: resolve the product root as the nearest directory from the effective invocation directory up to the git toplevel, itself included, that holds a recognized `spx.config.*`, falling back to the git toplevel and then to the effective invocation directory — consistent behavior across worktrees, subdirectories and nested products
 - NEVER: require network access for core operations — offline-first for development environments ([audit])
 - NEVER: use LLM inference for operations that can be computed deterministically — tokens are for decisions, not file scanning ([audit])
 
