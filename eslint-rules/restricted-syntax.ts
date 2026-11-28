@@ -77,11 +77,11 @@ export const TEST_MEMFS_IMPORT_RULE = {
 /** Additional selectors applied only to test files (stacked on tsRestrictedSyntax). */
 export const testRestrictedSyntax = [
   TEST_VI_MOCK_RULE,
-  TEST_VI_DO_MOCK_RULE,
-  TEST_JEST_MOCK_RULE,
-  TEST_MEMFS_IMPORT_RULE,
   TEST_VI_FN_RULE,
   TEST_ASSERTION_STRING_LITERAL_RULE,
   TEST_SKIP_IF_RULE,
   TEST_READ_FILE_SYNC_IMPORT_RULE,
+  TEST_VI_DO_MOCK_RULE,
+  TEST_JEST_MOCK_RULE,
+  TEST_MEMFS_IMPORT_RULE,
 ];
