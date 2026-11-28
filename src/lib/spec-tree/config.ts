@@ -289,6 +289,14 @@ export const SPEC_TREE_METHODOLOGY_LINE = {
 
 export type SpecTreeMethodologyLine = (typeof SPEC_TREE_METHODOLOGY_LINE)[keyof typeof SPEC_TREE_METHODOLOGY_LINE];
 
+/** How a version's specs declare an Assertion's evidence: by a tag on the row, or by the row's leading slug. */
+export const SPEC_TREE_ASSERTION_GRAMMAR = {
+  TAGS: "tags",
+  SLUG_ROWS: "slug-rows",
+} as const;
+
+export type SpecTreeAssertionGrammar = (typeof SPEC_TREE_ASSERTION_GRAMMAR)[keyof typeof SPEC_TREE_ASSERTION_GRAMMAR];
+
 export type NamingSchemaVersion = {
   readonly version: string;
   /** The methodology lines this version serves; none for the version of the era before 3.0. */
@@ -307,6 +315,7 @@ export type NamingSchemaVersion = {
   /** The probe lane a node may hold; absent for a version that reserves no such directory. */
   readonly probe?: typeof SPEC_TREE_GRAMMAR.PROBE;
   readonly specFileSuffix: string;
+  readonly assertionGrammar: SpecTreeAssertionGrammar;
   /** The kind a root spec file declares in its front matter; absent when the root is a `productSuffix` file with no declared kind. */
   readonly rootSpecKind?: string;
 };
@@ -337,6 +346,7 @@ function namingSchemaVersion(
     coordinationNotes: SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
     eval: SPEC_TREE_GRAMMAR.EVAL,
     specFileSuffix,
+    assertionGrammar: SPEC_TREE_ASSERTION_GRAMMAR.TAGS,
   };
 }
 
@@ -374,6 +384,7 @@ export const SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION: NamingSchemaVersion = {
   knowledge: SPEC_TREE_GRAMMAR.KNOWLEDGE,
   probe: SPEC_TREE_GRAMMAR.PROBE,
   rootSpecKind: SPEC_TREE_CONFIG.PRODUCT.KIND,
+  assertionGrammar: SPEC_TREE_ASSERTION_GRAMMAR.SLUG_ROWS,
 };
 
 /** Every naming-schema version SPX knows, prior to the selection a methodology declaration makes. */

@@ -4,6 +4,7 @@ import {
   DECISION_SUFFIXES,
   type NamingSchemaVersion,
   NODE_SUFFIXES,
+  SPEC_TREE_ASSERTION_GRAMMAR,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_METHODOLOGY_LINE,
@@ -185,6 +186,7 @@ function buildNamingSchemaVersion(
     eval: SPEC_TREE_GRAMMAR.EVAL,
     probe: SPEC_TREE_GRAMMAR.PROBE,
     specFileSuffix,
+    assertionGrammar: SPEC_TREE_ASSERTION_GRAMMAR.TAGS,
   };
 }
 

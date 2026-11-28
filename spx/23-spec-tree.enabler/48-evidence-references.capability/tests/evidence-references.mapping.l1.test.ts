@@ -1,33 +1,44 @@
 import { describe, expect, it } from "vitest";
 
-import { SPEC_TREE_EVIDENCE_KEY_KIND, SPEC_TREE_EVIDENCE_TARGET } from "@/lib/spec-tree";
+import { SPEC_TREE_EVIDENCE_KEY_KIND, SPEC_TREE_EVIDENCE_TARGET, SPEC_TREE_VERIFICATION_TYPE } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   arbitraryDeclaredGrammarLinkScenario,
   arbitraryLinkTargetScenario,
   arbitraryTagFormScenario,
   declaredGrammarLinkCases,
+  EVIDENCE_READING_DECLARATION,
   EVIDENCE_TAG_FORMS,
+  evidenceReadingDeclaration,
 } from "@testing/generators/spec-tree/evidence-references";
 import {
   readDeclaredGrammarLinkScenario,
   readEvidenceSpecsFromFilesystem,
-  readEvidenceSpecsFromMemory,
+  readEvidenceSpecsUnderDeclaration,
   readEvidenceSpecsWithUnreadableSpec,
   readEvidenceSpecsWithUnreadableTargets,
 } from "@testing/harnesses/spec-tree/evidence-references";
 
-describe("evidence reference of each tag form", () => {
-  it.each(EVIDENCE_TAG_FORMS)(
-    "maps an assertion tagged in the %s form to one reference of its verification type and key",
-    async (form) => {
-      const scenario = sampleGeneratedValue(arbitraryTagFormScenario(form));
+describe("tag-forms: evidence reference of each tag form under each declaration", () => {
+  const cases = EVIDENCE_TAG_FORMS.flatMap((form) =>
+    [EVIDENCE_READING_DECLARATION.MIGRATING, EVIDENCE_READING_DECLARATION.FOUR_ZERO].map((declaration) =>
+      [form, declaration] as const
+    )
+  );
 
-      const snapshot = await readEvidenceSpecsFromMemory([scenario]);
+  it.each(cases)(
+    "maps an assertion tagged in the %s form under a %s declaration by the grammars it selects",
+    async (form, declaration) => {
+      const scenario = sampleGeneratedValue(arbitraryTagFormScenario(form));
+      const linkForm = scenario.expected.every(({ verificationType }) =>
+        verificationType !== SPEC_TREE_VERIFICATION_TYPE.AUDIT
+      );
+      const selectsThreeX = declaration === EVIDENCE_READING_DECLARATION.MIGRATING;
+
+      const snapshot = await readEvidenceSpecsUnderDeclaration([scenario], evidenceReadingDeclaration(declaration));
 
       const references = snapshot.allNodes.find(({ slug }) => slug === scenario.entry.slug)?.evidenceReferences;
-      expect(scenario.expected).toHaveLength(1);
-      expect(references).toEqual(scenario.expected);
+      expect(references).toEqual(linkForm || selectsThreeX ? scenario.expected : []);
     },
   );
 });

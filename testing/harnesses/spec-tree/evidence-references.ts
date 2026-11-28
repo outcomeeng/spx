@@ -3,9 +3,10 @@
  *
  * The in-memory source serves each spec's text and each present link target's text through
  * `readText` and yields the specs' node entries; the filesystem reader writes the same files into
- * a temporary product directory under a 4.0 methodology declaration and reads them through the
- * filesystem source, so an absent link target is a real missing file. Both return the snapshot
- * the read produces, or let its rejection propagate; the linked test states what each must be.
+ * a temporary product directory under a 4.0 methodology declaration migrating from 3.2, which
+ * selects the 3.x tag grammar beside the 4.0 slug rows, and reads them through the filesystem
+ * source, so an absent link target is a real missing file. Both return the snapshot the read
+ * produces, or let its rejection propagate; the linked test states what each must be.
  *
  * @module harnesses/spec-tree/evidence-references
  */
@@ -16,12 +17,17 @@ import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodo
 import {
   createFilesystemSpecTreeSource,
   readSpecTree,
+  selectSpecTreeGrammar,
   SPEC_TREE_METHODOLOGY_LINE,
   type SpecTreeSnapshot,
   type SpecTreeSource,
 } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
-import type { DeclaredGrammarLinkScenario, EvidenceSpec } from "@testing/generators/spec-tree/evidence-references";
+import type {
+  DeclaredGrammarLinkScenario,
+  EvidenceDeclaration,
+  EvidenceSpec,
+} from "@testing/generators/spec-tree/evidence-references";
 import { arbitraryVersionOnLine } from "@testing/generators/spec-tree/grammar-selection";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -45,6 +51,20 @@ export function createEvidenceTextSource(specs: readonly EvidenceSpec[]): SpecTr
 /** The snapshot a read of the specs through the in-memory text source produces. */
 export function readEvidenceSpecsFromMemory(specs: readonly EvidenceSpec[]): Promise<SpecTreeSnapshot> {
   return readSpecTree({ source: createEvidenceTextSource(specs) });
+}
+
+/**
+ * The snapshot a read of the specs through the in-memory text source produces when the source
+ * reads its entries under the grammar the declaration selects.
+ */
+export function readEvidenceSpecsUnderDeclaration(
+  specs: readonly EvidenceSpec[],
+  declaration: EvidenceDeclaration,
+): Promise<SpecTreeSnapshot> {
+  const selection = selectSpecTreeGrammar(declaration);
+  return readSpecTree({
+    source: { ...createEvidenceTextSource(specs), grammarSelection: () => Promise.resolve(selection) },
+  });
 }
 
 /** The snapshot a read of the specs through a source that exposes entries and no `readText` produces. */
@@ -94,6 +114,9 @@ function readEvidenceSpecsFromFilesystemWith(
       [METHODOLOGY_SECTION]: {
         [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(
           arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO),
+        ),
+        [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: sampleGeneratedValue(
+          arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.THREE_TWO),
         ),
       },
     },

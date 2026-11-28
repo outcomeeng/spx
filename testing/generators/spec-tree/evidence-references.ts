@@ -40,10 +40,12 @@ import {
   type SpecTreeVerificationType,
 } from "@/lib/spec-tree";
 import { evidenceSubject } from "@testing/generators/spec-tree/evidence-file-name";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   declarationSelectionCases,
   fourZeroOnlyOutputKinds,
   lineComponent,
+  arbitraryVersionOnLine,
 } from "@testing/generators/spec-tree/grammar-selection";
 import { admittedChildKindsOracle } from "@testing/generators/spec-tree/kind-grammar";
 import { SPEC_TREE_TEST_GENERATOR, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
@@ -957,3 +959,189 @@ function arbitraryPathlessTailScenario(
       return shuffled(assertions).map((ordered) => scenarioOfAssertions(parts, ordered));
     });
 }
+
+/** The methodology declarations an evidence read selects its assertion grammar from. */
+export const EVIDENCE_READING_DECLARATION = {
+  /** 4.0 migrating from 3.2: the 3.x tags and the 4.0 slug rows. */
+  MIGRATING: "4.0, migrating from 3.2",
+  /** 4.0 alone: the 4.0 slug rows. */
+  FOUR_ZERO: "4.0",
+  /** 3.2 alone: the 3.x tags. */
+  THREE_TWO: "3.2",
+} as const;
+
+export type EvidenceReadingDeclaration = (typeof EVIDENCE_READING_DECLARATION)[keyof typeof EVIDENCE_READING_DECLARATION];
+
+/** A generated methodology declaration of the given kind, each version in either accepted form. */
+export function evidenceReadingDeclaration(kind: EvidenceReadingDeclaration): EvidenceDeclaration {
+  const fourZero = sampleGeneratedValue(arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO));
+  const threeTwo = sampleGeneratedValue(arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.THREE_TWO));
+  switch (kind) {
+    case EVIDENCE_READING_DECLARATION.MIGRATING:
+      return { version: fourZero, migratingFrom: threeTwo };
+    case EVIDENCE_READING_DECLARATION.FOUR_ZERO:
+      return { version: fourZero };
+    case EVIDENCE_READING_DECLARATION.THREE_TWO:
+      return { version: threeTwo };
+  }
+}
+
+/**
+ * A generated node whose spec's Assertions section holds exactly the given lines, with a file at
+ * each given node-local path, so a link to that path resolves.
+ */
+export function arbitrarySpecOfAssertionLines(
+  lines: readonly string[],
+  presentTargetPaths: readonly string[] = [],
+): fc.Arbitrary<EvidenceSpec> {
+  return arbitraryNodeParts().map((parts) => {
+    const spec = specFrom(
+      parts,
+      lines.map((line) => ({ line, reference: undefined, linkPath: undefined, slug: undefined, text: line })),
+      everyTargetPresent,
+    );
+    const nodeDirectory = posix.dirname(spec.specPath);
+    return {
+      ...spec,
+      files: [
+        ...spec.files,
+        ...presentTargetPaths.map((path) => ({ path: posix.join(nodeDirectory, path), contents: path })),
+      ],
+    };
+  });
+}
+
+/** One `row-references` case: the lines under the Assertions section, the declaration, and the reference they declare. */
+export type RowReferenceCase = {
+  readonly label: string;
+  readonly lines: readonly string[];
+  readonly declaration: EvidenceReadingDeclaration;
+  readonly presentTargetPaths: readonly string[];
+  readonly expected: readonly SpecTreeEvidenceReference[];
+};
+
+function pathReference(verificationType: SpecTreeVerificationType, path: string): SpecTreeEvidenceReference {
+  return {
+    verificationType,
+    key: { kind: SPEC_TREE_EVIDENCE_KEY_KIND.PATH, path },
+    target: SPEC_TREE_EVIDENCE_TARGET.RESOLVED,
+  };
+}
+
+function auditReference(slug: string): SpecTreeEvidenceReference {
+  return { verificationType: SPEC_TREE_VERIFICATION_TYPE.AUDIT, key: { kind: SPEC_TREE_EVIDENCE_KEY_KIND.SLUG, slug } };
+}
+
+const ROW_REFERENCE_TEXT = {
+  AUDIT_ROW: "- recovery-message: ALWAYS: the message names the line.",
+  AUDIT_SLUG: "recovery-message",
+  UNSLUGGED_ROW: "- ALWAYS: the message names the line.",
+  TEST_PATH: "tests/capture.scenario.l1.test.ts",
+  MAPPING_PATH: "tests/priority.mapping.l1.test.ts",
+  EVAL_PATH: "evals/capture-title/eval.toml",
+  PROBE_PATH: "probes/representative-capture/probe.md",
+} as const;
+
+/** The cases of the `row-references` Mapping, one per row of its table. */
+export const ROW_REFERENCE_CASES: readonly RowReferenceCase[] = [
+  {
+    label: "test-slug-link",
+    lines: ["### Test.Scenario: capture", "", `- [capture-basic](${ROW_REFERENCE_TEXT.TEST_PATH}):`],
+    declaration: EVIDENCE_READING_DECLARATION.FOUR_ZERO,
+    presentTargetPaths: [ROW_REFERENCE_TEXT.TEST_PATH],
+    expected: [pathReference(SPEC_TREE_VERIFICATION_TYPE.TEST, ROW_REFERENCE_TEXT.TEST_PATH)],
+  },
+  {
+    label: "mapping-slug-link",
+    lines: [`### Test.Mapping: [priority-order](${ROW_REFERENCE_TEXT.MAPPING_PATH})`],
+    declaration: EVIDENCE_READING_DECLARATION.FOUR_ZERO,
+    presentTargetPaths: [ROW_REFERENCE_TEXT.MAPPING_PATH],
+    expected: [pathReference(SPEC_TREE_VERIFICATION_TYPE.TEST, ROW_REFERENCE_TEXT.MAPPING_PATH)],
+  },
+  {
+    label: "evaluate-slug-link",
+    lines: [`### Evaluate: [capture-title](${ROW_REFERENCE_TEXT.EVAL_PATH})`],
+    declaration: EVIDENCE_READING_DECLARATION.FOUR_ZERO,
+    presentTargetPaths: [ROW_REFERENCE_TEXT.EVAL_PATH],
+    expected: [pathReference(SPEC_TREE_VERIFICATION_TYPE.EVAL, ROW_REFERENCE_TEXT.EVAL_PATH)],
+  },
+  {
+    label: "probe-slug-link",
+    lines: [
+      "### Probe: capture",
+      "",
+      `- [representative-capture](${ROW_REFERENCE_TEXT.PROBE_PATH}): the capture field keeps the line.`,
+    ],
+    declaration: EVIDENCE_READING_DECLARATION.FOUR_ZERO,
+    presentTargetPaths: [ROW_REFERENCE_TEXT.PROBE_PATH],
+    expected: [pathReference(SPEC_TREE_VERIFICATION_TYPE.PROBE, ROW_REFERENCE_TEXT.PROBE_PATH)],
+  },
+  {
+    label: "plain-test-row",
+    lines: ["### Test.Compliance: capture", "", "- line-verbatim: NEVER: a task drops a character."],
+    declaration: EVIDENCE_READING_DECLARATION.FOUR_ZERO,
+    presentTargetPaths: [],
+    expected: [],
+  },
+  {
+    label: "audit-row",
+    lines: ["### Audit", "", ROW_REFERENCE_TEXT.AUDIT_ROW],
+    declaration: EVIDENCE_READING_DECLARATION.FOUR_ZERO,
+    presentTargetPaths: [],
+    expected: [auditReference(ROW_REFERENCE_TEXT.AUDIT_SLUG)],
+  },
+  {
+    label: "audit-subject-row",
+    lines: ["### Audit: messages", "", ROW_REFERENCE_TEXT.AUDIT_ROW],
+    declaration: EVIDENCE_READING_DECLARATION.MIGRATING,
+    presentTargetPaths: [],
+    expected: [auditReference(ROW_REFERENCE_TEXT.AUDIT_SLUG)],
+  },
+  {
+    label: "unslugged-audit-row",
+    lines: ["### Audit", "", ROW_REFERENCE_TEXT.UNSLUGGED_ROW],
+    declaration: EVIDENCE_READING_DECLARATION.FOUR_ZERO,
+    presentTargetPaths: [],
+    expected: [],
+  },
+  {
+    label: "three-x-heading",
+    lines: ["### Compliance", "", ROW_REFERENCE_TEXT.AUDIT_ROW],
+    declaration: EVIDENCE_READING_DECLARATION.FOUR_ZERO,
+    presentTargetPaths: [],
+    expected: [],
+  },
+  {
+    label: "three-x-declaration",
+    lines: ["### Audit: messages", "", ROW_REFERENCE_TEXT.AUDIT_ROW],
+    declaration: EVIDENCE_READING_DECLARATION.THREE_TWO,
+    presentTargetPaths: [],
+    expected: [],
+  },
+];
+
+const FIRST_REAL_TAG_TEXT = {
+  SLUG_LINK_PATH: "tests/capture.compliance.l1.test.ts",
+  TAG_LINK_PATH: "tests/capture.scenario.l1.test.ts",
+} as const;
+
+/**
+ * The `first-real-tag` case under a declaration of 4.0 migrating from 3.2: a row whose leading
+ * slug links one test file and whose evidence tag links another yields the tag's reference alone,
+ * and an untagged slugged row under an Audit group heading yields the reference its slug declares.
+ */
+export const FIRST_REAL_TAG_CASE: RowReferenceCase = {
+  label: "tag-before-slug",
+  lines: [
+    "### Audit",
+    "",
+    `- [line-verbatim](${FIRST_REAL_TAG_TEXT.SLUG_LINK_PATH}): NEVER: a task drops a character ([test](${FIRST_REAL_TAG_TEXT.TAG_LINK_PATH}))`,
+    ROW_REFERENCE_TEXT.AUDIT_ROW,
+  ],
+  declaration: EVIDENCE_READING_DECLARATION.MIGRATING,
+  presentTargetPaths: [FIRST_REAL_TAG_TEXT.SLUG_LINK_PATH, FIRST_REAL_TAG_TEXT.TAG_LINK_PATH],
+  expected: [
+    pathReference(SPEC_TREE_VERIFICATION_TYPE.TEST, FIRST_REAL_TAG_TEXT.TAG_LINK_PATH),
+    auditReference(ROW_REFERENCE_TEXT.AUDIT_SLUG),
+  ],
+};

@@ -40,7 +40,13 @@ import {
   SPEC_TREE_NODE_STATE,
 } from "./config";
 import { compareSpecContextOrdinal } from "./context-manifest";
-import { isFileNotFound, readSpecEvidenceReferences, type SpecTreeEvidenceReference } from "./evidence-references";
+import {
+  assertionEvidenceReading,
+  isFileNotFound,
+  readSpecEvidenceReferences,
+  type SpecTreeAssertionEvidenceReading,
+  type SpecTreeEvidenceReference,
+} from "./evidence-references";
 import {
   priorNamingSchemaVersions,
   selectSpecTreeGrammar,
@@ -77,6 +83,7 @@ export {
   SPEC_TREE_INHERIT_FROM_PARENT,
   SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_KNOWLEDGE_ROOT_HOLDER,
+  SPEC_TREE_ASSERTION_GRAMMAR,
   SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
@@ -95,6 +102,7 @@ export type {
   NodeKind,
   OutputKind,
   ProductKind,
+  SpecTreeAssertionGrammar,
   SpecTreeConfig,
   SpecTreeContainerKind,
   SpecTreeEntryType,
@@ -177,12 +185,14 @@ export type {
   SpecContextTargetPathFacts,
   SpecContextTargetResolution,
 } from "./context-target";
+export { assertionEvidenceReading } from "./evidence-references";
 export {
   SPEC_TREE_EVIDENCE_KEY_KIND,
   SPEC_TREE_EVIDENCE_TARGET,
   SPEC_TREE_VERIFICATION_TYPE,
 } from "./evidence-references";
 export type {
+  SpecTreeAssertionEvidenceReading,
   SpecTreeEvidenceKey,
   SpecTreeEvidenceReference,
   SpecTreeEvidenceTarget,
@@ -194,6 +204,13 @@ export {
   SPEC_TREE_DECLARATION_FIELD,
 } from "./grammar-selection";
 export type { SpecTreeGrammarSelection, SpecTreeMethodologyDeclaration } from "./grammar-selection";
+export {
+  readSpecTreeLeadingSlugs,
+  SPEC_TREE_LEADING_SLUG_SITE,
+  SPEC_TREE_SLUG_HEADING_TYPE,
+  SPEC_TREE_SLUG_SOURCE,
+} from "./leading-slug";
+export type { SpecTreeLeadingSlug, SpecTreeLeadingSlugSite } from "./leading-slug";
 export {
   admitsSpecTreeLinkText,
   createSpecTreeLinkGrammar,
@@ -1069,8 +1086,11 @@ export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSn
 
   const nodeEntries = entries.filter(isNodeEntry);
   const linkGrammar = await options.source.linkGrammar?.() ?? specTreeLinkGrammar(KNOWN_GRAMMAR_SELECTION);
+  const reading = assertionEvidenceReading(
+    (await options.source.grammarSelection?.() ?? KNOWN_GRAMMAR_SELECTION).selected,
+  );
   const nodeEvidenceReferences = await Promise.all(
-    nodeEntries.map((entry) => readNodeEvidenceReferences(entry, options.source, linkGrammar)),
+    nodeEntries.map((entry) => readNodeEvidenceReferences(entry, options.source, linkGrammar, reading)),
   );
   for (const [index, entry] of nodeEntries.entries()) {
     const state = deriveState(entry, evidenceByParent.get(entry.id) ?? [], options.evidence);
@@ -1300,6 +1320,7 @@ async function readNodeEvidenceReferences(
   entry: SpecTreeNodeSourceEntry,
   source: SpecTreeSource,
   linkGrammar: SpecTreeLinkGrammar,
+  reading: SpecTreeAssertionEvidenceReading,
 ): Promise<readonly SpecTreeEvidenceReference[]> {
   const specRef = entry.ref;
   const specPath = specRef?.path;
@@ -1315,6 +1336,7 @@ async function readNodeEvidenceReferences(
     specText,
     linkGrammar,
     (path) => readText({ id: path, path }),
+    reading,
   );
 }
 

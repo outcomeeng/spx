@@ -11,9 +11,15 @@ import {
   arbitraryTagPositionScenario,
   arbitraryTwoTagLineScenario,
   arbitraryUnadmittedTagTailScenario,
+  arbitrarySpecOfAssertionLines,
   arbitraryUnkeyedAuditScenario,
+  evidenceReadingDeclaration,
+  FIRST_REAL_TAG_CASE,
 } from "@testing/generators/spec-tree/evidence-references";
-import { readEvidenceSpecsFromFilesystem } from "@testing/harnesses/spec-tree/evidence-references";
+import {
+  readEvidenceSpecsFromFilesystem,
+  readEvidenceSpecsUnderDeclaration,
+} from "@testing/harnesses/spec-tree/evidence-references";
 
 describe("unkeyed audit references", () => {
   it("reads a pathless audit tag and a legacy review tag as unkeyed audit references", async () => {
@@ -128,5 +134,22 @@ describe("audit rule slug uniqueness", () => {
           ).length
       ),
     ).toEqual(scenario.specs.map(() => 1));
+  });
+});
+
+describe("first-real-tag: a line yields at most one evidence reference", () => {
+  it("takes a row's first real tag over its leading slug, and an untagged row's reference from its leading slug", async () => {
+    const spec = sampleGeneratedValue(
+      arbitrarySpecOfAssertionLines(FIRST_REAL_TAG_CASE.lines, FIRST_REAL_TAG_CASE.presentTargetPaths),
+    );
+
+    const snapshot = await readEvidenceSpecsUnderDeclaration(
+      [spec],
+      evidenceReadingDeclaration(FIRST_REAL_TAG_CASE.declaration),
+    );
+
+    expect(snapshot.allNodes.find(({ slug }) => slug === spec.entry.slug)?.evidenceReferences).toEqual(
+      FIRST_REAL_TAG_CASE.expected,
+    );
   });
 });
