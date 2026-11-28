@@ -2,12 +2,14 @@
  * A product nested inside an enclosing repository's product, for the `nested-product-target`
  * compliance of `spx/16-config.enabler/65-product-directory-api.enabler`: the nested product is a
  * copy of the enclosing one that differs in its `testing` config, its product title, one Node it
- * drops, and a broken link of its own, so each command's output shows which product it read.
+ * drops, and a broken link of its own, so each command's output shows which product it read. The
+ * dropped Node keeps one test file in the enclosing product, so a test command that read the
+ * enclosing tree would discover it.
  *
  * @module harnesses/product-context/nested-product
  */
 
-import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -21,8 +23,10 @@ import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodo
 import { CONFIG_CLI } from "@/interfaces/cli/config";
 import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
+import { TESTING_CLI } from "@/interfaces/cli/test";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { EXECUTE_RUN_CLI_SURFACE, VERIFICATION_RUN_CLI_SURFACE } from "@/interfaces/cli/verify";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
 import { TESTING_SECTION } from "@/test/config";
 import type { GeneratedProductContextCase } from "@testing/generators/config/product-context";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
@@ -34,6 +38,9 @@ const NESTED_TITLE_PREFIX = "Nested ";
 const ENCLOSING_BROKEN_LINK_FILE = "enclosing-only-broken-link.md";
 const INNER_BROKEN_LINK_FILE = "nested-only-broken-link.md";
 const BROKEN_LINK_CONTENT = "[missing](does-not-exist.md)\n";
+const ENCLOSING_ONLY_TEST_FILE = "enclosing-only.scenario.l1.test.ts";
+const ENCLOSING_ONLY_TEST_CONTENT = "export {};\n";
+const TEST_VERIFICATION_TYPE = "test";
 // The representative fixture is written in the 3.x grammar, so both products declare a 3.2 methodology.
 const FIXTURE_METHODOLOGY = { [METHODOLOGY_CONFIG_FIELDS.VERSION]: "3.2" } as const;
 
@@ -63,6 +70,12 @@ export interface NestedProductTargetObservation {
   readonly context: ProductContextCliRun;
   /** `spec context show` with an operand naming the dropped Node in the enclosing product. */
   readonly outsideOperand: ProductContextCliRun;
+  /** The operand naming the dropped Node in the enclosing product, which holds a test file there. */
+  readonly outsideNodeOperand: string;
+  /** `test` with the operand naming the dropped Node in the enclosing product. */
+  readonly testOutsideOperand: ProductContextCliRun;
+  /** `verification test run` with the operand naming the dropped Node in the enclosing product. */
+  readonly verificationOutsideOperand: ProductContextCliRun;
 }
 
 async function productSpecFile(specDir: string): Promise<string> {
@@ -92,9 +105,9 @@ async function firstNodeDirectory(specDir: string): Promise<string> {
 /**
  * Builds the enclosing product in a fresh git repository, copies it into the nested directory the
  * inner case's caller scope names, applies the differences, and runs `config show --json`,
- * `validation markdown`, `spec status --json`, `spec context show`, and `spec context show` on an
- * operand outside the nested product, each under `-C` naming the nested product, from a process
- * directory outside both.
+ * `validation markdown`, `spec status --json`, `spec context show`, and `spec context show`, `test`
+ * and `verification test run` on an operand outside the nested product, each under `-C` naming the
+ * nested product, from a process directory outside both.
  */
 export async function observeNestedProductTarget(
   scenario: NestedProductTargetCase,
@@ -138,6 +151,13 @@ export async function observeNestedProductTarget(
 
     await writeFile(join(enclosingSpecDir, ENCLOSING_BROKEN_LINK_FILE), BROKEN_LINK_CONTENT);
     await writeFile(join(innerSpecDir, INNER_BROKEN_LINK_FILE), BROKEN_LINK_CONTENT);
+    const droppedNodeDir = join(enclosingSpecDir, droppedNode);
+    const enclosingOnlyTestsDir = join(droppedNodeDir, SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME);
+    await mkdir(enclosingOnlyTestsDir, { recursive: true });
+    await writeFile(join(enclosingOnlyTestsDir, ENCLOSING_ONLY_TEST_FILE), ENCLOSING_ONLY_TEST_CONTENT);
+    // Git reports canonical roots, so the test operand is canonical too: a test command rooted at the
+    // enclosing toplevel would then discover the enclosing-only test file under it.
+    const outsideNodeOperand = await realpath(droppedNodeDir);
     await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
     // Spec commands read the tracked-path set, so every file of both products enters the index.
     await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.ADD, GIT_TEST_FLAGS.ALL]);
@@ -160,7 +180,15 @@ export async function observeNestedProductTarget(
       ]),
       status: await run([SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.STATUS_COMMAND, SPEC_DOMAIN_CLI.JSON_OPTION]),
       context: await run([...SPEC_CONTEXT_COMMAND_PATH.SHOW]),
-      outsideOperand: await run([...SPEC_CONTEXT_COMMAND_PATH.SHOW, join(enclosingSpecDir, droppedNode)]),
+      outsideOperand: await run([...SPEC_CONTEXT_COMMAND_PATH.SHOW, droppedNodeDir]),
+      outsideNodeOperand,
+      testOutsideOperand: await run([TESTING_CLI.commandName, outsideNodeOperand]),
+      verificationOutsideOperand: await run([
+        VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+        TEST_VERIFICATION_TYPE,
+        EXECUTE_RUN_CLI_SURFACE.runVerbName,
+        outsideNodeOperand,
+      ]),
     };
   });
   if (observation === undefined) throw new Error("nested product target observation was not captured");

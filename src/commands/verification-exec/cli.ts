@@ -29,7 +29,7 @@ import { JOURNAL_RUN_STATE_STATUS, type JournalRunStateStatus } from "@/domains/
 import { executeRunScopeIdentity } from "@/domains/verification-exec/scope";
 import { type RunLocator, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import { toMessage } from "@/lib/error-message";
-import { detectWorktreeProductRoot } from "@/lib/git/root";
+import { resolveLocalProductRoot } from "@/lib/git/root";
 import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { resolveTargetedTestFiles } from "@/lib/test-targeting";
 
@@ -164,7 +164,7 @@ export async function executeRunCommand(
   options: ExecuteRunCliOptions,
   deps: ExecuteRunCliDeps,
 ): Promise<ExecuteRunCommandResult> {
-  const root = await (deps.resolveProductDir ?? detectWorktreeProductRoot)(deps.cwd);
+  const root = await (deps.resolveProductDir ?? resolveLocalProductRoot)(deps.cwd);
   const productDir = root.productDir;
   const warning = root.isGitRepo ? {} : { warning: EXECUTE_RUN_CLI_WARNING_TEXT.NOT_GIT_REPOSITORY };
   const discovered = await (deps.discoverTestFiles ?? discoverTestFiles)(productDir);

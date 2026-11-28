@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { EXECUTE_RUN_CLI_ERROR } from "@/commands/verification-exec/cli";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
+import { UNRESOLVED_TARGETS_WARNING } from "@/interfaces/cli/test";
 import { SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import { arbitraryProductContextCase } from "@testing/generators/config/product-context";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -26,7 +28,7 @@ describe("product context compliance", () => {
   );
 
   it(
-    "nested-product-target: under -C naming a nested product, config show, validation markdown, spec status and spec context show read that product, and an operand outside it fails unresolved",
+    "nested-product-target: under -C naming a nested product, config show, validation markdown, spec status, spec context show, test and verification test run read that product, and an operand outside it fails unresolved",
     PRODUCT_CONTEXT_TEST_OPTIONS,
     async () => {
       const enclosing = sampleGeneratedValue(arbitraryProductContextCase());
@@ -60,6 +62,12 @@ describe("product context compliance", () => {
       expect(observation.outsideOperand.stderr).toContain(
         SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED],
       );
+
+      const testReport = observation.testOutsideOperand.stdout + observation.testOutsideOperand.stderr;
+      expect(testReport).toContain(`${UNRESOLVED_TARGETS_WARNING}:\n${observation.outsideNodeOperand}`);
+
+      expect(observation.verificationOutsideOperand.exitCodes.some((exitCode) => exitCode !== 0)).toBe(true);
+      expect(observation.verificationOutsideOperand.stderr).toContain(EXECUTE_RUN_CLI_ERROR.UNRESOLVED_OPERANDS);
     },
   );
 });

@@ -5,7 +5,7 @@ import { SUCCESS_EXIT_CODE } from "@/domains/test";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { formatAgentTestOutput } from "@/interfaces/cli/test-agent-output";
-import { detectWorktreeProductRoot } from "@/lib/git/root";
+import { resolveLocalProductRoot } from "@/lib/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import type { TargetSelection } from "@/lib/test-targeting";
 import { testingRegistry } from "@/test/registry";
@@ -41,7 +41,7 @@ export const TESTING_CLI = {
 
 const UNMATCHED_TEST_FILES_WARNING = "Skipped test files with no registered runner";
 const GATED_TEST_RUNNERS_WARNING = "Skipped test files because their registered runner was gated out";
-const UNRESOLVED_TARGETS_WARNING = "No tests matched these operands";
+export const UNRESOLVED_TARGETS_WARNING = "No tests matched these operands";
 const UNRESOLVED_CHANGED_SOURCE_WARNING = "No related-test capability resolved these changed source files";
 export const REUSED_RUN_REPORT = "Reported the result of recorded run";
 
@@ -54,7 +54,7 @@ async function resolveTestProductDir(
   cwd: string,
   writeWarning: (warning: string | undefined) => void,
 ): Promise<string> {
-  const { productDir, isGitRepo } = await detectWorktreeProductRoot(cwd);
+  const { productDir, isGitRepo } = await resolveLocalProductRoot(cwd);
   writeWarning(isGitRepo ? undefined : TESTING_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY);
   return productDir;
 }
