@@ -5,7 +5,7 @@
     "test": {
       "tests/node-status-test-support.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/32-node-status-test-support.enabler/node-status-test-support.md",

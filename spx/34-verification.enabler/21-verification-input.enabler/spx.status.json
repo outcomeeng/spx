@@ -5,11 +5,12 @@
     "test": {
       "tests/digests.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/21-verification-input.enabler/tests/digests.property.l1.test.ts",
           "spx/34-verification.enabler/21-verification-input.enabler/verification-input.md",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -32,11 +33,12 @@
       },
       "tests/inspection-effects.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/21-verification-input.enabler/tests/inspection-effects.compliance.l1.test.ts",
           "spx/34-verification.enabler/21-verification-input.enabler/verification-input.md",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -58,11 +60,12 @@
       },
       "tests/inspection.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/21-verification-input.enabler/tests/inspection.scenario.l1.test.ts",
           "spx/34-verification.enabler/21-verification-input.enabler/verification-input.md",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -84,11 +87,12 @@
       },
       "tests/operand-resolution.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/21-verification-input.enabler/tests/operand-resolution.mapping.l1.test.ts",
           "spx/34-verification.enabler/21-verification-input.enabler/verification-input.md",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -110,11 +114,12 @@
       },
       "tests/rejection.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/21-verification-input.enabler/tests/rejection.compliance.l1.test.ts",
           "spx/34-verification.enabler/21-verification-input.enabler/verification-input.md",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",

@@ -1,11 +1,11 @@
 {
-  "state": "passing",
+  "state": "specified",
   "malleability": "implementation",
   "verification": {
     "test": {
       "tests/session.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/session.md",
@@ -13,6 +13,7 @@
           "src/commands/session/handoff.ts",
           "src/commands/session/resolve-config.ts",
           "src/config/defaults.ts",
+          "src/config/filenames.ts",
           "src/domains/session/agent-session.ts",
           "src/domains/session/create.ts",
           "src/domains/session/errors.ts",
@@ -48,25 +49,7 @@
     },
     "evidence": {
       "test": {
-        "verdict": "passed",
-        "commit": "f47f509b23f2116c7491cd1cde9d3a793611ce03",
-        "read": [
-          "spx/36-session.enabler/session.md",
-          "spx/36-session.enabler/tests/session.scenario.l1.test.ts",
-          "src/commands/session/handoff.ts",
-          "src/commands/session/resolve-config.ts",
-          "src/lib/git/root.ts",
-          "testing/generators/main-checkout/main-checkout.ts",
-          "testing/harnesses/session/harness.ts",
-          "testing/harnesses/session/session-store.ts",
-          "testing/harnesses/state/git-deps.ts",
-          "testing/harnesses/worktree-layout/worktree-layout.ts"
-        ],
-        "actor": {
-          "kind": "agent",
-          "id": "spx-advisor"
-        },
-        "run": "2026-11-22_13-08-13-729-d705ce70be26"
+        "verdict": "not-run"
       }
     }
   }

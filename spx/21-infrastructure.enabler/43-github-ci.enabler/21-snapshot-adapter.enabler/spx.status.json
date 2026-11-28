@@ -5,7 +5,7 @@
     "test": {
       "tests/pull-request-comment-client.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3063dcb1ec2d97c1f3bb4d12006e8ff7ca439c6",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler/snapshot-adapter.md",
@@ -83,11 +83,12 @@
       },
       "tests/snapshot-projection.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler/snapshot-adapter.md",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler/tests/snapshot-projection.property.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
@@ -109,11 +110,12 @@
       },
       "tests/surface-write.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler/snapshot-adapter.md",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler/tests/surface-write.scenario.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",

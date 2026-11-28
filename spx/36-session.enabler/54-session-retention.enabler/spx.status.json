@@ -5,7 +5,7 @@
     "test": {
       "tests/session-retention.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/54-session-retention.enabler/session-retention.md",
@@ -13,6 +13,7 @@
           "src/commands/session/archive.ts",
           "src/commands/session/resolve-config.ts",
           "src/config/defaults.ts",
+          "src/config/filenames.ts",
           "src/domains/session/archive.ts",
           "src/domains/session/batch.ts",
           "src/domains/session/create.ts",
@@ -40,7 +41,7 @@
       },
       "tests/session-retention.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/54-session-retention.enabler/session-retention.md",
@@ -48,6 +49,7 @@
           "src/commands/session/archive.ts",
           "src/commands/session/resolve-config.ts",
           "src/config/defaults.ts",
+          "src/config/filenames.ts",
           "src/domains/session/archive.ts",
           "src/domains/session/batch.ts",
           "src/domains/session/create.ts",
@@ -79,7 +81,7 @@
       },
       "tests/session-retention.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/54-session-retention.enabler/session-retention.md",
@@ -88,6 +90,7 @@
           "src/commands/session/prune.ts",
           "src/commands/session/resolve-config.ts",
           "src/config/defaults.ts",
+          "src/config/filenames.ts",
           "src/domains/session/archive.ts",
           "src/domains/session/batch.ts",
           "src/domains/session/create.ts",

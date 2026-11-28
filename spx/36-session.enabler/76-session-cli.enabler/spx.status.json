@@ -60,7 +60,7 @@
       },
       "tests/session-cli.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/76-session-cli.enabler/session-cli.md",
@@ -214,12 +214,13 @@
       },
       "tests/session-cli.property.l2.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/76-session-cli.enabler/session-cli.md",
           "spx/36-session.enabler/76-session-cli.enabler/tests/session-cli.property.l2.test.ts",
           "src/config/defaults.ts",
+          "src/config/filenames.ts",
           "src/domains/session/create.ts",
           "src/domains/session/timestamp.ts",
           "src/domains/session/types.ts",
@@ -244,7 +245,7 @@
       },
       "tests/session-cli.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/76-session-cli.enabler/session-cli.md",
@@ -257,6 +258,7 @@
           "src/commands/session/resolve-config.ts",
           "src/commands/session/show.ts",
           "src/config/defaults.ts",
+          "src/config/filenames.ts",
           "src/domains/session/archive.ts",
           "src/domains/session/batch.ts",
           "src/domains/session/create.ts",

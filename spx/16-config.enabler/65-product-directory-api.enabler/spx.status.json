@@ -1,11 +1,11 @@
 {
   "state": "passing",
-  "malleability": "spec",
+  "malleability": "verification",
   "verification": {
     "test": {
       "tests/product-context.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/65-product-directory-api.enabler/product-directory-api.md",
@@ -402,6 +402,7 @@
           "testing/harnesses/product-context/cli.ts",
           "testing/harnesses/product-context/compliance.ts",
           "testing/harnesses/product-context/mapping.ts",
+          "testing/harnesses/product-context/nested-product.ts",
           "testing/harnesses/property/property.ts",
           "testing/harnesses/session/harness.ts",
           "testing/harnesses/spec-tree/spec-tree.ts",
@@ -410,7 +411,7 @@
       },
       "tests/product-context.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/65-product-directory-api.enabler/product-directory-api.md",
@@ -814,7 +815,7 @@
       },
       "tests/product-directory-api.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/65-product-directory-api.enabler/product-directory-api.md",

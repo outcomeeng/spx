@@ -5,11 +5,12 @@
     "test": {
       "tests/appendable-journal-store-concurrency.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/tests/appendable-journal-store-concurrency.property.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
           "src/lib/atomic-file-write.ts",
@@ -33,11 +34,12 @@
       },
       "tests/appendable-journal-store-creation-marker.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/tests/appendable-journal-store-creation-marker.scenario.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
           "src/lib/atomic-file-write.ts",
@@ -60,11 +62,12 @@
       },
       "tests/appendable-journal-store-interruption.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/tests/appendable-journal-store-interruption.compliance.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
           "src/lib/atomic-file-write.ts",
@@ -87,11 +90,12 @@
       },
       "tests/appendable-journal-store-read-reuse.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/tests/appendable-journal-store-read-reuse.compliance.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
           "src/lib/atomic-file-write.ts",
@@ -114,11 +118,12 @@
       },
       "tests/appendable-journal-store-sealing-race.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/tests/appendable-journal-store-sealing-race.property.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
           "src/lib/atomic-file-write.ts",
@@ -142,11 +147,12 @@
       },
       "tests/appendable-journal-store.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/tests/appendable-journal-store.compliance.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
           "src/lib/atomic-file-write.ts",
@@ -169,11 +175,12 @@
       },
       "tests/appendable-journal-store.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/tests/appendable-journal-store.property.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/agent-run-journal/index.ts",
           "src/lib/appendable-journal-store/index.ts",
           "src/lib/atomic-file-write.ts",

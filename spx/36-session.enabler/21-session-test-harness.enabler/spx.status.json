@@ -5,12 +5,13 @@
     "test": {
       "tests/session-test-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/21-session-test-harness.enabler/session-test-harness.md",
           "spx/36-session.enabler/21-session-test-harness.enabler/tests/session-test-harness.scenario.l1.test.ts",
           "src/config/defaults.ts",
+          "src/config/filenames.ts",
           "src/domains/session/create.ts",
           "src/domains/session/display-width.ts",
           "src/domains/session/errors.ts",

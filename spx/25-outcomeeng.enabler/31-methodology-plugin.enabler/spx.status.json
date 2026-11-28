@@ -5,7 +5,7 @@
     "test": {
       "tests/diagnostics.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -65,7 +65,7 @@
       },
       "tests/fetch.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -124,7 +124,7 @@
       },
       "tests/fetch.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -183,7 +183,7 @@
       },
       "tests/fetch.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -232,7 +232,7 @@
       },
       "tests/fetch.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -292,7 +292,7 @@
       },
       "tests/migration-entry.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -351,7 +351,7 @@
       },
       "tests/migration-entry.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "methodology/4.0/source.json",
           "migration/4.0/claude/entry.md",
@@ -359,6 +359,7 @@
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/tests/migration-entry.conformance.l1.test.ts",
+          "src/config/filenames.ts",
           "src/config/methodology.ts",
           "src/lib/config/cwd.ts",
           "src/lib/file-system/pathContainment.ts",
@@ -385,7 +386,7 @@
       },
       "tests/tree-address.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",

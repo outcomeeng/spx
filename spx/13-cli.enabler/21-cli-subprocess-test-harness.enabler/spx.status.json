@@ -1,5 +1,5 @@
 {
-  "state": "passing",
+  "state": "specified",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -18,11 +18,12 @@
       },
       "tests/cli-subprocess-test-harness.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/cli-subprocess-test-harness.md",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.mapping.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -37,20 +38,7 @@
     },
     "evidence": {
       "test": {
-        "verdict": "passed",
-        "commit": "f47f509b23f2116c7491cd1cde9d3a793611ce03",
-        "read": [
-          "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/cli-subprocess-test-harness.md",
-          "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
-          "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.mapping.l1.test.ts",
-          "src/lib/git/root.ts",
-          "testing/harnesses/constants.ts"
-        ],
-        "actor": {
-          "kind": "agent",
-          "id": "spx-advisor"
-        },
-        "run": "2026-11-22_13-00-30-688-9f8d717e1913"
+        "verdict": "not-run"
       }
     }
   }

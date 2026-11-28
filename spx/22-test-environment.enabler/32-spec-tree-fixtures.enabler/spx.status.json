@@ -5,7 +5,7 @@
     "test": {
       "tests/spec-tree-env-lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
@@ -111,7 +111,7 @@
       },
       "tests/spec-tree-env-safety.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
@@ -219,7 +219,7 @@
       },
       "tests/spec-tree-fixture-sources.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md",
@@ -327,7 +327,7 @@
       },
       "tests/spec-tree-fixtures.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
@@ -438,6 +438,7 @@
           "spx/18-state.enabler/15-state-test-harness.enabler/tests/nested-product-layout.scenario.l1.test.ts",
           "spx/18-state.enabler/15-state-test-harness.enabler/tests/state-test-harness.scenario.l1.test.ts",
           "spx/18-state.enabler/21-product-root.enabler/tests/env-isolation.scenario.l1.test.ts",
+          "spx/18-state.enabler/21-product-root.enabler/tests/local-product-root.mapping.l1.test.ts",
           "spx/18-state.enabler/21-product-root.enabler/tests/result-shape.mapping.l1.test.ts",
           "spx/18-state.enabler/21-product-root.enabler/tests/root-resolution.scenario.l1.test.ts",
           "spx/18-state.enabler/32-scope-addressing.enabler/tests/branch-identity.property.l1.test.ts",

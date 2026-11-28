@@ -5,11 +5,12 @@
     "test": {
       "tests/atomic-jsonl-publication.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-record-store.enabler/record-store.md",
           "spx/18-state.enabler/43-record-store.enabler/tests/atomic-jsonl-publication.compliance.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -27,11 +28,12 @@
       },
       "tests/atomic-jsonl-publication.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-record-store.enabler/record-store.md",
           "spx/18-state.enabler/43-record-store.enabler/tests/atomic-jsonl-publication.mapping.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -49,11 +51,12 @@
       },
       "tests/atomic-jsonl-publication.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-record-store.enabler/record-store.md",
           "spx/18-state.enabler/43-record-store.enabler/tests/atomic-jsonl-publication.property.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -71,11 +74,12 @@
       },
       "tests/jsonl-records.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-record-store.enabler/record-store.md",
           "spx/18-state.enabler/43-record-store.enabler/tests/jsonl-records.scenario.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -92,11 +96,12 @@
       },
       "tests/record-store.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-record-store.enabler/record-store.md",
           "spx/18-state.enabler/43-record-store.enabler/tests/record-store.scenario.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -114,11 +119,12 @@
       },
       "tests/run-file.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-record-store.enabler/record-store.md",
           "spx/18-state.enabler/43-record-store.enabler/tests/run-file.compliance.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -135,11 +141,12 @@
       },
       "tests/run-record.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-record-store.enabler/record-store.md",
           "spx/18-state.enabler/43-record-store.enabler/tests/run-record.property.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",

@@ -5,7 +5,7 @@
     "test": {
       "tests/output-escaping.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/output-escaping.compliance.l1.test.ts",
@@ -14,6 +14,7 @@
           "src/commands/worktree/index.ts",
           "src/commands/worktree/release.ts",
           "src/commands/worktree/status.ts",
+          "src/config/filenames.ts",
           "src/domains/session/agent-session.ts",
           "src/domains/worktree/claim.ts",
           "src/domains/worktree/controlling-process.ts",
@@ -49,7 +50,7 @@
       },
       "tests/worktree-cli.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-cli.compliance.l2.test.ts",
@@ -58,6 +59,7 @@
           "src/commands/worktree/index.ts",
           "src/commands/worktree/release.ts",
           "src/commands/worktree/status.ts",
+          "src/config/filenames.ts",
           "src/domains/session/agent-session.ts",
           "src/domains/worktree/claim.ts",
           "src/domains/worktree/controlling-process.ts",
@@ -92,7 +94,7 @@
       },
       "tests/worktree-cli.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-cli.scenario.l1.test.ts",
@@ -102,6 +104,7 @@
           "src/commands/worktree/release.ts",
           "src/commands/worktree/status.ts",
           "src/config/defaults.ts",
+          "src/config/filenames.ts",
           "src/domains/session/agent-session.ts",
           "src/domains/session/create.ts",
           "src/domains/session/timestamp.ts",
@@ -141,7 +144,7 @@
       },
       "tests/worktree-cli.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-cli.scenario.l2.test.ts",
@@ -150,6 +153,7 @@
           "src/commands/worktree/index.ts",
           "src/commands/worktree/release.ts",
           "src/commands/worktree/status.ts",
+          "src/config/filenames.ts",
           "src/domains/session/agent-session.ts",
           "src/domains/worktree/claim.ts",
           "src/domains/worktree/controlling-process.ts",
@@ -184,11 +188,12 @@
       },
       "tests/worktree-controlling-process.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-controlling-process.scenario.l1.test.ts",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/worktree-cli.md",
+          "src/config/filenames.ts",
           "src/domains/worktree/controlling-process.ts",
           "src/domains/worktree/occupancy-store.ts",
           "src/lib/atomic-file-write.ts",
@@ -214,7 +219,7 @@
       },
       "tests/worktree-name-resolution.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-name-resolution.compliance.l1.test.ts",
@@ -223,6 +228,7 @@
           "src/commands/worktree/index.ts",
           "src/commands/worktree/release.ts",
           "src/commands/worktree/status.ts",
+          "src/config/filenames.ts",
           "src/domains/session/agent-session.ts",
           "src/domains/worktree/claim.ts",
           "src/domains/worktree/controlling-process.ts",
@@ -255,7 +261,7 @@
       },
       "tests/worktree-name-resolution.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-name-resolution.mapping.l1.test.ts",
@@ -264,6 +270,7 @@
           "src/commands/worktree/index.ts",
           "src/commands/worktree/release.ts",
           "src/commands/worktree/status.ts",
+          "src/config/filenames.ts",
           "src/domains/session/agent-session.ts",
           "src/domains/worktree/claim.ts",
           "src/domains/worktree/controlling-process.ts",
@@ -296,11 +303,12 @@
       },
       "tests/worktree-name.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-name.property.l1.test.ts",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/worktree-cli.md",
+          "src/config/filenames.ts",
           "src/domains/worktree/controlling-process.ts",
           "src/domains/worktree/occupancy-store.ts",
           "src/domains/worktree/worktree-name.ts",

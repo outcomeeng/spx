@@ -5,12 +5,13 @@
     "test": {
       "tests/occupancy-store.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/32-occupancy-store.enabler/occupancy-store.md",
           "spx/38-worktree.enabler/32-occupancy-store.enabler/tests/occupancy-store.compliance.l1.test.ts",
           "src/config/defaults.ts",
+          "src/config/filenames.ts",
           "src/domains/session/create.ts",
           "src/domains/session/types.ts",
           "src/domains/worktree/controlling-process.ts",
@@ -42,11 +43,12 @@
       },
       "tests/occupancy-store.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/32-occupancy-store.enabler/occupancy-store.md",
           "spx/38-worktree.enabler/32-occupancy-store.enabler/tests/occupancy-store.mapping.l1.test.ts",
+          "src/config/filenames.ts",
           "src/domains/worktree/controlling-process.ts",
           "src/domains/worktree/occupancy-store.ts",
           "src/lib/atomic-file-write.ts",
@@ -73,11 +75,12 @@
       },
       "tests/occupancy-store.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/32-occupancy-store.enabler/occupancy-store.md",
           "spx/38-worktree.enabler/32-occupancy-store.enabler/tests/occupancy-store.property.l1.test.ts",
+          "src/config/filenames.ts",
           "src/domains/worktree/controlling-process.ts",
           "src/domains/worktree/occupancy-store.ts",
           "src/lib/atomic-file-write.ts",
@@ -103,11 +106,12 @@
       },
       "tests/occupancy-store.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/32-occupancy-store.enabler/occupancy-store.md",
           "spx/38-worktree.enabler/32-occupancy-store.enabler/tests/occupancy-store.scenario.l1.test.ts",
+          "src/config/filenames.ts",
           "src/domains/worktree/controlling-process.ts",
           "src/domains/worktree/occupancy-store.ts",
           "src/lib/atomic-file-write.ts",

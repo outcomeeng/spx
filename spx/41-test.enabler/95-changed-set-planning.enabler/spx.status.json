@@ -5,7 +5,7 @@
     "test": {
       "tests/changed-set-planning.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/95-changed-set-planning.enabler/changed-set-planning.md",
@@ -127,7 +127,7 @@
       },
       "tests/changed-set-planning.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/95-changed-set-planning.enabler/changed-set-planning.md",
@@ -248,7 +248,7 @@
       },
       "tests/changed-set-planning.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/95-changed-set-planning.enabler/changed-set-planning.md",

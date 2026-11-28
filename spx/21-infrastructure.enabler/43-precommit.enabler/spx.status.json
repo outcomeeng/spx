@@ -5,11 +5,12 @@
     "test": {
       "tests/deps-install-gate-probe.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
           "spx/21-infrastructure.enabler/43-precommit.enabler/tests/deps-install-gate-probe.mapping.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -27,11 +28,12 @@
       },
       "tests/deps-install-gate.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
           "spx/21-infrastructure.enabler/43-precommit.enabler/tests/deps-install-gate.mapping.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -49,11 +51,12 @@
       },
       "tests/entrypoint.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
           "spx/21-infrastructure.enabler/43-precommit.enabler/tests/entrypoint.mapping.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -90,11 +93,12 @@
       },
       "tests/main-checkout-gate.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
           "spx/21-infrastructure.enabler/43-precommit.enabler/tests/main-checkout-gate.mapping.l1.test.ts",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",

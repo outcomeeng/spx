@@ -5,11 +5,12 @@
     "test": {
       "tests/default-branch.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/32-worktree-topology.enabler/tests/default-branch.compliance.l1.test.ts",
           "spx/18-state.enabler/32-worktree-topology.enabler/worktree-topology.md",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -28,11 +29,12 @@
       },
       "tests/git-facts.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/32-worktree-topology.enabler/tests/git-facts.scenario.l1.test.ts",
           "spx/18-state.enabler/32-worktree-topology.enabler/worktree-topology.md",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -50,11 +52,12 @@
       },
       "tests/main-checkout-path.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout-path.mapping.l1.test.ts",
           "spx/18-state.enabler/32-worktree-topology.enabler/worktree-topology.md",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -72,11 +75,12 @@
       },
       "tests/main-checkout.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout.mapping.l1.test.ts",
           "spx/18-state.enabler/32-worktree-topology.enabler/worktree-topology.md",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -94,11 +98,12 @@
       },
       "tests/main-checkout.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout.scenario.l1.test.ts",
           "spx/18-state.enabler/32-worktree-topology.enabler/worktree-topology.md",
+          "src/config/filenames.ts",
           "src/lib/config/cwd.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",

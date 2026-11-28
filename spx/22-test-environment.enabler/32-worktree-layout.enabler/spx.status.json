@@ -1,11 +1,11 @@
 {
-  "state": "passing",
+  "state": "specified",
   "malleability": "implementation",
   "verification": {
     "test": {
       "tests/worktree-layout.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "commit": "6b58a639ddc6543d430c1c5046c4df1b58b461fb",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-worktree-layout.enabler/tests/worktree-layout.scenario.l1.test.ts",
@@ -81,18 +81,7 @@
     },
     "evidence": {
       "test": {
-        "verdict": "passed",
-        "commit": "f47f509b23f2116c7491cd1cde9d3a793611ce03",
-        "read": [
-          "spx/22-test-environment.enabler/32-worktree-layout.enabler/tests/worktree-layout.scenario.l1.test.ts",
-          "spx/22-test-environment.enabler/32-worktree-layout.enabler/worktree-layout.md",
-          "src/lib/git/root.ts"
-        ],
-        "actor": {
-          "kind": "agent",
-          "id": "spx-advisor"
-        },
-        "run": "2026-11-22_13-00-34-264-522f0fca490f"
+        "verdict": "not-run"
       }
     }
   }
