@@ -1,5 +1,5 @@
 {
-  "state": "specified",
+  "state": "passing",
   "malleability": "spec",
   "verification": {
     "test": {
@@ -336,7 +336,17 @@
     },
     "audit": {
       "methodology-version-generator": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "1a98b68f35a7eacf06a65f1f273d74a72c4bb9bc",
+        "read": [
+          "spx/16-config.enabler/43-methodology-config.enabler/methodology-config.md",
+          "testing/generators/methodology/tree.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_06-32-51-345-03ca1f9e2225"
       }
     }
   }
