@@ -77,7 +77,7 @@ For a language whose dependencies a lockfile resolves, `spx spec status --update
 - NEVER: `spx.status.json` is hand-authored or offered as `spx.status.yaml`/`spx.status.toml` — it is a machine-written JSON artifact ([audit])
 - NEVER: the status path composes a language-specific test runner — outcomes arrive through the injected resolver over recorded verification evidence ([audit])
 
-### Test.Mapping: audit-entry-key
+### Test.Mapping: [audit-entry-key](tests/audit-entry-key.mapping.l1.test.ts)
 
 `spx spec status --update` writes one `audit` entry in a node's 4.0 claim for each keyed audit reference the spec-tree library reads from the node's spec, whichever file form the spec takes, under that reference's key, and none for any other row; the declaration is 4.0 migrating from 3.2.
 
@@ -90,7 +90,7 @@ For a language whose dependencies a lockfile resolves, `spx spec status --update
 | unslugged-audit-row | `- ALWAYS: the message names the line.`                                                           | `### Audit`                    | none                     |
 | pathless-tag        | `- ALWAYS: the message names the line`, closed by an audit tag with no rule slug                  | `### Compliance`               | none                     |
 
-### Test.Mapping: migration-source-state
+### Test.Mapping: [migration-source-state](tests/migration-source-state.mapping.l1.test.ts)
 
 Under a declaration of 4.0 migrating from 3.2, `spx spec status --update` and `spx spec status` classify a source-grammar node whose one Assertion carries the audit-tag form of the row, whose linked test passes, and whose resolvers answer every test, audit slug, and evidence kind it requires as passed, by its declared Malleability, to the State the 4.0 rule gives it.
 
@@ -103,15 +103,15 @@ Under a declaration of 4.0 migrating from 3.2, `spx spec status --update` and `s
 
 ### Test.Compliance: tags without the source grammar
 
-- tags-unread-without-source: ALWAYS: under a declaration on the 4.0 line with no `methodology.migratingFrom`, an audit or review tag of a node's spec, linked, slugged, or pathless, keys no `audit` entry, and the node derives the State it derives with no such tag, through `spx spec status --update` and `spx spec status` alike
+- [tags-unread-without-source](tests/tags-without-source.compliance.l1.test.ts): ALWAYS: under a declaration on the 4.0 line with no `methodology.migratingFrom`, an audit or review tag of a node's spec, linked, slugged, or pathless, keys no `audit` entry, and the node derives the State it derives with no such tag, through `spx spec status --update` and `spx spec status` alike
 
 ### Test.Scenario: audit slugs
 
-- tag-outside-assertion:
+- [tag-outside-assertion](tests/audit-slugs.scenario.l1.test.ts):
   - Given a node at `implementation` under a declaration of 4.0 migrating from 3.2, whose spec's Assertions section holds one row closed by an audit tag of rule slug `recovery-message` and one row that quotes an audit tag of rule slug `quoted-rule` in a code span, and whose spec holds an audit tag of rule slug `stray-rule` in a paragraph after that section
   - When `spx spec status --update` folds the node's claim
   - Then the claim's `audit` section holds exactly one entry, keyed `recovery-message`
-- source-node-without-evidence-audit:
+- [source-node-without-evidence-audit](tests/audit-slugs.scenario.l1.test.ts):
   - Given a product migrating from 3.2 and a source-grammar node that declares no Malleability, whose linked tests pass and whose claim carries no `evidence` entry
   - When `spx spec status` reads the node
   - Then the node does not derive `passing`
