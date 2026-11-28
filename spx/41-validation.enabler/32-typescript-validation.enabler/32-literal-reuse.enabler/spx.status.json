@@ -1,5 +1,5 @@
 {
-  "state": "specified",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -99,12 +99,35 @@
     },
     "audit": {
       "validation-all-stage": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "42be9cf43ffc99f483234c8ba3d2677ec955e78c",
+        "read": [
+          "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/literal-reuse.md",
+          "src/commands/validation/all.ts",
+          "src/commands/validation/literal.ts",
+          "src/validation/languages/typescript.ts",
+          "src/validation/registry.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_00-05-19-195-12e5a563d265"
       }
     },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "42be9cf43ffc99f483234c8ba3d2677ec955e78c",
+        "read": [
+          "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/literal-reuse.md",
+          "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/tests/literal-reuse.property.l1.test.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_00-06-38-878-b9f6ca9964fb"
       }
     }
   }
