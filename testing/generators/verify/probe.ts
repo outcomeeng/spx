@@ -13,17 +13,41 @@ function arbitrarySlug(): fc.Arbitrary<string> {
     .map(([head, tail]) => (tail === undefined ? head : `${head}-${tail}`));
 }
 
-/** A Node directory under `spx/`: an index, a slug, and an output kind. */
-function arbitraryNodeDirectory(): fc.Arbitrary<string> {
+/** One Node directory name: an index, a slug, and the given kind. */
+function arbitraryNodeDirectoryName(kinds: readonly string[]): fc.Arbitrary<string> {
   return fc
-    .tuple(fc.integer({ min: 10, max: 99 }), arbitrarySlug(), fc.constantFrom("enabler", "capability", "domain"))
-    .map(([index, slug, kind]) => `spx/${index}-${slug}.${kind}`);
+    .tuple(fc.integer({ min: 10, max: 99 }), arbitrarySlug(), fc.constantFrom(...kinds))
+    .map(([index, slug, kind]) => `${index}-${slug}.${kind}`);
+}
+
+const OUTPUT_KINDS = ["enabler", "capability", "domain"] as const;
+
+/** The shapes of an output Node's path under `spx/`. */
+const NODE_PATH_SHAPE = {
+  TOP_LEVEL: "top-level-node",
+  NESTED: "nested-node",
+} as const;
+
+type NodePathShape = (typeof NODE_PATH_SHAPE)[keyof typeof NODE_PATH_SHAPE];
+
+/**
+ * An output Node's path under `spx/`: of the given shape, or of either when none is given — a top-level
+ * Node, or a Node below an output Node or a nested Product.
+ */
+function arbitraryNodeDirectory(shape?: NodePathShape): fc.Arbitrary<string> {
+  if (shape === undefined) {
+    return fc.oneof(arbitraryNodeDirectory(NODE_PATH_SHAPE.TOP_LEVEL), arbitraryNodeDirectory(NODE_PATH_SHAPE.NESTED));
+  }
+  if (shape === NODE_PATH_SHAPE.TOP_LEVEL) return arbitraryNodeDirectoryName(OUTPUT_KINDS).map((node) => `spx/${node}`);
+  return fc
+    .tuple(arbitraryNodeDirectoryName([...OUTPUT_KINDS, "product"]), arbitraryNodeDirectoryName(OUTPUT_KINDS))
+    .map(([parent, node]) => `spx/${parent}/${node}`);
 }
 
 /** A probe protocol path: a `probe.md` directly inside a directory under a Node's `probes/`. */
-function arbitraryProtocolPath(): fc.Arbitrary<string> {
+function arbitraryProtocolPath(shape?: NodePathShape): fc.Arbitrary<string> {
   return fc
-    .tuple(arbitraryNodeDirectory(), arbitrarySlug())
+    .tuple(arbitraryNodeDirectory(shape), arbitrarySlug())
     .map(([node, probe]) => `${node}/probes/${probe}/probe.md`);
 }
 
@@ -56,10 +80,10 @@ export interface ProbeRunUnits {
   readonly unexercisedUnit: { readonly unitKind: string; readonly subject: string; readonly reason: string };
 }
 
-function arbitraryProbeRunUnits(): fc.Arbitrary<ProbeRunUnits> {
+function arbitraryProbeRunUnits(shape?: NodePathShape): fc.Arbitrary<ProbeRunUnits> {
   return fc
     .tuple(
-      arbitraryProtocolPath(),
+      arbitraryProtocolPath(shape),
       arbitraryArtifactName(),
       arbitrarySlug(),
       arbitrarySlug(),
@@ -105,30 +129,80 @@ function probeFindingFor(units: ProbeRunUnits): fc.Arbitrary<Readonly<Record<str
     }));
 }
 
-/**
- * An artifact subject the probe form refuses for a protocol: a file under the directory's `runs/`,
- * a file in another subdirectory, `probe.md` itself, a name outside `<slug>.<ext>`, or a file beside
- * another protocol.
- */
-function arbitraryRefusedArtifactSubject(protocol: string): fc.Arbitrary<string> {
+/** The classes of artifact subject the probe form refuses for a protocol. */
+const REFUSED_ARTIFACT_CLASS = {
+  UNDER_RUNS: "under-runs",
+  OTHER_SUBDIRECTORY: "other-subdirectory",
+  PROTOCOL_FILE: "protocol-file",
+  OUTSIDE_SLUG_EXT: "outside-slug-ext",
+  BESIDE_OTHER_PROTOCOL: "beside-other-protocol",
+} as const;
+
+type RefusedArtifactClass = (typeof REFUSED_ARTIFACT_CLASS)[keyof typeof REFUSED_ARTIFACT_CLASS];
+
+/** An artifact subject of the given refused class for a protocol. */
+function arbitraryRefusedArtifactSubject(protocol: string, refused: RefusedArtifactClass): fc.Arbitrary<string> {
   const directory = protocolDirectory(protocol);
-  return fc.oneof(
-    arbitraryArtifactName().map((name) => `${directory}/runs/${name}`),
-    fc.tuple(arbitrarySlug(), arbitraryArtifactName()).map(([sub, name]) => `${directory}/${sub}/${name}`),
-    fc.constant(`${directory}/probe.md`),
-    arbitrarySlug().map((name) => `${directory}/${name}`),
-    arbitraryArtifactName().map((name) => `${directory}-other/${name}`),
-  );
+  switch (refused) {
+    case REFUSED_ARTIFACT_CLASS.UNDER_RUNS:
+      return arbitraryArtifactName().map((name) => `${directory}/runs/${name}`);
+    case REFUSED_ARTIFACT_CLASS.OTHER_SUBDIRECTORY:
+      return fc.tuple(arbitrarySlug(), arbitraryArtifactName()).map(([sub, name]) => `${directory}/${sub}/${name}`);
+    case REFUSED_ARTIFACT_CLASS.PROTOCOL_FILE:
+      return fc.constant(`${directory}/probe.md`);
+    case REFUSED_ARTIFACT_CLASS.OUTSIDE_SLUG_EXT:
+      return arbitrarySlug().map((name) => `${directory}/${name}`);
+    case REFUSED_ARTIFACT_CLASS.BESIDE_OTHER_PROTOCOL:
+      return arbitraryArtifactName().map((name) => `${directory}-other/${name}`);
+  }
 }
 
-/** A path that is no probe protocol: not `probe.md`, not directly in a probe directory, or not under `probes/`. */
-function arbitraryNonProtocolPath(): fc.Arbitrary<string> {
-  return fc.oneof(
-    arbitraryProtocolPath().map((protocol) => protocol.replace(/probe\.md$/, "notes.md")),
-    arbitraryProtocolPath().map((protocol) => protocol.replace("/probe.md", "/deeper/probe.md")),
-    arbitraryProtocolPath().map((protocol) => protocol.replace("/probes/", "/tests/")),
-    arbitrarySlug().map((slug) => `probes/${slug}/probe.md`),
-  );
+/** The classes of path that name no probe protocol. */
+const NON_PROTOCOL_PATH_CLASS = {
+  NOT_PROBE_MD: "not-probe-md",
+  DEEPER: "deeper-than-probe-directory",
+  UNDER_TESTS: "under-tests",
+  OUTSIDE_SPEC_TREE: "outside-spec-tree",
+  UNDER_PRODUCT_ROOT: "under-product-root",
+  UNDER_NESTED_PRODUCT: "under-nested-product",
+  NON_NODE_OWNER: "non-node-owner",
+  NON_NODE_ANCESTOR: "non-node-ancestor",
+} as const;
+
+type NonProtocolPathClass = (typeof NON_PROTOCOL_PATH_CLASS)[keyof typeof NON_PROTOCOL_PATH_CLASS];
+
+/** A path of the given class that names no probe protocol. */
+function arbitraryNonProtocolPath(nonProtocol: NonProtocolPathClass): fc.Arbitrary<string> {
+  switch (nonProtocol) {
+    case NON_PROTOCOL_PATH_CLASS.NOT_PROBE_MD:
+      return arbitraryProtocolPath().map((protocol) => protocol.replace(/probe\.md$/, "notes.md"));
+    case NON_PROTOCOL_PATH_CLASS.DEEPER:
+      return arbitraryProtocolPath().map((protocol) => protocol.replace("/probe.md", "/deeper/probe.md"));
+    case NON_PROTOCOL_PATH_CLASS.UNDER_TESTS:
+      return arbitraryProtocolPath().map((protocol) => protocol.replace("/probes/", "/tests/"));
+    case NON_PROTOCOL_PATH_CLASS.OUTSIDE_SPEC_TREE:
+      return fc
+        .tuple(
+          arbitrarySlug().filter((dir) => dir !== "spx"),
+          arbitraryNodeDirectoryName(OUTPUT_KINDS),
+          arbitrarySlug(),
+        )
+        .map(([dir, node, slug]) => `${dir}/${node}/probes/${slug}/probe.md`);
+    case NON_PROTOCOL_PATH_CLASS.UNDER_PRODUCT_ROOT:
+      return arbitrarySlug().map((slug) => `spx/probes/${slug}/probe.md`);
+    case NON_PROTOCOL_PATH_CLASS.UNDER_NESTED_PRODUCT:
+      return fc
+        .tuple(arbitraryNodeDirectoryName(["product"]), arbitrarySlug())
+        .map(([product, slug]) => `spx/${product}/probes/${slug}/probe.md`);
+    case NON_PROTOCOL_PATH_CLASS.NON_NODE_OWNER:
+      return fc
+        .tuple(arbitraryNodeDirectory(), arbitrarySlug(), arbitrarySlug())
+        .map(([node, dir, slug]) => `${node}/${dir}/probes/${slug}/probe.md`);
+    case NON_PROTOCOL_PATH_CLASS.NON_NODE_ANCESTOR:
+      return fc
+        .tuple(arbitrarySlug(), arbitraryNodeDirectoryName(OUTPUT_KINDS), arbitrarySlug())
+        .map(([dir, node, slug]) => `spx/${dir}/${node}/probes/${slug}/probe.md`);
+  }
 }
 
 /** One row of the probe scope-unit Mapping: the unit kind, its unit among a run's units, and its further field. */
@@ -193,7 +267,10 @@ export const PROBE_TEST_GENERATOR = {
   artifactName: arbitraryArtifactName,
   runUnits: arbitraryProbeRunUnits,
   findingFor: probeFindingFor,
+  nodePathShapes: () => Object.values(NODE_PATH_SHAPE),
+  refusedArtifactClasses: () => Object.values(REFUSED_ARTIFACT_CLASS),
   refusedArtifactSubject: arbitraryRefusedArtifactSubject,
+  nonProtocolPathClasses: () => Object.values(NON_PROTOCOL_PATH_CLASS),
   nonProtocolPath: arbitraryNonProtocolPath,
   protocolDirectory,
 } as const;

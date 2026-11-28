@@ -80,12 +80,15 @@ describe("probe-type-registered", () => {
 });
 
 describe("protocol-root", () => {
-  it("accepts as first unit the protocol unit equal to the file scope of a probe.md under a Node's probes/", async () => {
-    const units = drawUnits();
-    const run = await startProbeRun(units.protocol);
+  it.each(PROBE_TEST_GENERATOR.nodePathShapes())(
+    "accepts as first unit the protocol unit equal to the file scope of a probe.md under a Node's probes/: %s",
+    async (shape) => {
+      const units = sampleVerifyTestValue(PROBE_TEST_GENERATOR.runUnits(shape));
+      const run = await startProbeRun(units.protocol);
 
-    await expectAdded(addProbeScope(run, units.protocolUnit));
-  });
+      await expectAdded(addProbeScope(run, units.protocolUnit));
+    },
+  );
 
   it("refuses a protocol unit in a changeset-scoped run", async () => {
     const run = await startProbeChangesetRun();
@@ -97,13 +100,19 @@ describe("protocol-root", () => {
     await expectScopeRefused(run, protocol, EVIDENCE_REQUIREMENT.PROBE_PROTOCOL_ROOTS_RUN);
   });
 
-  it("refuses a protocol unit whose file scope names no probe.md directly in a directory under probes/", async () => {
-    const path = sampleVerifyTestValue(PROBE_TEST_GENERATOR.nonProtocolPath());
-    const run = await startProbeRun(path);
-    const protocol = { [PROBE_PAYLOAD_FIELD.UNIT_KIND]: PROBE_UNIT_KIND.PROTOCOL, [PROBE_PAYLOAD_FIELD.SUBJECT]: path };
+  it.each(PROBE_TEST_GENERATOR.nonProtocolPathClasses())(
+    "refuses a protocol unit whose file scope names no probe.md directly in a directory under a Node's probes/: %s",
+    async (nonProtocol) => {
+      const path = sampleVerifyTestValue(PROBE_TEST_GENERATOR.nonProtocolPath(nonProtocol));
+      const run = await startProbeRun(path);
+      const protocol = {
+        [PROBE_PAYLOAD_FIELD.UNIT_KIND]: PROBE_UNIT_KIND.PROTOCOL,
+        [PROBE_PAYLOAD_FIELD.SUBJECT]: path,
+      };
 
-    await expectScopeRefused(run, protocol, EVIDENCE_REQUIREMENT.PROBE_PROTOCOL_ROOTS_RUN);
-  });
+      await expectScopeRefused(run, protocol, EVIDENCE_REQUIREMENT.PROBE_PROTOCOL_ROOTS_RUN);
+    },
+  );
 
   it("refuses a first protocol unit whose subject differs from the run's file scope", async () => {
     const units = drawUnits();
@@ -141,17 +150,20 @@ describe("artifact-retained", () => {
     await expectAdded(addProbeScope(run, units.artifactUnit));
   });
 
-  it("refuses an artifact under runs/, in another subdirectory, named probe.md, outside <slug>.<ext>, or beside no protocol", async () => {
-    const units = drawUnits();
-    const run = await rootedRun(units);
-    const subject = sampleVerifyTestValue(PROBE_TEST_GENERATOR.refusedArtifactSubject(units.protocol));
+  it.each(PROBE_TEST_GENERATOR.refusedArtifactClasses())(
+    "refuses an artifact that is no <slug>.<ext> file directly in the protocol's directory: %s",
+    async (refused) => {
+      const units = drawUnits();
+      const run = await rootedRun(units);
+      const subject = sampleVerifyTestValue(PROBE_TEST_GENERATOR.refusedArtifactSubject(units.protocol, refused));
 
-    await expectScopeRefused(
-      run,
-      { ...units.artifactUnit, [PROBE_PAYLOAD_FIELD.SUBJECT]: subject },
-      EVIDENCE_REQUIREMENT.PROBE_ARTIFACT_IN_PROTOCOL_DIRECTORY,
-    );
-  });
+      await expectScopeRefused(
+        run,
+        { ...units.artifactUnit, [PROBE_PAYLOAD_FIELD.SUBJECT]: subject },
+        EVIDENCE_REQUIREMENT.PROBE_ARTIFACT_IN_PROTOCOL_DIRECTORY,
+      );
+    },
+  );
 
   it("refuses to finish a probe run that recorded no artifact unit, and records nothing", async () => {
     const units = drawUnits();

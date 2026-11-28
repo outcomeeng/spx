@@ -15,6 +15,7 @@ import {
 } from "@/domains/verify/evidence-rejection";
 import type { JournalEvent, JournalEventInput, JsonValue } from "@/lib/agent-run-journal";
 import { RUNTIME_EVENT_NAMESPACE_DEFAULT } from "@/lib/agent-run-journal/config";
+import { parseSpecTreeNodeDirectoryName, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { branchScopeDir, compareAsciiStrings, composeScopeDir, runsDir, validateScopeToken } from "@/lib/state-store";
 import {
   type AvailableContentDigests,
@@ -1967,15 +1968,28 @@ export function validateProbeScope(payload: JsonValue): EvidenceValidationResult
   return acceptEvidence({ unitKind, subject });
 }
 
-/** Whether a path names a `probe.md` directly inside a directory under a Node's `probes/`. */
+/** The segments a protocol path holds after its Node path: `probes/`, the probe directory, `probe.md`. */
+const PROBE_PROTOCOL_TAIL_LENGTH = 3;
+
+/**
+ * Whether a path names a `probe.md` directly inside a directory under a Node's `probes/`: the spec
+ * tree's root directory, one or more Node directories, the last of them an output Node, since a
+ * Product holds no `probes/`, then `probes/<slug>/probe.md`.
+ */
 function isProbeProtocolPath(path: string): boolean {
   const segments = path.split(PATH_SEGMENT_SEPARATOR);
-  const length = segments.length;
+  const tail = segments.slice(-PROBE_PROTOCOL_TAIL_LENGTH);
+  const nodePath = segments.slice(1, -PROBE_PROTOCOL_TAIL_LENGTH);
+  const owner = nodePath.length === 0 ? null : parseSpecTreeNodeDirectoryName(nodePath[nodePath.length - 1] ?? "");
   return (
-    length >= 4
-    && segments[length - 1] === PROBE_PROTOCOL_FILENAME
-    && PROBE_SLUG_PATTERN.test(segments[length - 2] ?? "")
-    && segments[length - 3] === PROBES_DIRECTORY
+    segments[0] === SPEC_TREE_CONFIG.ROOT_DIRECTORY
+    && tail.length === PROBE_PROTOCOL_TAIL_LENGTH
+    && tail[0] === PROBES_DIRECTORY
+    && PROBE_SLUG_PATTERN.test(tail[1] ?? "")
+    && tail[2] === PROBE_PROTOCOL_FILENAME
+    && owner !== null
+    && owner.suffix !== SPEC_TREE_CONFIG.PRODUCT.NODE_SUFFIX
+    && nodePath.every((segment) => parseSpecTreeNodeDirectoryName(segment) !== null)
   );
 }
 
