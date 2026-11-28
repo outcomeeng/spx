@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {
   dispatchValidationAll,
@@ -12,7 +13,7 @@ describe("validation all CLI scope forwarding", () => {
   it("forwards production scope to the full-pipeline handler", async () => {
     const dispatch = await dispatchValidationAll(validationProductionScopeOperands());
 
-    expect(dispatch.result.exitCode).toBe(0);
+    expect(dispatch.result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
     expect(dispatch.calls).toHaveLength(1);
     expect(dispatch.calls[0]?.options.scope).toBe(VALIDATION_SCOPES.PRODUCTION);
   });
@@ -22,7 +23,7 @@ describe("validation all CLI scope forwarding", () => {
 
     const dispatch = await dispatchValidationAll([filePath]);
 
-    expect(dispatch.result.exitCode).toBe(0);
+    expect(dispatch.result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
     expect(dispatch.calls).toHaveLength(1);
     expect(dispatch.calls[0]?.options.files).toEqual([filePath]);
     expect(dispatch.calls[0]?.options.scope).toBe(VALIDATION_SCOPES.FULL);
@@ -33,7 +34,7 @@ describe("validation all CLI scope forwarding", () => {
 
     const dispatch = await dispatchValidationAll([directoryPath]);
 
-    expect(dispatch.result.exitCode).toBe(0);
+    expect(dispatch.result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
     expect(dispatch.calls).toHaveLength(1);
     expect(dispatch.calls[0]?.options.files).toEqual([directoryPath]);
     expect(dispatch.calls[0]?.options.scope).toBe(VALIDATION_SCOPES.FULL);
