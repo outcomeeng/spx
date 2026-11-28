@@ -19,7 +19,9 @@ describe("slug-errors: the errors markdown validation reports for the leading sl
         const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
 
         const slugErrors = result.errors
-          .filter(({ detail }) => Object.values(LEADING_SLUG_DIAGNOSTICS).some((diagnostic) => detail.includes(diagnostic)))
+          .filter(({ detail }) =>
+            Object.values(LEADING_SLUG_DIAGNOSTICS).some((diagnostic) => detail.includes(diagnostic))
+          )
           .map(({ file, line, detail }) => ({ file, line, detail }));
         expect(slugErrors).toEqual(
           slugCase.files.flatMap((file) =>

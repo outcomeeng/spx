@@ -558,7 +558,9 @@ async function validateTarget(
     if (rule === markdownLeadingSlugRule) {
       return {
         [MARKDOWN_LEADING_SLUG_RULE_CONFIG.ROOT_PATH]: productDir,
-        [MARKDOWN_LEADING_SLUG_RULE_CONFIG.NODE_SPEC_PATHS]: nodeSpecs === undefined ? [] : nodeSpecs.map(({ path }) => path),
+        [MARKDOWN_LEADING_SLUG_RULE_CONFIG.NODE_SPEC_PATHS]: nodeSpecs === undefined
+          ? []
+          : nodeSpecs.map(({ path }) => path),
         [MARKDOWN_LEADING_SLUG_RULE_CONFIG.SLUG_ROWS]: grammarSelection !== undefined
           && assertionEvidenceReading(grammarSelection.selected).slugRows,
       };

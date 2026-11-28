@@ -83,7 +83,11 @@ export function leadingSlugFileText(slugLines: readonly LeadingSlugLine[]): stri
 /** A product-relative decision-record path under `spx/`. */
 export function arbitraryDecisionRecordPath(): fc.Arbitrary<string> {
   return fc
-    .tuple(fc.integer(DECISION_INDEX), fc.stringMatching(SLUG_WORD), fc.constantFrom(...DECISION_SUFFIXES))
+    .tuple(
+      fc.integer({ min: DECISION_INDEX.MIN, max: DECISION_INDEX.MAX }),
+      fc.stringMatching(SLUG_WORD),
+      fc.constantFrom(...DECISION_SUFFIXES),
+    )
     .map(([index, slug, suffix]) =>
       `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}${index}-${slug}${suffix}`
     );
@@ -141,7 +145,8 @@ export function repeatedSlugFileText(): { readonly text: string; readonly line: 
   };
 }
 
-const SLUG_SCOPE_NODE_DIRECTORY = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}21-capture.capability`;
+const SLUG_SCOPE_NODE_DIRECTORY =
+  `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}21-capture.capability`;
 const SLUG_SCOPE_NODE_SLUG = "capture";
 const DOCS_DIRECTORY = "docs";
 const MARKDOWN_EXTENSION = ".md";
@@ -166,6 +171,9 @@ export function slugScopeUnjudgedFiles(): readonly (readonly [string, string])[]
       "a Knowledge entry",
       nodeFile(SPEC_TREE_GRAMMAR.KNOWLEDGE.DIRECTORY_NAME, `${SLUG_SCOPE_NODE_SLUG}${MARKDOWN_EXTENSION}`),
     ],
-    ["a file in docs/", [DOCS_DIRECTORY, `${SLUG_SCOPE_NODE_SLUG}${MARKDOWN_EXTENSION}`].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR)],
+    [
+      "a file in docs/",
+      [DOCS_DIRECTORY, `${SLUG_SCOPE_NODE_SLUG}${MARKDOWN_EXTENSION}`].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+    ],
   ];
 }
