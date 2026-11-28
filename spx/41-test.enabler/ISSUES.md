@@ -243,3 +243,11 @@ The output named `reusedRun: .../run-2026-10-25_12-32-51-037-eaa1a5e7c7e5.jsonl`
 **Settlement condition:** a request that sets `SPX_PROPERTY_SEED` executes the selected tests with that seed or is refused with a diagnostic, and never reports a `reusedRun`. The record named above states the rule, and a scenario in `tests/recorded-run-reuse.scenario.l1.test.ts` proves it with a passed recorded run covering the selected node.
 
 **Evidence:** `src/commands/test/run-tests-command.ts` `runTestsCommand` and `reuseRecordedRun`; `src/commands/test/run-command.ts` `ReusedTestRun`; `src/interfaces/cli/test-agent-output.ts` `reusedRun`; `testing/harnesses/property/property.ts` `SPX_PROPERTY_SEED_ENV`; recorded run `run-2026-10-25_12-32-51-037-eaa1a5e7c7e5.jsonl`.
+
+## The language runner test harnesses depend on a higher-Index test harness
+
+**Evidence:** `spx/41-test.enabler/21-python-test.enabler/32-test-harness.enabler` and `spx/41-test.enabler/21-typescript-test.enabler/32-test-harness.enabler` drive their recording runners through `observeRecordingCommandRunner`, which `spx/41-test.enabler/26-test-harness.enabler` governs. Their specs name it, and their `tests/test-harness.property.l1.test.ts` files import it. `26-test-harness` sits at Index 26, above their ancestors `21-python-test.enabler` and `21-typescript-test.enabler`, so each consumer precedes its provider. `17-test-generators.enabler` is the sibling below 21 that `26-test-harness` consumes.
+
+**Impact:** The Index order states that both language runners precede the harness their test harnesses need. A reader of the Walk at either runner Node finds no lower-Index provider for `observeRecordingCommandRunner`.
+
+**Settlement condition:** `26-test-harness.enabler` sits at an Index above 17 and below 21, so that it precedes both language runner Nodes and follows `17-test-generators.enabler`.

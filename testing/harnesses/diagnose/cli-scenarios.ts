@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { DEFAULT_METHODOLOGY_SOURCE, METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
@@ -31,6 +31,7 @@ import { METHODOLOGY_CODING_AGENTS } from "@/lib/methodology";
 import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import {
   isolatedDiagnoseEnvironment,
+  removeDiagnoseTempDirs,
   runDiagnoseCli,
   writeAllChecksManifest,
   writeSpxReachabilityManifest,
@@ -74,6 +75,8 @@ function checkByName(report: DiagnoseReport, name: string): CheckRecord {
 }
 
 export function registerDiagnoseCliScenarios(): void {
+  afterEach(removeDiagnoseTempDirs);
+
   describe("spx diagnose emits a schema-valid report and exits with the code keyed to the overall verdict", () => {
     it("runs the manifest's check, prints a conforming JSON report, and exits with the verdict's exit code", async () => {
       const { manifestPath, spxFloor } = await writeSpxReachabilityManifestFixture();

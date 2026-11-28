@@ -5,7 +5,7 @@
     "test": {
       "tests/env-generators.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -113,7 +113,7 @@
       },
       "tests/generators.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -222,7 +222,7 @@
       },
       "tests/helpers.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -329,7 +329,7 @@
       },
       "tests/isolation.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -437,7 +437,7 @@
       },
       "tests/lifecycle.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -545,7 +545,7 @@
       },
       "tests/lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -652,7 +652,7 @@
       },
       "tests/nesting.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -758,14 +758,11 @@
       },
       "tests/safety.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
           "spx/22-test-environment.enabler/tests/safety.compliance.l1.test.ts",
-          "src/commands/validation/literal.ts",
-          "src/commands/validation/messages.ts",
-          "src/commands/validation/types.ts",
           "src/config/descriptor-digest.ts",
           "src/config/field-errors.ts",
           "src/config/filenames.ts",
@@ -780,7 +777,6 @@
           "src/domains/diagnose/facts.ts",
           "src/domains/release/config.ts",
           "src/domains/spec/fixture-writer-methods.ts",
-          "src/domains/validation/literal-problem-kind.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/config/cwd.ts",
           "src/lib/error-message.ts",
@@ -854,20 +850,12 @@
           "src/test/languages/read-recorder-setup.ts",
           "src/test/languages/read-recorder.ts",
           "src/validation/config/descriptor.ts",
-          "src/validation/config/path-filter.ts",
-          "src/validation/config/scope.ts",
-          "src/validation/discovery/constants.ts",
-          "src/validation/discovery/index.ts",
           "src/validation/discovery/language-finder.ts",
-          "src/validation/discovery/tool-finder.ts",
           "src/validation/literal/config.ts",
-          "src/validation/literal/detector.ts",
-          "src/validation/literal/index.ts",
-          "src/validation/literal/walker.ts",
-          "src/validation/types.ts",
           "testing/generators/config/config.ts",
-          "testing/generators/literal/literal.ts",
-          "testing/generators/literal/snippets.ts",
+          "testing/generators/config/descriptors.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/methodology/tree.ts",
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
           "testing/generators/spec-tree/kind-grammar.ts",
@@ -879,14 +867,11 @@
       },
       "tests/temp-dir.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
           "spx/22-test-environment.enabler/tests/temp-dir.scenario.l1.test.ts",
-          "src/commands/validation/literal.ts",
-          "src/commands/validation/messages.ts",
-          "src/commands/validation/types.ts",
           "src/config/descriptor-digest.ts",
           "src/config/field-errors.ts",
           "src/config/filenames.ts",
@@ -900,12 +885,9 @@
           "src/domains/diagnose/config.ts",
           "src/domains/diagnose/facts.ts",
           "src/domains/release/config.ts",
-          "src/domains/spec/fixture-writer-methods.ts",
-          "src/domains/validation/literal-problem-kind.ts",
           "src/lib/agent-run-journal/config.ts",
           "src/lib/config/cwd.ts",
           "src/lib/error-message.ts",
-          "src/lib/executable-on-path.ts",
           "src/lib/file-inclusion/adapters/eslint.ts",
           "src/lib/file-inclusion/adapters/index.ts",
           "src/lib/file-inclusion/adapters/knip.ts",
@@ -914,11 +896,6 @@
           "src/lib/file-inclusion/adapters/tsc.ts",
           "src/lib/file-inclusion/adapters/vitest.ts",
           "src/lib/file-inclusion/config.ts",
-          "src/lib/file-inclusion/ignore-source.ts",
-          "src/lib/file-inclusion/layer-sequence.ts",
-          "src/lib/file-inclusion/pipeline.ts",
-          "src/lib/file-inclusion/predicates/domain-path-filter.ts",
-          "src/lib/file-inclusion/predicates/git-tracking.ts",
           "src/lib/file-system/pathContainment.ts",
           "src/lib/git/environment.ts",
           "src/lib/git/root.ts",
@@ -945,39 +922,123 @@
           "src/lib/spec-tree/link-grammar.ts",
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
-          "src/lib/state-store/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
-          "src/lib/verification-env.ts",
           "src/test/config.ts",
           "src/test/languages/read-recorder-install.ts",
           "src/test/languages/read-recorder-setup.ts",
           "src/test/languages/read-recorder.ts",
           "src/validation/config/descriptor.ts",
-          "src/validation/config/path-filter.ts",
-          "src/validation/config/scope.ts",
-          "src/validation/discovery/constants.ts",
-          "src/validation/discovery/index.ts",
-          "src/validation/discovery/language-finder.ts",
-          "src/validation/discovery/tool-finder.ts",
           "src/validation/literal/config.ts",
-          "src/validation/literal/detector.ts",
-          "src/validation/literal/index.ts",
-          "src/validation/literal/walker.ts",
-          "src/validation/types.ts",
           "testing/generators/config/descriptors.ts",
           "testing/generators/git-name/git-name.ts",
-          "testing/generators/literal/literal.ts",
-          "testing/generators/literal/snippets.ts",
           "testing/generators/methodology/tree.ts",
           "testing/generators/sample.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       }
     },
+    "audit": {
+      "callback-scoped-only": {
+        "verdict": "passed",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
+        "read": [
+          "spx/18-state.enabler/43-record-store.enabler/tests/jsonl-records.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/test-environment.md",
+          "testing/harnesses/diagnose/cli.ts",
+          "testing/harnesses/spec-tree/spec-tree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-46-08-194-d6ec6e08cf6d"
+      },
+      "caller-config": {
+        "verdict": "passed",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
+        "read": [
+          "spx/18-state.enabler/43-record-store.enabler/tests/jsonl-records.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/test-environment.md",
+          "testing/harnesses/diagnose/cli.ts",
+          "testing/harnesses/spec-tree/spec-tree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-46-08-194-d6ec6e08cf6d"
+      },
+      "cleanup-in-finally": {
+        "verdict": "passed",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
+        "read": [
+          "spx/18-state.enabler/43-record-store.enabler/tests/jsonl-records.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/test-environment.md",
+          "testing/harnesses/diagnose/cli.ts",
+          "testing/harnesses/spec-tree/spec-tree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-46-08-194-d6ec6e08cf6d"
+      },
+      "no-filesystem-mocking": {
+        "verdict": "passed",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
+        "read": [
+          "spx/18-state.enabler/43-record-store.enabler/tests/jsonl-records.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/test-environment.md",
+          "testing/harnesses/diagnose/cli.ts",
+          "testing/harnesses/spec-tree/spec-tree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-46-08-194-d6ec6e08cf6d"
+      },
+      "no-production-registry": {
+        "verdict": "passed",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
+        "read": [
+          "spx/18-state.enabler/43-record-store.enabler/tests/jsonl-records.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/test-environment.md",
+          "testing/harnesses/diagnose/cli.ts",
+          "testing/harnesses/spec-tree/spec-tree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-46-08-194-d6ec6e08cf6d"
+      },
+      "shared-temp-primitive": {
+        "verdict": "passed",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
+        "read": [
+          "spx/18-state.enabler/43-record-store.enabler/tests/jsonl-records.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/test-environment.md",
+          "testing/harnesses/diagnose/cli.ts",
+          "testing/harnesses/spec-tree/spec-tree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-46-08-194-d6ec6e08cf6d"
+      }
+    },
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
+        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
         "read": [
           "spx/22-test-environment.enabler/test-environment.md",
           "spx/22-test-environment.enabler/tests/env-generators.property.l1.test.ts",
@@ -988,19 +1049,13 @@
           "spx/22-test-environment.enabler/tests/lifecycle.scenario.l1.test.ts",
           "spx/22-test-environment.enabler/tests/nesting.scenario.l1.test.ts",
           "spx/22-test-environment.enabler/tests/safety.compliance.l1.test.ts",
-          "spx/22-test-environment.enabler/tests/temp-dir.scenario.l1.test.ts",
-          "src/lib/node-status/claim-state.ts",
-          "src/lib/node-status/link-format.ts",
-          "src/lib/node-status/provider.ts",
-          "src/lib/node-status/spec-declaration.ts",
-          "src/lib/spec-tree/index.ts",
-          "testing/generators/literal/snippets.ts"
+          "spx/22-test-environment.enabler/tests/temp-dir.scenario.l1.test.ts"
         ],
         "actor": {
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-23_01-46-46-645-3aab341b2b02"
+        "run": "2026-11-25_08-48-50-837-73986f2f5cae"
       }
     }
   }
