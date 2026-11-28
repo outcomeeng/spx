@@ -36,6 +36,9 @@ CAN consume the product's spec tree through stable contracts without owning trav
 - ALWAYS: decisions with a parent id attach to that parent node and remain available in the snapshot's flat decision list ([test](tests/decision-attachment.compliance.l1.test.ts))
 - ALWAYS: a decision citation binds only through a `tree-absolute` or `node-local` link whose resolved path names a decision record the selection recognizes; a decision path written as text, bare or in an inline code span, binds none ([test](tests/link-grammar.compliance.l1.test.ts))
 - NEVER: a `test`, `eval`, or `probe` evidence link is admitted `tree-absolute` ([test](tests/link-grammar.compliance.l1.test.ts))
-- ALWAYS: source consumers import spec-tree contracts through `src/lib/spec-tree/index.ts`; internal modules stay behind this boundary ([audit])
 - NEVER: parse spec-tree source records, directory suffixes, or decision suffixes inside CLI command modules; commands consume snapshots and projections from the public surface ([audit])
-- NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or module interception for spec-tree registry or source tests, per [spx/23-spec-tree.enabler/15-public-library-surface.adr.md](15-public-library-surface.adr.md) and [spx/23-spec-tree.enabler/21-kind-registry.adr.md](21-kind-registry.adr.md) ([audit])
+
+### Audit: library boundary
+
+- import-boundary: ALWAYS: source consumers import spec-tree contracts through `src/lib/spec-tree/index.ts`; internal modules stay behind this boundary
+- no-module-interception: NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or module interception for spec-tree registry or source tests, per [spx/23-spec-tree.enabler/15-public-library-surface.adr.md](15-public-library-surface.adr.md) and [spx/23-spec-tree.enabler/21-kind-registry.adr.md](21-kind-registry.adr.md)
