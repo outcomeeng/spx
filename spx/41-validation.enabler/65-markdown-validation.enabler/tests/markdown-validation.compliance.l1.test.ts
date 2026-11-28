@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { allCommand } from "@/commands/validation/all";
 import { markdownCommand } from "@/commands/validation/markdown";
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
-import { SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree/config";
+import { SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
 import { getDefaultDirectories, validateMarkdown } from "@/validation/steps/markdown";
 import { MARKDOWN_LINK_SHAPE_DIAGNOSTICS } from "@/validation/steps/markdown-link-shape-rule";
 import { sampleGeneratedValue } from "@testing/generators/sample";

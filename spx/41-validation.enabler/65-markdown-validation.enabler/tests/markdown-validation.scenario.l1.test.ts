@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { createNodeStatusExcludeReader } from "@/lib/node-status/exclude";
-import { SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree/config";
+import { SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import {
   MARKDOWN_CONFIG_CONTROL_KEYS,

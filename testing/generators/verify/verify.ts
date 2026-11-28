@@ -55,7 +55,7 @@ import { VERIFICATION_RUN_CLI_SURFACE } from "@/interfaces/cli/verify";
 import type { JsonValue } from "@/lib/agent-run-journal";
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
-import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
+import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { arbitrarySourceFilePath, arbitraryTestFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { PROBE_TEST_GENERATOR } from "@testing/generators/verify/probe";

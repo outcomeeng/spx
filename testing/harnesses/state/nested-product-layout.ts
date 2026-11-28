@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { execa } from "execa";
 
 import { CONFIG_FILE_FORMAT, CONFIG_FILENAMES, serializeConfigFileSections } from "@/config";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { ERROR_CODE_NOT_FOUND } from "@/lib/state-store";
 import type { NestedProductLayout } from "@testing/generators/state/nested-product-layout";
 import {

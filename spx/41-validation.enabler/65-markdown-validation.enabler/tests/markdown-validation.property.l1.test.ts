@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree/config";
+import { SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
 import { validateMarkdown } from "@/validation/steps/markdown";
 import { markdownDirectoryTarget } from "@testing/generators/validation/markdown";
 import { arbitraryIdCandidateScenario } from "@testing/generators/validation/node-spec";

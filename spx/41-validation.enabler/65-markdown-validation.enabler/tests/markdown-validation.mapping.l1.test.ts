@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { markdownCommand } from "@/commands/validation/markdown";
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
-import { SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree/config";
+import { SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { MARKDOWN_VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/markdown";
 import { VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/types";

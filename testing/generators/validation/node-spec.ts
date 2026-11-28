@@ -10,8 +10,8 @@ import { join } from "node:path";
 import * as fc from "fast-check";
 
 import { NODE_STATUS_MALLEABILITY } from "@/lib/node-status/claim";
-import { KIND_REGISTRY, OUTPUT_KINDS, SPEC_TREE_CONFIG, SPEC_TREE_INHERIT_FROM_PARENT } from "@/lib/spec-tree/config";
-import type { OutputKind } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY, OUTPUT_KINDS, SPEC_TREE_CONFIG, SPEC_TREE_INHERIT_FROM_PARENT } from "@/lib/spec-tree";
+import type { OutputKind } from "@/lib/spec-tree";
 import { NODE_SPEC_FRONT_MATTER_KEY } from "@/validation/steps/markdown-node-spec-rule";
 
 export const FRONT_MATTER_FENCE = "---";
