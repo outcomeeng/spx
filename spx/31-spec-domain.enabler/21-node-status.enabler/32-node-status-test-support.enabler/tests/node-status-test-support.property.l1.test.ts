@@ -2,25 +2,41 @@ import { readFile } from "node:fs/promises";
 import { join, posix } from "node:path";
 
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 
 import { GIT_NULL_DELIMITED_FLAG, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
-import { defaultGitDependencies, detectWorktreeProductRoot } from "@/lib/git/root";
+import { defaultGitDependencies, detectWorktreeProductRoot, GIT_STATUS_PORCELAIN_ARGS } from "@/lib/git/root";
 import {
+  NODE_STATUS_CLAIM_SECTION,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
   NODE_STATUS_FIELD,
   NODE_STATUS_VERIFICATION_MECHANISM,
 } from "@/lib/node-status";
 import {
+  createFilesystemSpecTreeSource,
+  readSpecTree,
   recognizeSpecTreeFilesystemEntry,
+  SPEC_CONTEXT_SELECTED_METADATA_KEY,
+  SPEC_TREE_AUDIT_TAG_TEXT,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
+  SPEC_TREE_EVIDENCE_KEY_KIND,
+  SPEC_TREE_EVIDENCE_TARGET,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_GRAMMAR,
+  SPEC_TREE_VERIFICATION_TYPE,
+  type SpecTreeEvidenceReference,
+  splitSpecContextFrontMatter,
 } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { TEST_RUN_STATE_STATUS } from "@/test/run-state";
 import { NODE_STATUS_READABLE_SLUGS, NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
+import {
+  SOURCE_GRAMMAR_AUDIT_TAG_FORM,
+  SOURCE_GRAMMAR_TEST_GENERATOR,
+  type SourceGrammarNodeFixture,
+} from "@testing/generators/node-status/source-grammar";
 import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import {
   CLASSIFICATION_FIXTURE_PATHS,
@@ -30,6 +46,11 @@ import {
   withStatusWriterTree,
 } from "@testing/harnesses/node-status/node-status";
 import {
+  sourceGrammarTestReference,
+  withSourceGrammarNode,
+  withSourceGrammarNodeRepository,
+} from "@testing/harnesses/node-status/source-grammar";
+import {
   assertProperty,
   PROPERTY_CLASSIFICATION,
   PROPERTY_LEVEL,
@@ -37,6 +58,59 @@ import {
   propertyTestEnvelopeTimeoutMs,
 } from "@testing/harnesses/property/property";
 import { migratingRecognitionOptions } from "@testing/harnesses/spec-tree/filename-grammar";
+
+/** The audit references the spec-tree library reads from a node's spec. */
+function auditReferencesOf(references: readonly SpecTreeEvidenceReference[]): readonly SpecTreeEvidenceReference[] {
+  return references.filter((reference) => reference.verificationType === SPEC_TREE_VERIFICATION_TYPE.AUDIT);
+}
+
+/** The audit references a source-grammar node's audit-tag form declares under a declaration that selects the 3.x grammar. */
+function expectedAuditReferences(node: SourceGrammarNodeFixture): readonly SpecTreeEvidenceReference[] {
+  switch (node.facts.auditTagForm) {
+    case SOURCE_GRAMMAR_AUDIT_TAG_FORM.NONE:
+      return [];
+    case SOURCE_GRAMMAR_AUDIT_TAG_FORM.LINKED:
+      return [{
+        verificationType: SPEC_TREE_VERIFICATION_TYPE.AUDIT,
+        key: { kind: SPEC_TREE_EVIDENCE_KEY_KIND.SLUG, slug: node.auditSlug },
+      }];
+    case SOURCE_GRAMMAR_AUDIT_TAG_FORM.PATHLESS_REVIEW:
+    case SOURCE_GRAMMAR_AUDIT_TAG_FORM.PATHLESS_AUDIT:
+      return [{
+        verificationType: SPEC_TREE_VERIFICATION_TYPE.AUDIT,
+        key: { kind: SPEC_TREE_EVIDENCE_KEY_KIND.UNKEYED },
+      }];
+  }
+}
+
+/** The tag a pathless audit-tag form closes its Assertion with, or none for the other forms. */
+function pathlessTagOf(node: SourceGrammarNodeFixture): string | undefined {
+  if (node.facts.auditTagForm === SOURCE_GRAMMAR_AUDIT_TAG_FORM.PATHLESS_REVIEW) {
+    return `[${SPEC_TREE_AUDIT_TAG_TEXT.LEGACY}]`;
+  }
+  if (node.facts.auditTagForm === SOURCE_GRAMMAR_AUDIT_TAG_FORM.PATHLESS_AUDIT) {
+    return `[${SPEC_TREE_AUDIT_TAG_TEXT.CURRENT}]`;
+  }
+  return undefined;
+}
+
+/** The Malleability a spec's front matter declares, or `undefined` when it declares none. */
+function declaredMalleabilityOf(specText: string, specPath: string): unknown {
+  const { frontMatter } = splitSpecContextFrontMatter(specText, specPath);
+  const metadata = frontMatter === undefined
+    ? undefined
+    : (parse(frontMatter) as Readonly<Record<string, unknown>> | null);
+  return metadata?.[SPEC_CONTEXT_SELECTED_METADATA_KEY];
+}
+
+/** Every path the git index of `productDir` holds. */
+async function indexedPaths(productDir: string): Promise<readonly string[]> {
+  return (
+    await runFixtureGit(productDir, [GIT_TEST_SUBCOMMANDS.LS_FILES, GIT_NULL_DELIMITED_FLAG], {
+      stripFinalNewline: false,
+    })
+  ).split(GIT_NULL_RECORD_SEPARATOR).filter((path) => path.length > 0);
+}
 
 describe("node-status test support", () => {
   it("materializes generated classification facts and resolves recorded evidence", async () => {
@@ -266,12 +340,14 @@ describe("node-status test support", () => {
     );
   });
 
-  it("generates node slugs from the readable slug domain", () => {
+  it("readable-slugs: generates node slugs and audit slugs from the readable slug domain", () => {
     for (
       const treeSlugs of [
         NODE_STATUS_TEST_GENERATOR.classificationTree().map((fixture) => fixture.nodes.map((node) => node.slug)),
         NODE_STATUS_TEST_GENERATOR.delegationTree().map((fixture) => fixture.nodes.map((node) => node.slug)),
         NODE_STATUS_TEST_GENERATOR.statusWriterTree().map((fixture) => fixture.nodes.map((node) => node.slug)),
+        SOURCE_GRAMMAR_TEST_GENERATOR.node().map((node) => [node.slug, node.auditSlug]),
+        SOURCE_GRAMMAR_TEST_GENERATOR.nodeRepository().map(({ node }) => [node.slug, node.auditSlug]),
       ]
     ) {
       assertProperty(
@@ -286,6 +362,127 @@ describe("node-status test support", () => {
       );
     }
   });
+
+  it(
+    "source-grammar-node-fixtures: materializes each source-grammar node's spec with its audit-tag form and Malleability",
+    async () => {
+      await assertProperty(
+        SOURCE_GRAMMAR_TEST_GENERATOR.node(),
+        async (node) => {
+          await withSourceGrammarNode(node, async ({ env, nodeId, specPath }) => {
+            const snapshot = await readSpecTree({
+              source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
+            });
+            const read = snapshot.allNodes.find((candidate) => candidate.id === nodeId);
+            expect(read).toBeDefined();
+            expect(auditReferencesOf(read?.evidenceReferences ?? [])).toEqual(expectedAuditReferences(node));
+            expect(
+              read?.evidenceReferences
+                .filter((reference) => reference.verificationType === SPEC_TREE_VERIFICATION_TYPE.TEST)
+                .map((reference) => reference.key),
+            ).toEqual([{ kind: SPEC_TREE_EVIDENCE_KEY_KIND.PATH, path: sourceGrammarTestReference(node) }]);
+            const specText = await env.readFile(specPath);
+            const pathlessTag = pathlessTagOf(node);
+            if (pathlessTag !== undefined) expect(specText).toContain(pathlessTag);
+            expect(declaredMalleabilityOf(specText, specPath)).toBe(node.facts.malleability);
+          });
+        },
+        PROPERTY_CLASSIFICATION.SMALL_L1,
+      );
+    },
+    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
+  );
+
+  it(
+    "source-grammar-node-repositories: commits the spec, its passing test and subject, and answers every required result as passed",
+    async () => {
+      await assertProperty(
+        SOURCE_GRAMMAR_TEST_GENERATOR.nodeRepository(),
+        async (fixture) => {
+          await withSourceGrammarNodeRepository(fixture, async (repository) => {
+            const productDir = repository.env.productDir;
+            expect(await indexedPaths(productDir)).toEqual(
+              expect.arrayContaining([repository.specPath, repository.testPath, repository.subjectPath]),
+            );
+            expect(await runFixtureGit(productDir, [...GIT_STATUS_PORCELAIN_ARGS])).toHaveLength(0);
+
+            const specText = await repository.env.readFile(repository.specPath);
+            expect(declaredMalleabilityOf(specText, repository.specPath)).toBe(fixture.node.facts.malleability);
+            const pathlessTag = pathlessTagOf(fixture.node);
+            if (pathlessTag !== undefined) expect(specText).toContain(pathlessTag);
+            const snapshot = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir }) });
+            expect(
+              snapshot.allNodes
+                .find((candidate) => candidate.id === repository.nodeId)
+                ?.evidenceReferences.filter((reference) =>
+                  reference.verificationType === SPEC_TREE_VERIFICATION_TYPE.TEST
+                ),
+            ).toEqual([{
+              verificationType: SPEC_TREE_VERIFICATION_TYPE.TEST,
+              key: { kind: SPEC_TREE_EVIDENCE_KEY_KIND.PATH, path: sourceGrammarTestReference(fixture.node) },
+              target: SPEC_TREE_EVIDENCE_TARGET.RESOLVED,
+            }]);
+            const testFixtureBytes = await readFile(CLASSIFICATION_FIXTURE_PATHS.test);
+            expect(Buffer.from(await repository.env.readFile(repository.testPath))).toEqual(testFixtureBytes);
+
+            await expect(repository.resolveOutcome(repository.nodeId, [repository.testPath])).resolves.toEqual({
+              [repository.testPath]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+            });
+            const attributed = await repository.resolveAttributedResults(repository.nodeId, {
+              auditRuleSlugs: [fixture.node.auditSlug],
+              evidenceKinds: [NODE_STATUS_CLAIM_SECTION.TEST],
+            });
+            expect(attributed.audit?.[fixture.node.auditSlug]?.verdict).toBe(NODE_STATUS_EVIDENCE_OUTCOME.PASSED);
+            expect(attributed.evidence?.[NODE_STATUS_CLAIM_SECTION.TEST]?.verdict).toBe(
+              NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+            );
+          });
+        },
+        PROPERTY_CLASSIFICATION.SMALL_L1,
+      );
+    },
+    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
+  );
+
+  it(
+    "tracking-scope: tracks every declared spec, evidence and EXCLUDE file, and nothing outside spx/, through both tracking paths",
+    async () => {
+      await assertProperty(
+        NODE_STATUS_TEST_GENERATOR.classificationTree(),
+        async (fixture) => {
+          await withClassificationTree(fixture, async ({ env, expectations, commitProjection }) => {
+            const declared = [
+              ...fixture.nodes.map((node) =>
+                [
+                  SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+                  node.dirName,
+                  `${node.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
+                ]
+                  .join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR)
+              ),
+              ...expectations.flatMap((expectation) => expectation.evidencePaths),
+              ...(fixture.nodes.some((node) => node.facts.isExcluded)
+                ? [[SPEC_TREE_CONFIG.ROOT_DIRECTORY, SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME].join(
+                  SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+                )]
+                : []),
+            ];
+            const specTreePrefix = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`;
+
+            const trackedBySpecTree = await indexedPaths(env.productDir);
+            expect([...trackedBySpecTree].sort(compareAsciiStrings)).toEqual([...declared].sort(compareAsciiStrings));
+
+            await commitProjection();
+            const trackedByProjection = await indexedPaths(env.productDir);
+            expect(trackedByProjection).toEqual(expect.arrayContaining(declared));
+            for (const path of trackedByProjection) expect(path.startsWith(specTreePrefix)).toBe(true);
+          });
+        },
+        PROPERTY_CLASSIFICATION.SMALL_L1,
+      );
+    },
+    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
+  );
 
   it("generates untracked node-status paths whose node directories carry readable slugs", () => {
     assertProperty(
