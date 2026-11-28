@@ -1,11 +1,11 @@
 {
-  "state": "passing",
+  "state": "failing",
   "malleability": "implementation",
   "verification": {
     "test": {
       "tests/verify-drive-mode.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -185,6 +185,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -404,7 +405,7 @@
       },
       "tests/verify-finish-malformed-context.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -584,6 +585,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -808,7 +810,7 @@
       },
       "tests/verify-finish-reconcile.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -988,6 +990,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -1213,7 +1216,7 @@
       },
       "tests/verify-finish-repeat.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -1393,6 +1396,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -1617,7 +1621,7 @@
       },
       "tests/verify-finish-sealing.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -1797,6 +1801,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -2021,7 +2026,7 @@
       },
       "tests/verify-lifecycle.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -2201,6 +2206,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -2420,7 +2426,7 @@
       },
       "tests/verify-lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -2600,6 +2606,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -2819,7 +2826,7 @@
       },
       "tests/verify-payload-removal.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -2999,6 +3006,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -3223,7 +3231,7 @@
       },
       "tests/verify-render.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -3403,6 +3411,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -3622,7 +3631,7 @@
       },
       "tests/verify-render.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -3802,6 +3811,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -4021,7 +4031,7 @@
       },
       "tests/verify-status.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -4201,6 +4211,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -4420,7 +4431,7 @@
       },
       "tests/verify-terminal-reason.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -4600,6 +4611,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -4826,32 +4838,10 @@
     },
     "audit": {
       "payload-directory-addressing": {
-        "verdict": "passed",
-        "commit": "f959b70445f6798bb8cccffa9f9f99a434af78b0",
-        "read": [
-          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
-          "src/commands/verify/cli.ts",
-          "src/domains/verify/verify.ts"
-        ],
-        "actor": {
-          "kind": "agent",
-          "id": "spx-advisor"
-        },
-        "run": "2026-11-28_04-31-28-743-435350cd7263"
+        "verdict": "not-run"
       },
       "seal-removes-payload-directory": {
-        "verdict": "passed",
-        "commit": "f959b70445f6798bb8cccffa9f9f99a434af78b0",
-        "read": [
-          "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
-          "src/commands/verify/cli.ts",
-          "src/domains/verify/verify.ts"
-        ],
-        "actor": {
-          "kind": "agent",
-          "id": "spx-advisor"
-        },
-        "run": "2026-11-28_04-31-28-743-435350cd7263"
+        "verdict": "not-run"
       }
     },
     "evidence": {

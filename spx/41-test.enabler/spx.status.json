@@ -331,7 +331,7 @@
       },
       "tests/recorded-run-reuse.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -511,6 +511,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -744,7 +745,7 @@
       },
       "tests/recorded-run-reuse.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -924,6 +925,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -1535,7 +1537,7 @@
       },
       "tests/test.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "bcfc75ba20713b7800aee8a49fee6dbaac3b78a8",
+        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -1715,6 +1717,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
