@@ -68,3 +68,22 @@ CAN catch broken cross-references and structural defects before they reach the r
 - ALWAYS: inside `spx/`, an assertion evidence link — a link whose text is `test`, `eval`, or `probe` — whose href is tree-absolute fails markdown validation, naming the file, the line, and the link, whether or not its target resolves to a tracked file; a tree-absolute link with any other text is admitted ([test](tests/markdown-validation.compliance.l1.test.ts))
 - ALWAYS: when the product root is a git repository, a link inside `spx/` that resolves to no file git tracks fails markdown validation as a broken link ([test](tests/markdown-validation.compliance.l1.test.ts))
 - ALWAYS: inside `spx/`, a decision path — a path that begins `spx/`, ends in `.adr.md` or `.pdr.md`, and resolves to a decision tracked in the product — written as text outside a link, bare or in an inline code span, fails markdown validation, naming the file, the line, and the path; a decision filename without the `spx/` prefix, an `spx/` path that resolves to no tracked decision, and a decision path inside a fenced code block are not checked ([test](tests/markdown-validation.compliance.l1.test.ts))
+
+### Test.Mapping: slug-errors
+
+Inside `spx/`, under a methodology declaration that selects the 4.0 grammar, markdown validation maps the leading slugs the spec-tree leading-slug reader reads from one node spec or decision record to the errors it reports, each naming the file, the line, and the slug: one for each row or heading that repeats an earlier leading slug of the file, and one for each row or heading whose leading slug is the reserved word `title`; a row with no leading slug is admitted.
+
+| Case            | Leading slugs of one file                                                                             | Errors                                          |
+| --------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| no-slug         | none: every row opens `- ALWAYS:`, `- NEVER:`, or `- Given`                                           | none                                            |
+| unique          | `capture-basic` at line 9 and `line-verbatim` at line 12                                              | none                                            |
+| partly-slugged  | `capture-basic` at line 9, and the row `- ALWAYS: a submitted line yields a task.` at line 12         | none                                            |
+| repeated        | `capture-basic` at lines 9 and 14                                                                     | one, naming line 14 and `capture-basic`         |
+| heading-and-row | `priority-order` on the heading `### Test.Mapping: priority-order` at line 20 and on a row at line 31 | one, naming line 31 and `priority-order`        |
+| thrice          | `capture-basic` at lines 9, 14, and 22                                                                | two, naming lines 14 and 22 and `capture-basic` |
+| reserved        | `title` at line 9                                                                                     | one, naming line 9 and `title`                  |
+| two-files       | `capture-basic` once in each of two files                                                             | none                                            |
+
+### Test.Compliance: slug scope
+
+- slug-scope: ALWAYS: markdown validation judges the leading slugs of every node spec and decision record inside `spx/` that a run validates, of either file form, and judges no leading slug in any other Markdown file, such as `ISSUES.md`, `PLAN.md`, an Outcome record, a Knowledge entry, or a file in `docs/`, nor any leading slug under a methodology declaration that selects only the 3.x grammar
