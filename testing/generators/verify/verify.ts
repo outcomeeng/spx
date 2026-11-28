@@ -34,6 +34,8 @@ import {
   type ReviewScopeUnit,
   type ReviewTerminalMetadata,
   type ReviewTerminalState,
+  PROBE_PAYLOAD_FIELD,
+  PROBE_UNIT_KIND,
   TEST_PAYLOAD_FIELD,
   type UnanchoredReviewFinding,
   VERIFY_CHANGE_KIND,
@@ -969,6 +971,8 @@ const RUN_FIRST_SCOPE_UNIT: {
     })),
   [VERIFY_VERIFICATION_TYPE.REVIEW]: () => arbitraryReviewScopeUnit(),
   [VERIFY_VERIFICATION_TYPE.TEST]: () => fc.record({ [TEST_PAYLOAD_FIELD.MODULE_ID]: arbitraryTestFilePath() }),
+  [VERIFY_VERIFICATION_TYPE.PROBE]: (scopeIdentity) =>
+    fc.constant({ [PROBE_PAYLOAD_FIELD.UNIT_KIND]: PROBE_UNIT_KIND.PROTOCOL, [PROBE_PAYLOAD_FIELD.SUBJECT]: scopeIdentity }),
 };
 
 /**
@@ -1179,11 +1183,13 @@ function arbitraryJudgedEvidenceTerminalCase(
     ),
     [VERIFY_VERIFICATION_TYPE.REVIEW]: RUN_FIRST_SCOPE_UNIT[VERIFY_VERIFICATION_TYPE.REVIEW](scopeIdentity),
     [VERIFY_VERIFICATION_TYPE.TEST]: RUN_FIRST_SCOPE_UNIT[VERIFY_VERIFICATION_TYPE.TEST](scopeIdentity),
+    [VERIFY_VERIFICATION_TYPE.PROBE]: RUN_FIRST_SCOPE_UNIT[VERIFY_VERIFICATION_TYPE.PROBE](scopeIdentity),
   };
   const terminalStatus: Readonly<Record<VerifyVerificationType, string>> = {
     [VERIFY_VERIFICATION_TYPE.AUDIT]: JOURNAL_RUN_STATE_STATUS.REJECTED,
     [VERIFY_VERIFICATION_TYPE.REVIEW]: JOURNAL_RUN_STATE_STATUS.REJECTED,
     [VERIFY_VERIFICATION_TYPE.TEST]: JOURNAL_RUN_STATE_STATUS.FAILED,
+    [VERIFY_VERIFICATION_TYPE.PROBE]: JOURNAL_RUN_STATE_STATUS.FAILED,
   };
   return unit[verificationType].map((drawn) => ({
     payload: scopeUnitWithJudgedPaths(drawn, judgedPaths),

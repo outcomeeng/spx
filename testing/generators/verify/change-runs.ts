@@ -87,6 +87,7 @@ export function arbitraryEvidenceFreeTerminalStatuses(): fc.Arbitrary<
       [VERIFY_VERIFICATION_TYPE.REVIEW]: fc.constantFrom(...REVIEW_TERMINAL_STATUSES),
       [VERIFY_VERIFICATION_TYPE.AUDIT]: fc.constant(JOURNAL_RUN_STATE_STATUS.REJECTED),
       [VERIFY_VERIFICATION_TYPE.TEST]: fc.constantFrom(...Object.values(JOURNAL_RUN_TERMINAL_STATUS)),
+      [VERIFY_VERIFICATION_TYPE.PROBE]: fc.constant(JOURNAL_RUN_STATE_STATUS.PASSED),
     } satisfies Record<VerifyVerificationType, fc.Arbitrary<string>>,
   );
 }
