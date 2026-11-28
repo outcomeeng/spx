@@ -55,9 +55,31 @@ export const TEST_READ_FILE_SYNC_IMPORT_RULE = {
   message:
     "readFileSync imports are banned in tests because source-text testing is not evidence. Use real behavior through a harness or fixture file; justified filesystem fixture reads need an explicit lint suppression.",
 } as const;
+
+export const TEST_VI_DO_MOCK_RULE = {
+  selector: "CallExpression[callee.object.name='vi'][callee.property.name='doMock']",
+  message:
+    "vi.doMock() is banned. Module interception replaces the production boundary under test; pass the dependency through explicit injection.",
+} as const;
+
+export const TEST_JEST_MOCK_RULE = {
+  selector: "CallExpression[callee.object.name='jest'][callee.property.name='mock']",
+  message:
+    "jest.mock() is banned. Module interception replaces the production boundary under test; pass the dependency through explicit injection.",
+} as const;
+
+export const TEST_MEMFS_IMPORT_RULE = {
+  selector: "ImportDeclaration[source.value=/^memfs(\\/|$)/]",
+  message:
+    "memfs is banned in tests. Filesystem replacement substitutes for the production boundary; use a real temporary directory through a harness.",
+} as const;
+
 /** Additional selectors applied only to test files (stacked on tsRestrictedSyntax). */
 export const testRestrictedSyntax = [
   TEST_VI_MOCK_RULE,
+  TEST_VI_DO_MOCK_RULE,
+  TEST_JEST_MOCK_RULE,
+  TEST_MEMFS_IMPORT_RULE,
   TEST_VI_FN_RULE,
   TEST_ASSERTION_STRING_LITERAL_RULE,
   TEST_SKIP_IF_RULE,

@@ -281,6 +281,26 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
       },
     },
 
+    // Spec-tree library boundary: every module outside the library reaches its
+    // contracts through `src/lib/spec-tree/index.ts`, never an internal module.
+    // The custom lint rules under `eslint-rules/` load through ESLint's native
+    // module loader, which resolves none of the project's path aliases, and the
+    // library index imports aliased modules, so they read the alias-free config
+    // module directly.
+    {
+      files: ["**/*.ts", "**/*.tsx"],
+      ignores: ["src/lib/spec-tree/**", "eslint-rules/**"],
+      rules: {
+        "no-restricted-imports": ["error", {
+          patterns: [{
+            group: ["@/lib/spec-tree/*", "**/lib/spec-tree/*"],
+            message:
+              "Import spec-tree contracts through the library index `@/lib/spec-tree`; internal spec-tree modules stay behind the library boundary.",
+          }],
+        }],
+      },
+    },
+
     // Root build-config files sit outside the TypeScript project's trees and are
     // loaded by their own tool's native module loader — Vite's native config
     // loader resolves a relative specifier as Node ESM does and requires its
