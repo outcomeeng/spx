@@ -172,7 +172,7 @@
       },
       "tests/audit-file-root.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/audit-run-projection.md",
@@ -1076,7 +1076,7 @@
       },
       "tests/audit-terminal-metadata.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/audit-run-projection.md",

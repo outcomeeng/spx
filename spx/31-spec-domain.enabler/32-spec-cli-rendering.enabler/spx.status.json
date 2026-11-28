@@ -5,7 +5,7 @@
     "test": {
       "tests/context-rendering.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "b3063dcb1ec2d97c1f3bb4d12006e8ff7ca439c6",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/spec-cli-rendering.md",
@@ -126,7 +126,7 @@
       },
       "tests/context-rendering.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "b3063dcb1ec2d97c1f3bb4d12006e8ff7ca439c6",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/spec-cli-rendering.md",

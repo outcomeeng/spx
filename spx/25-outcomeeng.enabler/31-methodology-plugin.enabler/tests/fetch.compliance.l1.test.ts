@@ -15,13 +15,12 @@ import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import {
   arbitraryDisagreeingPluginsContent,
   arbitraryMarkdownBody,
-  arbitraryMethodologyLine,
-  arbitraryMethodologyVersion,
   arbitraryPluginsContent,
   arbitraryTemplateDisagreeingPluginsContent,
   arbitraryTemplateLessPluginsContent,
   arbitraryUnsafeTreeSegment,
-} from "@testing/generators/methodology/tree";
+} from "@testing/generators/methodology/plugin";
+import { arbitraryMethodologyLine, arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withPluginsRepository } from "@testing/harnesses/methodology/plugins-repository";
 

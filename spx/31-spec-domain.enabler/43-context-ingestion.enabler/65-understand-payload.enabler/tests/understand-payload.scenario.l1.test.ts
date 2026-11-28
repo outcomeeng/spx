@@ -15,11 +15,11 @@ import {
 } from "@/lib/methodology";
 import { SPEC_CONTEXT_ENTRY_TYPE, SPEC_CONTEXT_FRAME, SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR } from "@/lib/spec-tree";
 import { generatedMigratingMethodology } from "@testing/generators/config/descriptors";
+import { methodologyFoundationDocumentPath } from "@testing/generators/methodology/plugin";
 import {
   arbitraryFixtureAuthoredLine,
   arbitraryMethodologyLineVersion,
   arbitraryMethodologyVersion,
-  methodologyFoundationDocumentPath,
 } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { SPEC_CONTEXT_ESCAPE_TARGET_FILENAME } from "@testing/generators/spec-tree/rich-context";

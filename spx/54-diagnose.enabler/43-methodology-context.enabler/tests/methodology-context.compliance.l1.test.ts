@@ -19,8 +19,6 @@ import {
   PROVIDER_MATCH,
 } from "@/lib/methodology";
 import {
-  arbitraryMethodologyVersion,
-  arbitraryMigratingMethodologyOnDistinctLines,
   generatedSourceRecordProviding,
   generatedSourceRecordWithPluginVersion,
   supportsRangeAlternatives,
@@ -28,6 +26,10 @@ import {
   supportsRangeExcluding,
   supportsRangeSpanning,
   supportsRangeSpanningBelow,
+} from "@testing/generators/methodology/plugin";
+import {
+  arbitraryMethodologyVersion,
+  arbitraryMigratingMethodologyOnDistinctLines,
 } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {

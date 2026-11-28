@@ -5,7 +5,7 @@
     "test": {
       "tests/diagnostics.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -15,6 +15,12 @@
           "src/config/methodology-resolution.ts",
           "src/config/methodology.ts",
           "src/config/product-file.ts",
+          "src/lib/agent-environment/agent-module.ts",
+          "src/lib/agent-environment/agents/antigravity.ts",
+          "src/lib/agent-environment/agents/claude-code.ts",
+          "src/lib/agent-environment/agents/codex.ts",
+          "src/lib/agent-environment/index.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/config/cwd.ts",
           "src/lib/error-message.ts",
           "src/lib/file-system/pathContainment.ts",
@@ -48,6 +54,7 @@
           "src/test/languages/read-recorder-setup.ts",
           "src/test/languages/read-recorder.ts",
           "testing/generators/git-name/git-name.ts",
+          "testing/generators/methodology/plugin.ts",
           "testing/generators/methodology/tree.ts",
           "testing/generators/sample.ts",
           "testing/harnesses/git-test-constants.ts",
@@ -58,7 +65,7 @@
       },
       "tests/fetch.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -68,6 +75,12 @@
           "src/config/methodology-resolution.ts",
           "src/config/methodology.ts",
           "src/config/product-file.ts",
+          "src/lib/agent-environment/agent-module.ts",
+          "src/lib/agent-environment/agents/antigravity.ts",
+          "src/lib/agent-environment/agents/claude-code.ts",
+          "src/lib/agent-environment/agents/codex.ts",
+          "src/lib/agent-environment/index.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/config/cwd.ts",
           "src/lib/error-message.ts",
           "src/lib/file-system/pathContainment.ts",
@@ -101,6 +114,7 @@
           "src/test/languages/read-recorder-setup.ts",
           "src/test/languages/read-recorder.ts",
           "testing/generators/git-name/git-name.ts",
+          "testing/generators/methodology/plugin.ts",
           "testing/generators/methodology/tree.ts",
           "testing/generators/sample.ts",
           "testing/harnesses/git-test-constants.ts",
@@ -110,7 +124,7 @@
       },
       "tests/fetch.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -120,6 +134,12 @@
           "src/config/methodology-resolution.ts",
           "src/config/methodology.ts",
           "src/config/product-file.ts",
+          "src/lib/agent-environment/agent-module.ts",
+          "src/lib/agent-environment/agents/antigravity.ts",
+          "src/lib/agent-environment/agents/claude-code.ts",
+          "src/lib/agent-environment/agents/codex.ts",
+          "src/lib/agent-environment/index.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/config/cwd.ts",
           "src/lib/error-message.ts",
           "src/lib/file-system/pathContainment.ts",
@@ -153,6 +173,7 @@
           "src/test/languages/read-recorder-setup.ts",
           "src/test/languages/read-recorder.ts",
           "testing/generators/git-name/git-name.ts",
+          "testing/generators/methodology/plugin.ts",
           "testing/generators/methodology/tree.ts",
           "testing/generators/sample.ts",
           "testing/harnesses/git-test-constants.ts",
@@ -162,7 +183,7 @@
       },
       "tests/fetch.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -211,7 +232,7 @@
       },
       "tests/fetch.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -221,6 +242,12 @@
           "src/config/methodology-resolution.ts",
           "src/config/methodology.ts",
           "src/config/product-file.ts",
+          "src/lib/agent-environment/agent-module.ts",
+          "src/lib/agent-environment/agents/antigravity.ts",
+          "src/lib/agent-environment/agents/claude-code.ts",
+          "src/lib/agent-environment/agents/codex.ts",
+          "src/lib/agent-environment/index.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/config/cwd.ts",
           "src/lib/error-message.ts",
           "src/lib/file-system/pathContainment.ts",
@@ -254,6 +281,7 @@
           "src/test/languages/read-recorder-setup.ts",
           "src/test/languages/read-recorder.ts",
           "testing/generators/git-name/git-name.ts",
+          "testing/generators/methodology/plugin.ts",
           "testing/generators/methodology/tree.ts",
           "testing/generators/sample.ts",
           "testing/harnesses/git-test-constants.ts",
@@ -264,7 +292,7 @@
       },
       "tests/migration-entry.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -274,6 +302,12 @@
           "src/config/methodology-resolution.ts",
           "src/config/methodology.ts",
           "src/config/product-file.ts",
+          "src/lib/agent-environment/agent-module.ts",
+          "src/lib/agent-environment/agents/antigravity.ts",
+          "src/lib/agent-environment/agents/claude-code.ts",
+          "src/lib/agent-environment/agents/codex.ts",
+          "src/lib/agent-environment/index.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/config/cwd.ts",
           "src/lib/error-message.ts",
           "src/lib/file-system/pathContainment.ts",
@@ -307,6 +341,7 @@
           "src/test/languages/read-recorder-setup.ts",
           "src/test/languages/read-recorder.ts",
           "testing/generators/git-name/git-name.ts",
+          "testing/generators/methodology/plugin.ts",
           "testing/generators/methodology/tree.ts",
           "testing/generators/sample.ts",
           "testing/harnesses/git-test-constants.ts",
@@ -316,7 +351,7 @@
       },
       "tests/migration-entry.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
         "read": [
           "methodology/4.0/source.json",
           "migration/4.0/claude/entry.md",
@@ -350,7 +385,7 @@
       },
       "tests/tree-address.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -360,6 +395,12 @@
           "src/config/methodology-resolution.ts",
           "src/config/methodology.ts",
           "src/config/product-file.ts",
+          "src/lib/agent-environment/agent-module.ts",
+          "src/lib/agent-environment/agents/antigravity.ts",
+          "src/lib/agent-environment/agents/claude-code.ts",
+          "src/lib/agent-environment/agents/codex.ts",
+          "src/lib/agent-environment/index.ts",
+          "src/lib/agent-environment/session-token.ts",
           "src/lib/config/cwd.ts",
           "src/lib/error-message.ts",
           "src/lib/file-system/pathContainment.ts",
@@ -393,10 +434,27 @@
           "src/test/languages/read-recorder-setup.ts",
           "src/test/languages/read-recorder.ts",
           "testing/generators/git-name/git-name.ts",
+          "testing/generators/methodology/plugin.ts",
           "testing/generators/methodology/tree.ts",
           "testing/generators/sample.ts",
           "testing/harnesses/property/property.ts"
         ]
+      }
+    },
+    "audit": {
+      "methodology-plugin-generator": {
+        "verdict": "passed",
+        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
+        "read": [
+          "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
+          "testing/generators/methodology/plugin.ts",
+          "testing/generators/methodology/tree.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_06-33-45-921-75e97177082e"
       }
     }
   }

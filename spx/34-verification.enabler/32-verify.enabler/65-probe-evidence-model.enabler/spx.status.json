@@ -5,7 +5,7 @@
     "test": {
       "tests/probe-payloads.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/probe-evidence-model.md",
@@ -410,7 +410,7 @@
       },
       "tests/probe-run.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
+        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/probe-evidence-model.md",
@@ -811,7 +811,7 @@
       },
       "tests/probe-scope-units.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
+        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/probe-evidence-model.md",
@@ -1212,7 +1212,7 @@
       },
       "tests/probe-terminal.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
+        "commit": "70ce6a58eb33fbd8d6ecea12225fe181b7f26530",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/probe-evidence-model.md",

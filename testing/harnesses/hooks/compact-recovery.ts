@@ -37,11 +37,8 @@ import {
   resolveCompactRecoveryDirective,
   SOURCE_RECORD_RELATIVE_PATH,
 } from "@/lib/methodology";
-import {
-  arbitraryMethodologyVersion,
-  generatedSourceRecordProviding,
-  supportsRangeExcluding,
-} from "@testing/generators/methodology/tree";
+import { generatedSourceRecordProviding, supportsRangeExcluding } from "@testing/generators/methodology/plugin";
+import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { type HookCliWorktreeEnv, withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";

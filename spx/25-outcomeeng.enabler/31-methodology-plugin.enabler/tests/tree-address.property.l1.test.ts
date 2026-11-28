@@ -7,12 +7,11 @@ import {
   methodologyLine,
   methodologyTreeRelativeDir,
 } from "@/lib/methodology";
+import { arbitraryCodingAgentName, arbitraryUnsafeTreeSegment } from "@testing/generators/methodology/plugin";
 import {
   arbitraryAcceptedMethodologyVersion,
-  arbitraryCodingAgentName,
   arbitraryMethodologyLine,
   arbitraryNonVersionText,
-  arbitraryUnsafeTreeSegment,
 } from "@testing/generators/methodology/tree";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 

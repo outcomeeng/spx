@@ -18,7 +18,8 @@ import {
   validateMethodologyPackaging,
 } from "@/lib/methodology";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
-import { arbitraryMethodologyVersion, arbitraryPluginsContent } from "@testing/generators/methodology/tree";
+import { arbitraryPluginsContent } from "@testing/generators/methodology/plugin";
+import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   type PluginsRepository,

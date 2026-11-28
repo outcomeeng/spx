@@ -758,7 +758,7 @@
       },
       "tests/safety.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
+        "commit": "b3063dcb1ec2d97c1f3bb4d12006e8ff7ca439c6",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",
@@ -867,7 +867,7 @@
       },
       "tests/temp-dir.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
+        "commit": "b3063dcb1ec2d97c1f3bb4d12006e8ff7ca439c6",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/test-environment.md",

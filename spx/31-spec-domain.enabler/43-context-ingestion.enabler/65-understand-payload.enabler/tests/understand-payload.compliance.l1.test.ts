@@ -17,14 +17,13 @@ import * as fc from "fast-check";
 
 import { generatedMethodologyIdentity, generatedMigratingMethodology } from "@testing/generators/config/descriptors";
 import {
-  arbitraryFixtureAuthoredLine,
   arbitraryMarkdownBody,
-  arbitraryMethodologyVersion,
   generatedSourceRecordProviding,
   methodologyFoundationDocumentPath,
   supportsRangeContaining,
   supportsRangeExcluding,
-} from "@testing/generators/methodology/tree";
+} from "@testing/generators/methodology/plugin";
+import { arbitraryFixtureAuthoredLine, arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { PRODUCT_ROOT } from "@testing/harnesses/constants";
