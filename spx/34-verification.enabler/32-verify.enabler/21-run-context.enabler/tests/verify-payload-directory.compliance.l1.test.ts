@@ -48,14 +48,15 @@ describe("verify start payload directory", () => {
     });
   });
 
-  it("removes the payload directory of every run whose journal carries a terminal-completion event or a seal, under every verification type and branch scope, and keeps every other one", async () => {
-    await withPayloadDirectoryRepository(async (payloads) => {
-      // Every run starts before any closes, because each start sweeps the runs already closed.
-      // A run of a type `finish` seals with no evidence also closes by a terminal-completion event alone.
-      const open = [];
-      const closing = [];
-      for (const branch of [undefined, sampleBranchName()]) {
-        for (const verificationType of Object.values(VERIFY_VERIFICATION_TYPE)) {
+  it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
+    "removes the payload directory of every run whose journal carries a terminal-completion event or a seal, under the %s verification type and every branch scope, and keeps every other one",
+    async (verificationType) => {
+      await withPayloadDirectoryRepository(async (payloads) => {
+        // Every run starts before any closes, because each start sweeps the runs already closed.
+        // A run of a type `finish` seals with no evidence also closes by a terminal-completion event alone.
+        const open = [];
+        const closing = [];
+        for (const branch of [undefined, sampleBranchName()]) {
           open.push(await payloads.startRun({ verificationType, branch }));
           closing.push({ run: await payloads.startRun({ verificationType, branch }), close: payloads.sealOnly });
           if (VERIFY_EVIDENCE_FREE_SEALING_TYPES.some((sealing) => sealing === verificationType)) {
@@ -65,32 +66,32 @@ describe("verify start payload directory", () => {
             });
           }
         }
-      }
-      const kept: string[] = [];
-      for (const run of open) {
-        expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-        kept.push(payloadDirectoryOf(run), await stageUnjournaledPayloadDirectory(run));
-      }
-      const removed: string[] = [];
-      for (const { run, close } of closing) {
-        expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-        const closed = await close(run);
-        expect(closed.exitCode, closed.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-        removed.push(payloadDirectoryOf(run));
-      }
-      for (const directory of [...kept, ...removed]) {
-        expect(await isDirectory(directory), directory).toBe(true);
-      }
+        const kept: string[] = [];
+        for (const run of open) {
+          expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+          kept.push(payloadDirectoryOf(run), await stageUnjournaledPayloadDirectory(run));
+        }
+        const removed: string[] = [];
+        for (const { run, close } of closing) {
+          expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+          const closed = await close(run);
+          expect(closed.exitCode, closed.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+          removed.push(payloadDirectoryOf(run));
+        }
+        for (const directory of [...kept, ...removed]) {
+          expect(await isDirectory(directory), directory).toBe(true);
+        }
 
-      const next = await payloads.startRun();
+        const next = await payloads.startRun();
 
-      expect(next.started.exitCode, next.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-      for (const directory of removed) {
-        expect(await isDirectory(directory), directory).toBe(false);
-      }
-      for (const directory of [...kept, payloadDirectoryOf(next)]) {
-        expect(await isDirectory(directory), directory).toBe(true);
-      }
-    });
-  });
+        expect(next.started.exitCode, next.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        for (const directory of removed) {
+          expect(await isDirectory(directory), directory).toBe(false);
+        }
+        for (const directory of [...kept, payloadDirectoryOf(next)]) {
+          expect(await isDirectory(directory), directory).toBe(true);
+        }
+      });
+    },
+  );
 });
