@@ -760,11 +760,12 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
+        "commit": "390da539c002c07715fae6922a36500ac70b2ddc",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
           "spx/12-agent-harness.pdr.md",
+          "spx/12-command-removal.pdr.md",
           "spx/12-node-runtime.adr.md",
           "spx/12-test-infrastructure.adr.md",
           "spx/13-agent-capability-lifecycle.pdr.md",
