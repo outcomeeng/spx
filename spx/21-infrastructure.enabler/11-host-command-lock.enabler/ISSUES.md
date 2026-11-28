@@ -32,14 +32,12 @@ In the case `never starts the command when the cap expires between a passing win
 
 **Revisit condition:** when the node's supervision code is next changed.
 
-## A run that holds the slot in its load window leaves the previous run's holder record: `src/lib/host-command-lock/host-command-lock.ts` `runOutermost` [`spx/21-infrastructure.enabler/11-host-command-lock.enabler/15-host-command-lock.pdr.md`](spx/21-infrastructure.enabler/11-host-command-lock.enabler/15-host-command-lock.pdr.md)
+## The holder record names a run that no longer holds the slot during a load wait
 
-`runOutermost` takes the slot in its `tryLock` loop, then waits in `admitAfterQuietWindow`, and writes its holder record only once the window passes. Until then the lock file still holds the record of the last run that spawned, whose supervisor has exited. On 2026-11-28 a waiter held the slot for over 50 minutes while the five-minute load stood near 45 on 12 logical CPUs. The file named run `324AFD89-EA8E-4499-BD62-F1393E0E96A3`, whose supervisor had exited 0 at 06:48Z, and the holder was diagnosed as a dead supervisor that blocked every waiter.
+`15-host-command-lock.pdr.md` gives the holder record a diagnostic purpose: "NEVER: admission or release reads the holder record; it serves diagnosis only". Its rule before that one orders the write "after admission and before it spawns the command". A run takes the slot before its load window, so between taking the slot and passing the window the file still holds the record of the last run that spawned. `runOutermost` in `src/lib/host-command-lock/host-command-lock.ts` follows the PDR: `tryLock`, then `admitAfterQuietWindow`, then `writeHolderRecord`.
 
-**Impact:** the record misnames the holder during every load wait, so it fails the PDR's guarantee that the record diagnoses the run that holds the slot. It led to a proposal to move the lock file, which would split exclusion across two inodes.
+**Evidence:** on 2026-11-28 a waiter held the slot for over 50 minutes while the five-minute load stood near 45 on 12 logical CPUs. A non-blocking `flock` probe on the lock file got EAGAIN, and only the three waiting `spx orchestration lock` processes held the file open. The file named run `324AFD89-EA8E-4499-BD62-F1393E0E96A3`, whose supervisor had exited 0 at 06:48Z, and the holder was diagnosed as a dead supervisor that blocked every waiter (thread host-lock, mails 37986 and 37992).
 
-**Resolution:** write the holder record as soon as the slot is taken, with a state that tells a run waiting in its load window from a running child, and rewrite it at the spawn. Add a scenario that holds the slot through a failing window and reads the record.
+**Impact:** during every load wait the record names a run that no longer holds the slot, which defeats the purpose the PDR gives it. The misdiagnosis led to a proposal to move the lock file, which would have split exclusion across two inodes.
 
-**Skills:** `/apply`, `/author-typescript-code`, `/author-typescript-test`.
-
-**Revisit condition:** when the node's admission code is next changed.
+**Settlement condition:** the holder record names the run that holds the slot at every moment after the slot is taken, its load wait included, and the PDR's write-order rule states that order.
