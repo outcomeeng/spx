@@ -31,4 +31,4 @@ Each command invoked with `-C <path>` maps to the result the same command gives 
 ### Test.Compliance: target context
 
 - [dirty-caller-ignored](tests/product-context.compliance.l1.test.ts): ALWAYS: a config command invoked from a dirty unrelated worktree with `-C <target>` resolves config from `<target>` rather than the caller's worktree
-- [nested-product-target](tests/product-context.compliance.l1.test.ts): ALWAYS: under `-C <path>` naming a directory inside a nested product, `config show`, `validation markdown`, `spec status`, and `spec context show` resolve that product's configuration and `spx/` tree, never the enclosing repository's, and an operand outside that product fails as unresolved
+- [nested-product-target](tests/product-context.compliance.l1.test.ts): ALWAYS: under `-C <path>` naming a directory inside a nested product, `config show`, `validation markdown`, `spec status`, `spec context show`, `test`, and `verification test run` resolve that product's configuration and `spx/` tree, never the enclosing repository's, and an operand outside that product fails as unresolved
