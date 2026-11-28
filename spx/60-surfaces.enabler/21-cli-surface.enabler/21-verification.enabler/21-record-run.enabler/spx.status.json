@@ -1,5 +1,5 @@
 {
-  "state": "failing",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -6923,7 +6923,37 @@
     },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "47ecd327b0345582f978fc277bbd45c0ccdae71f",
+        "read": [
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/change-identity.scenario.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/change-identity.scenario.l2.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/content-identity-input-check.compliance.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/content-identity-start.compliance.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/file-scope.mapping.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/record-run.compliance.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-evidence-help.compliance.l2.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-expectations-option.compliance.l2.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-finish-accounting.scenario.l2.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-finish-unaccounted.scenario.l2.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-paths.compliance.l2.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-paths.scenario.l2.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-payload.compliance.l2.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-reconcile.compliance.l2.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-reconcile.scenario.l2.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/verifier.compliance.l1.test.ts",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/verifier.scenario.l1.test.ts",
+          "src/domains/verify/payload-fields.ts",
+          "src/interfaces/cli/verify.ts",
+          "testing/harnesses/verify/built-cli.ts",
+          "testing/harnesses/verify/evidence-help.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_04-47-59-114-3002e47aa2eb"
       }
     }
   }

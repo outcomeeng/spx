@@ -1,5 +1,5 @@
 {
-  "state": "failing",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -2852,7 +2852,19 @@
     },
     "audit": {
       "run-inspection-paths": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "47ecd327b0345582f978fc277bbd45c0ccdae71f",
+        "read": [
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/verification.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/verify.ts",
+          "src/interfaces/cli/verify.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_04-52-19-724-62172f34a14f"
       }
     },
     "evidence": {

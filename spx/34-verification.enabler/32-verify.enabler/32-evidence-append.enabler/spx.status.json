@@ -1,5 +1,5 @@
 {
-  "state": "failing",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -3224,7 +3224,18 @@
     },
     "audit": {
       "payload-directory-addressing": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "47ecd327b0345582f978fc277bbd45c0ccdae71f",
+        "read": [
+          "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/verify.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_04-50-36-680-d2c2474d78f3"
       }
     },
     "evidence": {

@@ -1,5 +1,5 @@
 {
-  "state": "failing",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -815,16 +815,72 @@
     },
     "audit": {
       "any-driving-party": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "47ecd327b0345582f978fc277bbd45c0ccdae71f",
+        "read": [
+          ".gitignore",
+          "spx/34-verification.enabler/32-verify.enabler/verify.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/payload-fields.ts",
+          "src/domains/verify/verify.ts",
+          "src/lib/appendable-journal-store/index.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_04-48-51-360-6c2878c29923"
       },
       "no-agent-selection": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "47ecd327b0345582f978fc277bbd45c0ccdae71f",
+        "read": [
+          ".gitignore",
+          "spx/34-verification.enabler/32-verify.enabler/verify.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/payload-fields.ts",
+          "src/domains/verify/verify.ts",
+          "src/lib/appendable-journal-store/index.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_04-48-51-360-6c2878c29923"
       },
       "payload-working-input": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "47ecd327b0345582f978fc277bbd45c0ccdae71f",
+        "read": [
+          ".gitignore",
+          "spx/34-verification.enabler/32-verify.enabler/verify.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/payload-fields.ts",
+          "src/domains/verify/verify.ts",
+          "src/lib/appendable-journal-store/index.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_04-48-51-360-6c2878c29923"
       },
       "typed-journal-events": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "47ecd327b0345582f978fc277bbd45c0ccdae71f",
+        "read": [
+          ".gitignore",
+          "spx/34-verification.enabler/32-verify.enabler/verify.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/payload-fields.ts",
+          "src/domains/verify/verify.ts",
+          "src/lib/appendable-journal-store/index.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_04-48-51-360-6c2878c29923"
       }
     },
     "evidence": {
