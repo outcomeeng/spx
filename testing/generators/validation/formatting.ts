@@ -4,7 +4,7 @@
  * Owns the scenario vocabulary and fixture data for the dprint formatting
  * stage's co-located evidence. Test files reference these scenarios and data
  * tokens so no domain literal lives in a test file. The driver harness in
- * `@testing/harnesses/validation/formatting` consumes the scenario list.
+ * `@testing/harnesses/validation/formatting` consumes the fixture data.
  */
 
 import * as fc from "fast-check";
@@ -17,6 +17,10 @@ const FORMATTABLE_TYPESCRIPT_CONTENT = "export const value = 1;\n";
 
 const TYPESCRIPT_SOURCE_FILENAME = "sample.ts";
 const RECURSIVE_DIRECTORY_GLOB = "**/*";
+const GLOB_WILDCARD = "**";
+const PRODUCT_ROOT_OPERAND = ".";
+/** One stage run: the formatting stage runs once under its default and not under its override. */
+const SINGLE_STAGE_EXECUTION_COUNT = 1;
 
 const DPRINT_CONFIG_FILENAME = "dprint.jsonc";
 const EXPECTED_DPRINT_CHECK_SUBCOMMAND = "check";
@@ -63,33 +67,14 @@ const UNFORMATTED_CONTENT_BY_EXTENSION: Readonly<Record<(typeof FORMATTED_FILE_E
 /** Paths the formatting verdict must never rewrite, per the formatting spec. */
 const NEVER_FORMATTED_PATHS = ["pnpm-lock.yaml", "testing/fixtures/**"] as const;
 
-export const FORMATTING_SCENARIO_KIND = {
-  CLEAN_PROJECT: "cleanProject",
-  UNFORMATTED_COMMAND: "unformattedCommand",
-  PIPELINE_FAILURE: "pipelineFailure",
-  CLI_PROCESS_UNFORMATTED: "cliProcessUnformatted",
-  CLI_PROCESS_DIRECTORY_SCOPE: "cliProcessDirectoryScope",
-  CLI_PROCESS_INVOCATION_DIRECTORY_SCOPE: "cliProcessInvocationDirectoryScope",
-  CLI_PROCESS_DIRECTORY_INCLUDE_SCOPE: "cliProcessDirectoryIncludeScope",
-  CLI_PROCESS_EXCLUDED_FILE_SCOPE: "cliProcessExcludedFileScope",
-  CLI_PROCESS_FILTERED_DIRECTORY_SCOPE: "cliProcessFilteredDirectoryScope",
-  CLI_PROCESS_EXCLUDED_DIRECTORY_SCOPE: "cliProcessExcludedDirectoryScope",
-  GITIGNORE_SKIP: "gitignoreSkip",
-  PARTICIPATION_OVERRIDE: "participationOverride",
-} as const;
-
-export type FormattingScenarioKind = (typeof FORMATTING_SCENARIO_KIND)[keyof typeof FORMATTING_SCENARIO_KIND];
-
-export interface FormattingValidationScenario {
-  readonly title: string;
-  readonly kind: FormattingScenarioKind;
-}
-
 export const FORMATTING_VALIDATION_DATA = {
   unformattedTypeScriptContent: UNFORMATTED_TYPESCRIPT_CONTENT,
   formattableTypeScriptContent: FORMATTABLE_TYPESCRIPT_CONTENT,
   typeScriptSourceFilename: TYPESCRIPT_SOURCE_FILENAME,
   recursiveDirectoryGlob: RECURSIVE_DIRECTORY_GLOB,
+  globWildcard: GLOB_WILDCARD,
+  productRootOperand: PRODUCT_ROOT_OPERAND,
+  singleStageExecutionCount: SINGLE_STAGE_EXECUTION_COUNT,
   expectedDprintCheckSubcommand: EXPECTED_DPRINT_CHECK_SUBCOMMAND,
   expectedDprintExcludesOption: EXPECTED_DPRINT_EXCLUDES_OPTION,
   expectedDprintOptionsTerminator: EXPECTED_DPRINT_OPTIONS_TERMINATOR,
@@ -108,59 +93,6 @@ export const FORMATTING_VALIDATION_DATA = {
   unformattedContentByExtension: UNFORMATTED_CONTENT_BY_EXTENSION,
   neverFormattedPaths: NEVER_FORMATTED_PATHS,
 } as const;
-
-export function formattingScenarios(): FormattingValidationScenario[] {
-  return [
-    {
-      title: "a fully formatted project reports no problems and exits zero",
-      kind: FORMATTING_SCENARIO_KIND.CLEAN_PROJECT,
-    },
-    {
-      title: "an unformatted file is reported and the command exits non-zero",
-      kind: FORMATTING_SCENARIO_KIND.UNFORMATTED_COMMAND,
-    },
-    {
-      title: "formatting failure fails the full validation pipeline",
-      kind: FORMATTING_SCENARIO_KIND.PIPELINE_FAILURE,
-    },
-    {
-      title: "the format CLI process exits non-zero and names the unformatted file",
-      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_UNFORMATTED,
-    },
-    {
-      title: "the format CLI process expands directory operands before checking files",
-      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_DIRECTORY_SCOPE,
-    },
-    {
-      title: "the format CLI process resolves operands from the invocation directory",
-      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_INVOCATION_DIRECTORY_SCOPE,
-    },
-    {
-      title: "the format CLI process intersects root operands with validation includes",
-      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_DIRECTORY_INCLUDE_SCOPE,
-    },
-    {
-      title: "the format CLI process preserves explicit file operands through validation excludes",
-      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_EXCLUDED_FILE_SCOPE,
-    },
-    {
-      title: "the format CLI process intersects directory operands with validation includes",
-      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_FILTERED_DIRECTORY_SCOPE,
-    },
-    {
-      title: "the format CLI process excludes descendants below directory operands",
-      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_EXCLUDED_DIRECTORY_SCOPE,
-    },
-    {
-      title: "a gitignored unformatted file is skipped and the command exits zero",
-      kind: FORMATTING_SCENARIO_KIND.GITIGNORE_SKIP,
-    },
-    {
-      title: "formatting follows its default and invocation-local skip participation",
-      kind: FORMATTING_SCENARIO_KIND.PARTICIPATION_OVERRIDE,
-    },
-  ];
-}
 
 /**
  * Arbitrary explicit file-scope lists passed to `dprint check`.
