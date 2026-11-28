@@ -5,7 +5,7 @@
     "test": {
       "tests/change-cli.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/draft.md",
@@ -393,7 +393,7 @@
       },
       "tests/draft-commands.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/draft.md",
@@ -781,7 +781,7 @@
       },
       "tests/draft-commands.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/draft.md",
@@ -1170,7 +1170,7 @@
       },
       "tests/list-selection-bound.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/draft.md",
@@ -1559,7 +1559,7 @@
       },
       "tests/listing.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/draft.md",
@@ -1947,7 +1947,7 @@
       },
       "tests/packaged-commands.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-draft.enabler/draft.md",

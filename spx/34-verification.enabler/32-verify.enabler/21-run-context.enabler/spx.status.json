@@ -5,7 +5,7 @@
     "test": {
       "tests/verify-change-identity.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -404,7 +404,7 @@
       },
       "tests/verify-change-identity.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -803,7 +803,7 @@
       },
       "tests/verify-change-inventory.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -1206,7 +1206,7 @@
       },
       "tests/verify-drive-mode.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -1606,7 +1606,7 @@
       },
       "tests/verify-expectations.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -2009,7 +2009,7 @@
       },
       "tests/verify-file-scope.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -2173,7 +2173,7 @@
       },
       "tests/verify-file-scope.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -2572,7 +2572,7 @@
       },
       "tests/verify-head-commit.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -2975,7 +2975,7 @@
       },
       "tests/verify-input-check.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -3377,7 +3377,7 @@
       },
       "tests/verify-input-check.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -3779,7 +3779,7 @@
       },
       "tests/verify-input.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -4178,7 +4178,7 @@
       },
       "tests/verify-input.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -4577,7 +4577,7 @@
       },
       "tests/verify-name-status-inventory.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -4740,7 +4740,7 @@
       },
       "tests/verify-payload-directory.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -5144,7 +5144,7 @@
       },
       "tests/verify-scope.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -5543,7 +5543,7 @@
       },
       "tests/verify-scope.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -5942,7 +5942,7 @@
       },
       "tests/verify-start-content-identity.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -6344,7 +6344,7 @@
       },
       "tests/verify-start-expected-digest.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -6746,7 +6746,7 @@
       },
       "tests/verify-start.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -7145,7 +7145,7 @@
       },
       "tests/verify-start.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -7545,7 +7545,7 @@
       },
       "tests/verify-verifier.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -7944,7 +7944,7 @@
       },
       "tests/verify-verifier.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -8345,7 +8345,7 @@
     "audit": {
       "payload-directory-addressing": {
         "verdict": "passed",
-        "commit": "6c7451dd4534d5eab8cca9e042f119a8d3a8ea0c",
+        "commit": "2aa6388e263415e21ef2753213dfd27e24477d0b",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
           "src/commands/verify/cli.ts",
@@ -8360,7 +8360,7 @@
       },
       "payload-directory-sweep": {
         "verdict": "passed",
-        "commit": "6c7451dd4534d5eab8cca9e042f119a8d3a8ea0c",
+        "commit": "2aa6388e263415e21ef2753213dfd27e24477d0b",
         "read": [
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
           "src/commands/verify/cli.ts",

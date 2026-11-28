@@ -146,7 +146,7 @@
       },
       "tests/recorded-run-reuse.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -559,7 +559,7 @@
       },
       "tests/recorded-run-satisfaction.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
+        "commit": "e6b3d79acd1ab4cbbfee760b737768604316a0a8",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
