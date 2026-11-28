@@ -81,6 +81,58 @@ describe("withGitWorktreeEnv — safety and GIT_* isolation", () => {
       expect(observedAfter).toEqual(callerValues);
     });
 
+    it("removes every GIT_* variable absent before and restores the ceiling after a callback that sets them returns", async () => {
+      const callerCeiling = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.ceilingDirectory());
+      const callbackValues = sampleGitWorktreeTestValue(
+        GIT_WORKTREE_TEST_GENERATOR.environmentValues(Object.values(GIT_TEST_ENVIRONMENT_KEYS)),
+      );
+      const observedAfter: Record<string, string | undefined> = {};
+
+      await withProcessEnv({ [GIT_CEILING_DIRECTORIES_KEY]: callerCeiling }, async () => {
+        await withGitWorktreeEnv(async () => {
+          await withGitWorktreeEnv(async () => {
+            Object.assign(process.env, callbackValues);
+          });
+          for (const key of Object.keys(callbackValues)) {
+            observedAfter[key] = process.env[key];
+          }
+        });
+      });
+
+      for (const key of GIT_TEST_STRIPPED_ENVIRONMENT_KEYS) {
+        expect(observedAfter[key]).toBeUndefined();
+      }
+      expect(observedAfter[GIT_CEILING_DIRECTORIES_KEY]).toBe(callerCeiling);
+    });
+
+    it("removes every GIT_* variable absent before and restores the ceiling after a callback that sets them throws", async () => {
+      const callerCeiling = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.ceilingDirectory());
+      const callbackValues = sampleGitWorktreeTestValue(
+        GIT_WORKTREE_TEST_GENERATOR.environmentValues(Object.values(GIT_TEST_ENVIRONMENT_KEYS)),
+      );
+      const thrownError = new Error(sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.fileContent()));
+      const observedAfter: Record<string, string | undefined> = {};
+
+      await withProcessEnv({ [GIT_CEILING_DIRECTORIES_KEY]: callerCeiling }, async () => {
+        await withGitWorktreeEnv(async () => {
+          await expect(
+            withGitWorktreeEnv(async () => {
+              Object.assign(process.env, callbackValues);
+              throw thrownError;
+            }),
+          ).rejects.toBe(thrownError);
+          for (const key of Object.keys(callbackValues)) {
+            observedAfter[key] = process.env[key];
+          }
+        });
+      });
+
+      for (const key of GIT_TEST_STRIPPED_ENVIRONMENT_KEYS) {
+        expect(observedAfter[key]).toBeUndefined();
+      }
+      expect(observedAfter[GIT_CEILING_DIRECTORIES_KEY]).toBe(callerCeiling);
+    });
+
     it("stripped GIT_DIR routes harness git invocations to productDir even when the caller set a bogus value", async () => {
       const callerValues = sampleGitWorktreeTestValue(
         GIT_WORKTREE_TEST_GENERATOR.environmentValues(Object.values(GIT_TEST_ENVIRONMENT_KEYS)),

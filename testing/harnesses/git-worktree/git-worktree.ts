@@ -162,18 +162,32 @@ async function addLocalSubmodule(
   );
 }
 
+/**
+ * Captures every `GIT_*` variable the caller's `process.env` holds, the ceiling included, and
+ * strips each one except `GIT_CEILING_DIRECTORIES` for the callback's duration.
+ */
 function captureAndStripProcessGitEnv(): CapturedGitEnv {
   const captured = new Map<string, string | undefined>();
   for (const key of Object.keys(process.env)) {
-    if (key.startsWith(GIT_ENVIRONMENT_PREFIX) && key !== GIT_CEILING_DIRECTORIES_KEY) {
-      captured.set(key, process.env[key]);
+    if (!key.startsWith(GIT_ENVIRONMENT_PREFIX)) continue;
+    captured.set(key, process.env[key]);
+    if (key !== GIT_CEILING_DIRECTORIES_KEY) {
       delete process.env[key];
     }
   }
   return captured;
 }
 
+/**
+ * Returns `process.env` to the captured `GIT_*` state: a `GIT_*` variable the caller did not hold is
+ * removed, and every captured one holds its prior value again.
+ */
 function restoreProcessGitEnv(captured: CapturedGitEnv): void {
+  for (const key of Object.keys(process.env)) {
+    if (key.startsWith(GIT_ENVIRONMENT_PREFIX) && !captured.has(key)) {
+      delete process.env[key];
+    }
+  }
   for (const [key, value] of captured) {
     if (value === undefined) {
       delete process.env[key];
