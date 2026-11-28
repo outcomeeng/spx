@@ -1,24 +1,25 @@
 # Harness Environment Descriptor
 
-CONSTRAINS the coding agents SPX supports, how it identifies the invoking agent and its session, and the shared harness-environment configuration input
-TO the agent registry module under `src/lib/agent-environment/`, which imports one agent module per coding agent from `src/lib/agent-environment/agents/`, one identity rule over the identity variables those modules declare, and one `harnessEnvironment` config descriptor at `src/domains/agent-environment/config.ts`, registered with the production config registry per [spx/16-config.enabler/21-descriptor-registration.adr.md](spx/16-config.enabler/21-descriptor-registration.adr.md), that resolves the subsections `instructions`, `agents` and `pluginBootstrap` over the registered agent ids
+CONSTRAINS the coding agents SPX supports, how it identifies the invoking agent, and the shared harness-environment configuration input
+TO the agent registry module under `src/lib/agent-environment/`, which imports one agent module per coding agent from `src/lib/agent-environment/agents/`, one identification rule over the `--agent` operand and the process names those modules declare, and one `harnessEnvironment` config descriptor at `src/domains/agent-environment/config.ts`, registered with the production config registry per [spx/16-config.enabler/21-descriptor-registration.adr.md](spx/16-config.enabler/21-descriptor-registration.adr.md), that resolves the subsections `instructions`, `agents` and `pluginBootstrap` over the registered agent ids
 SO THAT adding or removing a coding agent changes only its agent module and its registry entry, and the methodology bundle set of [spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/21-tree-fetch.adr.md](spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/21-tree-fetch.adr.md) when the agent ships a new bundle; no consumer guesses which agent does the work; and instruction reconciliation, agent configuration, hook CLI transport and plugin bootstrap consume one validated, typed input, in which a typo fails instead of dropping configured intent
 
 ## Test.Compliance: agent registry
 
-- registry-declarations: ALWAYS: each agent module declares its agent id, exactly one identity variable, its compact-stdout default, and at most one methodology bundle from the bundle set of [spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/21-tree-fetch.adr.md](spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/21-tree-fetch.adr.md), and the agent registry module lists every agent module.
+- registry-declarations: ALWAYS: each agent module declares its agent id, its process name, its hook payload's session field, its compact-stdout default, and at most one methodology bundle from the bundle set of [spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/21-tree-fetch.adr.md](spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/21-tree-fetch.adr.md), and the agent registry module lists every agent module.
 - default-bundle-mark: ALWAYS: exactly one agent module marks its methodology bundle as the default methodology bundle.
-- agent-names-in-registry-only: NEVER: a file under `src/` outside the agent registry module, the agent modules it lists, and the files the rule's transitional allowlist names holds a string literal exactly equal to a registered agent id or to a variable name an agent module declares; files under `src/lib/methodology/`, which hold the methodology bundle vocabulary, and the module specifier of an import declaration are exempt.
+- agent-names-in-registry-only: NEVER: a file under `src/` outside the agent registry module, the agent modules it lists, and the files the rule's transitional allowlist names holds a string literal exactly equal to a registered agent id; files under `src/lib/methodology/`, which hold the methodology bundle vocabulary, and the module specifier of an import declaration are exempt.
 
 ## Test.Mapping: agent-identification
 
-A registered identity variable is non-empty when its value is neither empty nor whitespace-only; agent identification through the agent registry's resolver yields at most one agent and one session, no identity variable takes precedence over another, and no agent falls back to another agent's variable.
+Agent identification through the agent registry's resolver yields at most one agent and reads no environment variable; an agent's session comes from its hook payload field or from the worktree claim, never from this resolver.
 
-| Case    | Non-empty registered identity variables | Agent                              | Session id                                                        |
-| ------- | --------------------------------------- | ---------------------------------- | ----------------------------------------------------------------- |
-| none    | none                                    | none                               | none                                                              |
-| one     | exactly one                             | the agent whose module declares it | that variable's value, normalized to the safe agent session token |
-| several | two or more                             | none                               | none                                                              |
+| Case                 | `--agent` operand         | Ancestor process chain                                        | Agent                                 |
+| -------------------- | ------------------------- | ------------------------------------------------------------- | ------------------------------------- |
+| operand              | names a registered agent  | any                                                           | the agent the operand names           |
+| unregistered-operand | names no registered agent | any                                                           | none                                  |
+| ancestor             | absent                    | holds a process whose executable is a registered process name | the agent of the nearest such process |
+| none                 | absent                    | holds no such process                                         | none                                  |
 
 ## Test.Compliance: descriptor resolution
 

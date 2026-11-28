@@ -4,14 +4,13 @@ id: 01a1ffbf-9424-7208-91fb-2148c14bbb65
 
 # Claude Code
 
-PROVIDES the facts spx needs about the Claude Code coding agent: its identity variable and session id, its compact-stdout default, its methodology bundle, its agent home, its session store and transcript records, its process name, and its plugin and marketplace listings
+PROVIDES the facts spx needs about the Claude Code coding agent: its hook payload's session field, its compact-stdout default, its methodology bundle, its agent home, its session store and transcript records, its process name, and its plugin and marketplace listings
 SO THAT spx's agent-facing behavior
-CAN identify a Claude Code session and work with its configuration, transcripts, and plugins from this agent's module alone
+CAN read a Claude Code session from its hook payload and work with its configuration, transcripts, and plugins from this agent's module alone
 
 ## Audit: Claude Code agent module
 
-- identity-variable: ALWAYS: the Claude Code agent module declares `CLAUDE_CODE_SESSION_ID`, the variable Claude Code exports to every process it runs, as its identity variable.
-- session-id: ALWAYS: a Claude Code session id is the value of `CLAUDE_CODE_SESSION_ID`, normalized to the safe agent session token.
+- payload-session-field: ALWAYS: the Claude Code agent module declares `session_id` as the field of its hook payload that carries the session id, and a Claude Code session id is that field's value, normalized to the safe agent session token.
 - compact-stdout-default: ALWAYS: the Claude Code agent module declares a compact-stdout default of true.
 - methodology-bundle: ALWAYS: the Claude Code agent module declares the `claude` methodology bundle and marks it as the default methodology bundle.
 - agent-home: ALWAYS: the Claude Code agent home is the directory `CLAUDE_CONFIG_DIR` names; without it, `.claude` in the person's home directory is user scope, which spx reads for diagnostics and session reading only and never writes.

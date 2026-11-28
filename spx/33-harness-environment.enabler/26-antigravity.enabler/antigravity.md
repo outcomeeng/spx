@@ -4,14 +4,13 @@ id: 01a1ffbf-9424-7208-91fb-214a35f400de
 
 # Antigravity
 
-PROVIDES the facts spx needs about the Antigravity coding agent: its identity variable and session id, its compact-stdout default, its process name, its plugin listing, and the user scope spx reads but never writes
+PROVIDES the facts spx needs about the Antigravity coding agent: its hook payload's session field, its compact-stdout default, its process name, its plugin listing, and the user scope spx reads but never writes
 SO THAT spx's agent-facing behavior
-CAN identify an Antigravity session and read its configuration and plugins from this agent's module alone
+CAN read an Antigravity session from its hook payload and read its configuration and plugins from this agent's module alone
 
 ## Audit: Antigravity agent module
 
-- identity-variable: ALWAYS: the Antigravity agent module declares `ANTIGRAVITY_CONVERSATION_ID` as its identity variable.
-- session-id: ALWAYS: an Antigravity session id is the value of `ANTIGRAVITY_CONVERSATION_ID`, normalized to the safe agent session token.
+- payload-session-field: ALWAYS: the Antigravity agent module declares `conversationId` as the field of its hook payload that carries the session id, and an Antigravity session id is that field's value, normalized to the safe agent session token.
 - compact-stdout-default: ALWAYS: the Antigravity agent module declares a compact-stdout default of false.
 - no-methodology-bundle: NEVER: the Antigravity agent module declares a methodology bundle.
 - process-name: ALWAYS: the Antigravity agent module declares `agy` as its process name.
