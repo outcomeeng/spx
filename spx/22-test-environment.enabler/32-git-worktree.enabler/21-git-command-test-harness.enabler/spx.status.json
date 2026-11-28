@@ -1,11 +1,11 @@
 {
-  "state": "specified",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
       "tests/git-command-test-harness.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "c36f631764c57980ccaad0ad75ca7167671180b6",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/21-git-command-test-harness.enabler/git-command-test-harness.md",
@@ -77,7 +77,7 @@
       },
       "tests/git-command-test-harness.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "c36f631764c57980ccaad0ad75ca7167671180b6",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/21-git-command-test-harness.enabler/git-command-test-harness.md",
@@ -91,7 +91,7 @@
       },
       "tests/git-command-test-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "c36f631764c57980ccaad0ad75ca7167671180b6",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/21-git-command-test-harness.enabler/git-command-test-harness.md",
@@ -185,7 +185,19 @@
     },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "c36f631764c57980ccaad0ad75ca7167671180b6",
+        "read": [
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/21-git-command-test-harness.enabler/git-command-test-harness.md",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/21-git-command-test-harness.enabler/tests/git-command-test-harness.compliance.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/21-git-command-test-harness.enabler/tests/git-command-test-harness.mapping.l1.test.ts",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/21-git-command-test-harness.enabler/tests/git-command-test-harness.scenario.l1.test.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_02-05-33-680-4b566fb0532d"
       }
     }
   }
