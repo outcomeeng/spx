@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { VERIFY_RECONCILIATION_RESULT_FIELD } from "@/domains/verify/reconciliation";
-import {} from "@/domains/verify/verify";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { CHANGE_RUNS_TEST_GENERATOR } from "@testing/generators/verify/change-runs";
 import { VERIFY_CHANGESET_EVIDENCE_TYPES } from "@testing/generators/verify/verify";

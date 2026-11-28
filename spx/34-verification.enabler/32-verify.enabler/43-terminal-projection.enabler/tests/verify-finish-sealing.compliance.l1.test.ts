@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_EXIT_CODE, type VerifyFinishReport } from "@/commands/verify/cli";
-import {} from "@/domains/verify/verify";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { CHANGE_RUNS_TEST_GENERATOR } from "@testing/generators/verify/change-runs";
 import {
