@@ -1,11 +1,11 @@
 {
-  "state": "passing",
+  "state": "failing",
   "malleability": "implementation",
   "verification": {
     "test": {
       "tests/write-paths.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
+        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.compliance.l1.test.ts",
@@ -185,6 +185,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -407,7 +408,7 @@
       },
       "tests/write-paths.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
+        "commit": "8d50f19e3fcca3846858db674f80886cf3c435c2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.mapping.l1.test.ts",
@@ -587,6 +588,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/payload-fields.ts",
           "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/review-run-set.ts",
@@ -811,68 +813,16 @@
     },
     "audit": {
       "any-driving-party": {
-        "verdict": "passed",
-        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
-        "read": [
-          ".gitignore",
-          "spx/34-verification.enabler/32-verify.enabler/verify.md",
-          "src/commands/verify/cli.ts",
-          "src/domains/verify/verify.ts",
-          "src/lib/appendable-journal-store/index.ts"
-        ],
-        "actor": {
-          "kind": "agent",
-          "id": "spx-advisor"
-        },
-        "run": "2026-11-25_08-45-15-304-5875f6659df3"
+        "verdict": "not-run"
       },
       "no-agent-selection": {
-        "verdict": "passed",
-        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
-        "read": [
-          ".gitignore",
-          "spx/34-verification.enabler/32-verify.enabler/verify.md",
-          "src/commands/verify/cli.ts",
-          "src/domains/verify/verify.ts",
-          "src/lib/appendable-journal-store/index.ts"
-        ],
-        "actor": {
-          "kind": "agent",
-          "id": "spx-advisor"
-        },
-        "run": "2026-11-25_08-45-15-304-5875f6659df3"
+        "verdict": "not-run"
       },
       "payload-working-input": {
-        "verdict": "passed",
-        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
-        "read": [
-          ".gitignore",
-          "spx/34-verification.enabler/32-verify.enabler/verify.md",
-          "src/commands/verify/cli.ts",
-          "src/domains/verify/verify.ts",
-          "src/lib/appendable-journal-store/index.ts"
-        ],
-        "actor": {
-          "kind": "agent",
-          "id": "spx-advisor"
-        },
-        "run": "2026-11-25_08-45-15-304-5875f6659df3"
+        "verdict": "not-run"
       },
       "typed-journal-events": {
-        "verdict": "passed",
-        "commit": "10355b6986e53d9111cca55633bac63baa9f3ae9",
-        "read": [
-          ".gitignore",
-          "spx/34-verification.enabler/32-verify.enabler/verify.md",
-          "src/commands/verify/cli.ts",
-          "src/domains/verify/verify.ts",
-          "src/lib/appendable-journal-store/index.ts"
-        ],
-        "actor": {
-          "kind": "agent",
-          "id": "spx-advisor"
-        },
-        "run": "2026-11-25_08-45-15-304-5875f6659df3"
+        "verdict": "not-run"
       }
     },
     "evidence": {
