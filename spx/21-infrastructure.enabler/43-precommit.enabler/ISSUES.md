@@ -39,3 +39,22 @@ This node's terminal output path passes values that originated outside the produ
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 
 **Revisit condition:** before the next changeset touching this node's terminal output path.
+
+## The hook tests observe configuration text, not the commands each hook runs
+
+The tests of the `lefthook.yml` rows and of the rendered portable hook read text. None of them runs a hook and watches which commands it starts.
+
+**Evidence:** The evidence audit of this Node, run 2026-11-28_02-14-36-645-7f762b8e76d8 sealed rejected at 1138da6d7, found two gaps.
+
+- `mutation-falsifiability`: `assertLefthookConfigRoutesLifecycleHooksThroughGates` checks only substrings and command names. Each of these mutations survives every precommit test:
+  - inverting `-eq 0` around `pnpm run build`, or around the post-checkout install
+  - swapping the gate's 0 and 78 branches
+  - dropping the `rebase` guard on `post-rewrite`
+  - moving the build ahead of the gate
+- `oracle-independence`: the rendered-hook rows are checked against `PORTABLE_HOOK_TOKENS`, which the production module under test owns. The rows cover the order `LEFTHOOK_BIN`, then the worktree binary, then `PATH`; and, with none reachable, the frozen install and then the worktree binary. Negating `[ -x "$worktree_lefthook" ]` survives, and so does dropping the `&&` after the frozen install.
+
+**Impact:** A hook that rebuilds `dist/` on the wrong gate status, installs on every checkout, or never reaches the worktree's lefthook passes every test of this Node. The Node's `evidence` entry `test` reads not-run, so the Node stays `specified`.
+
+**Settlement condition:** Each `run` script of `lefthook.yml`, and the rendered portable hook, runs under `sh` in a temporary worktree with recording stubs for `pnpm`, `tsx` and `lefthook` on `PATH`. For each gate status and each binary arrangement, the evidence observes which commands run and in what order. Each mutation above fails a test.
+
+**Reason deferred:** The fix replaces this Node's hook evidence with process-level tests and a stub harness. That is a test rewrite of its own, larger than a Changeset that changes only the Node's refresh rule.

@@ -5,7 +5,7 @@
     "test": {
       "tests/deps-install-gate-probe.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
@@ -27,7 +27,7 @@
       },
       "tests/deps-install-gate.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
@@ -49,7 +49,7 @@
       },
       "tests/entrypoint.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
@@ -71,7 +71,7 @@
       },
       "tests/hook-install.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
         "read": [
           "lefthook.yml",
           "pnpm-lock.yaml",
@@ -90,7 +90,7 @@
       },
       "tests/main-checkout-gate.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
@@ -115,7 +115,7 @@
       },
       "tests/subprocess-env.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -135,9 +135,44 @@
         ]
       }
     },
+    "audit": {
+      "default-branch-cli-refresh": {
+        "verdict": "passed",
+        "commit": "777c003f4782a475108617996b7b2d20b736091f",
+        "read": [
+          "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
+          "spx/local/merging.md"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_03-04-22-193-d4ddb6d1dcd3"
+      }
+    },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "failed",
+        "commit": "57401d6646a8342969356ed9a6a4d816c1b06d87",
+        "read": [
+          "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/deps-install-gate-probe.mapping.l1.test.ts",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/deps-install-gate.mapping.l1.test.ts",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/entrypoint.mapping.l1.test.ts",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/hook-install.compliance.l1.test.ts",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/main-checkout-gate.mapping.l1.test.ts",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/subprocess-env.compliance.l1.test.ts",
+          "testing/harnesses/precommit/deps-install-gate.ts",
+          "testing/harnesses/precommit/entrypoint.ts",
+          "testing/harnesses/precommit/hook-install.ts",
+          "testing/harnesses/precommit/main-checkout-gate.ts",
+          "testing/harnesses/precommit/subprocess-env.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_02-14-36-645-7f762b8e76d8"
       }
     }
   }
