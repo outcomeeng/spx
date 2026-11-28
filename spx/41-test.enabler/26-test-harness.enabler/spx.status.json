@@ -1,11 +1,11 @@
 {
-  "state": "specified",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
       "tests/test-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/26-test-harness.enabler/test-harness.md",
@@ -18,9 +18,140 @@
         ]
       }
     },
+    "audit": {
+      "fixture-writers-real-paths": {
+        "verdict": "passed",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "read": [
+          "spx/41-test.enabler/26-test-harness.enabler/test-harness.md",
+          "testing/harnesses/testing/cli.ts",
+          "testing/harnesses/testing/harness.ts",
+          "testing/harnesses/testing/recording-command-runner.ts",
+          "testing/harnesses/testing/vitest-registration-scenarios.ts",
+          "testing/harnesses/vitest-registration.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-48-06-358-f98a5aa540e0"
+      },
+      "harness-owns-setup": {
+        "verdict": "passed",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "read": [
+          "spx/41-test.enabler/26-test-harness.enabler/test-harness.md",
+          "testing/harnesses/testing/cli.ts",
+          "testing/harnesses/testing/harness.ts",
+          "testing/harnesses/testing/recording-command-runner.ts",
+          "testing/harnesses/testing/vitest-registration-scenarios.ts",
+          "testing/harnesses/vitest-registration.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-48-06-358-f98a5aa540e0"
+      },
+      "no-assertion-file-setup": {
+        "verdict": "passed",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "read": [
+          "spx/41-test.enabler/26-test-harness.enabler/test-harness.md",
+          "testing/harnesses/testing/cli.ts",
+          "testing/harnesses/testing/harness.ts",
+          "testing/harnesses/testing/recording-command-runner.ts",
+          "testing/harnesses/testing/vitest-registration-scenarios.ts",
+          "testing/harnesses/vitest-registration.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-48-06-358-f98a5aa540e0"
+      },
+      "no-operand-semantics": {
+        "verdict": "passed",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "read": [
+          "spx/41-test.enabler/26-test-harness.enabler/test-harness.md",
+          "testing/harnesses/testing/cli.ts",
+          "testing/harnesses/testing/harness.ts",
+          "testing/harnesses/testing/recording-command-runner.ts",
+          "testing/harnesses/testing/vitest-registration-scenarios.ts",
+          "testing/harnesses/vitest-registration.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-48-06-358-f98a5aa540e0"
+      },
+      "no-redeclared-vocabulary": {
+        "verdict": "passed",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "read": [
+          "spx/41-test.enabler/26-test-harness.enabler/test-harness.md",
+          "testing/harnesses/testing/cli.ts",
+          "testing/harnesses/testing/harness.ts",
+          "testing/harnesses/testing/recording-command-runner.ts",
+          "testing/harnesses/testing/vitest-registration-scenarios.ts",
+          "testing/harnesses/vitest-registration.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-48-06-358-f98a5aa540e0"
+      },
+      "real-cli-program": {
+        "verdict": "passed",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "read": [
+          "spx/41-test.enabler/26-test-harness.enabler/test-harness.md",
+          "testing/harnesses/testing/cli.ts",
+          "testing/harnesses/testing/harness.ts",
+          "testing/harnesses/testing/recording-command-runner.ts",
+          "testing/harnesses/testing/vitest-registration-scenarios.ts",
+          "testing/harnesses/vitest-registration.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-48-06-358-f98a5aa540e0"
+      },
+      "shared-recording-observation": {
+        "verdict": "passed",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "read": [
+          "spx/41-test.enabler/26-test-harness.enabler/test-harness.md",
+          "testing/harnesses/testing/cli.ts",
+          "testing/harnesses/testing/harness.ts",
+          "testing/harnesses/testing/recording-command-runner.ts",
+          "testing/harnesses/testing/vitest-registration-scenarios.ts",
+          "testing/harnesses/vitest-registration.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-48-06-358-f98a5aa540e0"
+      }
+    },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "read": [
+          "spx/41-test.enabler/26-test-harness.enabler/test-harness.md",
+          "spx/41-test.enabler/26-test-harness.enabler/tests/test-harness.scenario.l1.test.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-27_22-51-23-884-7f05e9e3882d"
       }
     }
   }

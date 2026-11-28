@@ -5,7 +5,7 @@
     "test": {
       "tests/property-harness.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -18,7 +18,7 @@
       },
       "tests/property-harness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -32,7 +32,7 @@
       },
       "tests/property-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -47,7 +47,7 @@
       },
       "tests/sampler.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -60,28 +60,66 @@
         ]
       }
     },
-    "evidence": {
-      "test": {
+    "audit": {
+      "composes-on-fast-check": {
         "verdict": "passed",
-        "commit": "fbb4c9b24aacb2a74cb05dcccbac17a03abe30c1",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
         "read": [
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
-          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.mapping.l1.test.ts",
-          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.property.l1.test.ts",
-          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.scenario.l1.test.ts",
-          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/sampler.conformance.l1.test.ts",
-          "src/test/languages/read-recorder-install.ts",
-          "src/test/languages/read-recorder-setup.ts",
-          "src/test/languages/read-recorder.ts",
           "testing/generators/property/property.ts",
-          "testing/generators/sample.ts",
           "testing/harnesses/property/property.ts"
         ],
         "actor": {
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-21_07-25-37-885-8af5e36408a0"
+        "run": "2026-11-25_08-46-49-982-0c11a1e9337a"
+      },
+      "generators-own-domains": {
+        "verdict": "passed",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "read": [
+          "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
+          "testing/generators/property/property.ts",
+          "testing/harnesses/property/property.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-46-49-982-0c11a1e9337a"
+      },
+      "no-test-owned-policy": {
+        "verdict": "passed",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "read": [
+          "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
+          "testing/generators/property/property.ts",
+          "testing/harnesses/property/property.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-46-49-982-0c11a1e9337a"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "passed",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "read": [
+          "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
+          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.mapping.l1.test.ts",
+          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.property.l1.test.ts",
+          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.scenario.l1.test.ts",
+          "spx/22-test-environment.enabler/32-property-harness.enabler/tests/sampler.conformance.l1.test.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-49-27-806-e2b06fa1ffee"
       }
     }
   }

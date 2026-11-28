@@ -5,7 +5,7 @@
     "test": {
       "tests/write-paths.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.compliance.l1.test.ts",
@@ -407,7 +407,7 @@
       },
       "tests/write-paths.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.mapping.l1.test.ts",
@@ -810,43 +810,85 @@
       }
     },
     "audit": {
-      "payload-working-input": {
+      "any-driving-party": {
         "verdict": "passed",
-        "commit": "3c2b44810a19621f258f4ead92aaca79a5d92bdb",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
         "read": [
           ".gitignore",
+          "spx/34-verification.enabler/32-verify.enabler/verify.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/verify.ts",
+          "src/lib/appendable-journal-store/index.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-45-15-304-5875f6659df3"
+      },
+      "no-agent-selection": {
+        "verdict": "passed",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "read": [
+          ".gitignore",
+          "spx/34-verification.enabler/32-verify.enabler/verify.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/verify.ts",
+          "src/lib/appendable-journal-store/index.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-45-15-304-5875f6659df3"
+      },
+      "payload-working-input": {
+        "verdict": "passed",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "read": [
+          ".gitignore",
+          "spx/34-verification.enabler/32-verify.enabler/verify.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/verify.ts",
+          "src/lib/appendable-journal-store/index.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-45-15-304-5875f6659df3"
+      },
+      "typed-journal-events": {
+        "verdict": "passed",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "read": [
+          ".gitignore",
+          "spx/34-verification.enabler/32-verify.enabler/verify.md",
+          "src/commands/verify/cli.ts",
+          "src/domains/verify/verify.ts",
+          "src/lib/appendable-journal-store/index.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-25_08-45-15-304-5875f6659df3"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "passed",
+        "commit": "27786c13a99bbd46524e51f1b881265960222654",
+        "read": [
+          "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.mapping.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/verify.md"
         ],
         "actor": {
           "kind": "agent",
           "id": "spx-advisor"
         },
-        "run": "2026-11-22_07-25-35-818-bf685f4971c2"
-      }
-    },
-    "evidence": {
-      "test": {
-        "verdict": "passed",
-        "commit": "985f4adab541c7fbd3d1ca0c6c2987cb1fa9d3ba",
-        "read": [
-          "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.compliance.l1.test.ts",
-          "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.mapping.l1.test.ts",
-          "spx/34-verification.enabler/32-verify.enabler/verify.md",
-          "src/domains/test/changed-set-planning.ts",
-          "src/domains/verification-exec/scope.ts",
-          "src/lib/node-status/claim-state.ts",
-          "src/lib/node-status/link-format.ts",
-          "src/lib/node-status/provider.ts",
-          "src/lib/node-status/spec-declaration.ts",
-          "src/lib/spec-tree/index.ts",
-          "src/lib/test-targeting/index.ts",
-          "testing/generators/literal/snippets.ts"
-        ],
-        "actor": {
-          "kind": "agent",
-          "id": "spx-advisor"
-        },
-        "run": "2026-11-23_02-13-24-362-d69a9387dc00"
+        "run": "2026-11-27_22-49-38-052-e8da02834c92"
       }
     }
   }
