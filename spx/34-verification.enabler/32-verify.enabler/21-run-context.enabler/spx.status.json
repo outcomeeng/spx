@@ -4740,7 +4740,7 @@
       },
       "tests/verify-payload-directory.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "1edf8f37b403cc147208f8ce3daf26091d759e91",
+        "commit": "186dc5e5cd57e15b60049515e2d270dfeb8bd0b7",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -5130,6 +5130,7 @@
           "testing/generators/state-store/state-store.ts",
           "testing/generators/testing/journal-reporter.ts",
           "testing/generators/verify/audit.ts",
+          "testing/generators/verify/probe.ts",
           "testing/generators/verify/reconciliation.ts",
           "testing/generators/verify/verify.ts",
           "testing/harnesses/git-test-constants.ts",

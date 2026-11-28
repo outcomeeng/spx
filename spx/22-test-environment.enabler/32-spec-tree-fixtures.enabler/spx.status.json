@@ -1,5 +1,5 @@
 {
-  "state": "specified",
+  "state": "passing",
   "malleability": "implementation",
   "verification": {
     "test": {
@@ -327,7 +327,7 @@
       },
       "tests/spec-tree-fixtures.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "e0965596b95e73f869015ff8410c958ecac14502",
+        "commit": "186dc5e5cd57e15b60049515e2d270dfeb8bd0b7",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
@@ -772,6 +772,10 @@
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/tests/audit-scope.scenario.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/tests/audit-terminal-metadata.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/tests/audit-claim-entry.mapping.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/tests/probe-payloads.compliance.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/tests/probe-run.scenario.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/tests/probe-scope-units.mapping.l1.test.ts",
+          "spx/34-verification.enabler/32-verify.enabler/65-probe-evidence-model.enabler/tests/probe-terminal.mapping.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/tests/review-evidence-validation.compliance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/tests/review-payload.conformance.l1.test.ts",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/tests/review-payload.property.l1.test.ts",
@@ -1056,9 +1060,7 @@
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/content-identity-start.compliance.l1.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/file-scope.mapping.l1.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/record-run.compliance.l1.test.ts",
-          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-evidence-help.compliance.l2.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-expectations-option.compliance.l2.test.ts",
-          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-finish-accounting.scenario.l2.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-finish-unaccounted.scenario.l2.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-paths.compliance.l2.test.ts",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/run-paths.scenario.l2.test.ts",
