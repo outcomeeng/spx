@@ -52,3 +52,16 @@ CAN obtain its write directories before launch, start it for the Change it serve
 ### Test.Compliance: run payload containment
 
 - [run-relative-payload-contained](tests/run-payload.compliance.l2.test.ts): NEVER: `spx verification run scope add`, `finding add`, or `finish` reads a `--run-payload` name whose path, resolved through symbolic links, lies outside the run's payload directory: a name that climbs out of it, an absolute path outside it, and a symbolic link inside it to a file outside it are each rejected before any read.
+
+### Test.Compliance: run evidence help
+
+- [evidence-help-names-fields](tests/run-evidence-help.compliance.l2.test.ts): ALWAYS: `spx verification run scope add --help` and `spx verification run finding add --help` name, for each verification type whose validators the run lifecycle registers, every payload field its validator requires, each field nested inside it, and the allowed values of each enumerated field, so the help a session reads states the payload the validator then accepts
+- [run-help-options-per-command](tests/run-evidence-help.compliance.l2.test.ts): ALWAYS: the `--help` of each `spx verification run` subcommand lists every option that subcommand accepts and no other, so `--change`, which `start`, `list` and `compare` accept, appears in the help of those three subcommands and of no other
+- [finish-help-accounting](tests/run-evidence-help.compliance.l2.test.ts): ALWAYS: `spx verification run finish --help` states that a scope unit's `judgedPaths` accounts for a changed path the head holds and its `judgedDeletions` for a path the changeset deletes
+
+### Test.Scenario: unaccounted path names its accounting field
+
+- [finish-names-accounting-field](tests/run-finish-accounting.scenario.l2.test.ts):
+  - Given a changeset run started through `spx verification run start --expectations <file>` whose scope evidence accounts for every changed path except one the head holds and one the changeset deletes
+  - When `spx verification run finish` runs
+  - Then its one JSON result names the held path with `judgedPaths` and the deleted path with `judgedDeletions` as the field that would account for it, the command exits non-zero, and a later `spx verification run status` reports the run unsealed
