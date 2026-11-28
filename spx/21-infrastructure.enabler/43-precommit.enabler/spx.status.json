@@ -137,12 +137,42 @@
     },
     "audit": {
       "default-branch-cli-refresh": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "d8e9a3ec6c22e77fc3075ee44c6c4e38c896c10d",
+        "read": [
+          "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
+          "spx/local/merging.md"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_02-13-21-830-9f32dad4e197"
       }
     },
     "evidence": {
       "test": {
-        "verdict": "not-run"
+        "verdict": "failed",
+        "commit": "d8e9a3ec6c22e77fc3075ee44c6c4e38c896c10d",
+        "read": [
+          "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/deps-install-gate-probe.mapping.l1.test.ts",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/deps-install-gate.mapping.l1.test.ts",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/entrypoint.mapping.l1.test.ts",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/hook-install.compliance.l1.test.ts",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/main-checkout-gate.mapping.l1.test.ts",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/subprocess-env.compliance.l1.test.ts",
+          "testing/harnesses/precommit/deps-install-gate.ts",
+          "testing/harnesses/precommit/entrypoint.ts",
+          "testing/harnesses/precommit/hook-install.ts",
+          "testing/harnesses/precommit/main-checkout-gate.ts",
+          "testing/harnesses/precommit/subprocess-env.ts"
+        ],
+        "actor": {
+          "kind": "agent",
+          "id": "spx-advisor"
+        },
+        "run": "2026-11-28_02-14-36-645-7f762b8e76d8"
       }
     }
   }
