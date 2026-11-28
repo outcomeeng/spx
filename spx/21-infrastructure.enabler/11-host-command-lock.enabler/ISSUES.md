@@ -31,3 +31,15 @@ In the case `never starts the command when the cap expires between a passing win
 **Skills:** `/apply`, `/author-typescript-code`, `/audit-typescript-code`, `/author-typescript-test`.
 
 **Revisit condition:** when the node's supervision code is next changed.
+
+## A run that holds the slot in its load window leaves the previous run's holder record: `src/lib/host-command-lock/host-command-lock.ts` `runOutermost` [`spx/21-infrastructure.enabler/11-host-command-lock.enabler/15-host-command-lock.pdr.md`](spx/21-infrastructure.enabler/11-host-command-lock.enabler/15-host-command-lock.pdr.md)
+
+`runOutermost` takes the slot in its `tryLock` loop, then waits in `admitAfterQuietWindow`, and writes its holder record only once the window passes. Until then the lock file still holds the record of the last run that spawned, whose supervisor has exited. On 2026-11-28 a waiter held the slot for over 50 minutes while the five-minute load stood near 45 on 12 logical CPUs. The file named run `324AFD89-EA8E-4499-BD62-F1393E0E96A3`, whose supervisor had exited 0 at 06:48Z, and the holder was diagnosed as a dead supervisor that blocked every waiter.
+
+**Impact:** the record misnames the holder during every load wait, so it fails the PDR's guarantee that the record diagnoses the run that holds the slot. It led to a proposal to move the lock file, which would split exclusion across two inodes.
+
+**Resolution:** write the holder record as soon as the slot is taken, with a state that tells a run waiting in its load window from a running child, and rewrite it at the spawn. Add a scenario that holds the slot through a failing window and reads the record.
+
+**Skills:** `/apply`, `/author-typescript-code`, `/author-typescript-test`.
+
+**Revisit condition:** when the node's admission code is next changed.
