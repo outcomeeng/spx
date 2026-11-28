@@ -44,7 +44,16 @@ import {
 import { verifyInputInspectCommand } from "@/commands/verify/input-inspect";
 import type { CliCommandResult } from "@/config/types";
 import {
+  EVIDENCE_FIELD_PRESENCE,
+  EVIDENCE_PAYLOAD_FIELDS,
+  evidenceFieldName,
+  type EvidencePayloadField,
+  type EvidencePayloadKind,
+  SCOPE_ACCOUNTING_FIELDS,
+} from "@/domains/verify/payload-fields";
+import {
   VERIFY_CONTENT_OPTION,
+  VERIFY_EVIDENCE_KIND,
   VERIFY_INPUT_SOURCE,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERB,
@@ -171,6 +180,81 @@ export const VERIFY_CLI = {
 } as const;
 
 const CLI_SOURCE_ENCODING = "utf8";
+
+/**
+ * The layout of the payload-field help after `scope add` and `finding add`: a heading line per
+ * verification type, then one indented line per field holding its dotted path, a colon, and its
+ * parts — value, allowed values, constraint, and presence — joined by the parts separator.
+ */
+export const EVIDENCE_PAYLOAD_HELP = {
+  sectionIndent: "  ",
+  fieldIndent: "    ",
+  headingSuffix: ":",
+  fieldNameSuffix: ": ",
+  partsSeparator: "; ",
+  allowedValuesPrefix: "one of ",
+  valuesSeparator: ", ",
+  accountsPrefix: "accounts for ",
+  everyTypeHeading: "every verification type",
+  lineSeparator: "\n",
+} as const;
+
+/** One help line naming a payload field, its value, its allowed values, and its presence. */
+function payloadFieldHelpLine(field: EvidencePayloadField, accounts?: string): string {
+  const parts: string[] = [field.value];
+  if (field.values !== undefined) {
+    parts.push(
+      `${EVIDENCE_PAYLOAD_HELP.allowedValuesPrefix}${field.values.join(EVIDENCE_PAYLOAD_HELP.valuesSeparator)}`,
+    );
+  }
+  if (field.constraint !== undefined) parts.push(field.constraint);
+  if (field.presence === EVIDENCE_FIELD_PRESENCE.OPTIONAL) parts.push(EVIDENCE_FIELD_PRESENCE.OPTIONAL);
+  if (field.presence === EVIDENCE_FIELD_PRESENCE.CONDITIONAL && field.condition !== undefined) {
+    parts.push(`${EVIDENCE_FIELD_PRESENCE.REQUIRED} ${field.condition}`);
+  }
+  if (accounts !== undefined) parts.push(`${EVIDENCE_PAYLOAD_HELP.accountsPrefix}${accounts}`);
+  return `${EVIDENCE_PAYLOAD_HELP.fieldIndent}${evidenceFieldName(field)}${EVIDENCE_PAYLOAD_HELP.fieldNameSuffix}${
+    parts.join(EVIDENCE_PAYLOAD_HELP.partsSeparator)
+  }`;
+}
+
+function payloadHelpHeading(heading: string): string {
+  return `${EVIDENCE_PAYLOAD_HELP.sectionIndent}${heading}${EVIDENCE_PAYLOAD_HELP.headingSuffix}`;
+}
+
+/**
+ * The help text after `scope add` or `finding add`: for each verification type whose validators
+ * the run lifecycle registers, every payload field its validator reads, by the dotted path a
+ * rejection names it by, and for scope evidence the type-neutral fields that account for a
+ * changeset run's changed paths.
+ */
+export function renderEvidencePayloadHelp(kind: EvidencePayloadKind): string {
+  const lines = [
+    "",
+    "Payload fields by verification type, each by the dotted path a rejection names; a field is required unless marked otherwise:",
+  ];
+  for (const [verificationType, fields] of Object.entries(EVIDENCE_PAYLOAD_FIELDS)) {
+    lines.push(payloadHelpHeading(verificationType));
+    for (const field of fields[kind]) lines.push(payloadFieldHelpLine(field));
+  }
+  if (kind === VERIFY_EVIDENCE_KIND.SCOPE) {
+    lines.push(payloadHelpHeading(EVIDENCE_PAYLOAD_HELP.everyTypeHeading));
+    for (const field of SCOPE_ACCOUNTING_FIELDS) lines.push(payloadFieldHelpLine(field, field.accounts));
+  }
+  return lines.join(EVIDENCE_PAYLOAD_HELP.lineSeparator);
+}
+
+/** The help text after `finish`: the scope-unit field that accounts for each changed path of a bound run. */
+export function renderFinishAccountingHelp(): string {
+  const accounting = SCOPE_ACCOUNTING_FIELDS.map((field) =>
+    `${evidenceFieldName(field)} ${EVIDENCE_PAYLOAD_HELP.accountsPrefix}${field.accounts}`
+  )
+    .join(", and its ");
+  return [
+    "",
+    `Scope accounting: a changeset run bound to expectations seals only when its scope evidence accounts for every changed path. A scope unit's ${accounting}. A finish that leaves a path unaccounted names, for each such path, the field that would account for it, and seals nothing.`,
+  ].join(EVIDENCE_PAYLOAD_HELP.lineSeparator);
+}
 
 interface VerifySharedCliOptions {
   readonly verificationType: string;
@@ -360,6 +444,7 @@ export function registerVerifyCommands(
   scopeCommand
     .command(VERIFY_CLI.addCommandName)
     .description("Record the inspected scope for a started run")
+    .addHelpText("after", renderEvidencePayloadHelp(VERIFY_EVIDENCE_KIND.SCOPE))
     .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
     .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
     .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
@@ -378,6 +463,7 @@ export function registerVerifyCommands(
   findingCommand
     .command(VERIFY_CLI.addCommandName)
     .description("Record a validated verification finding for a started run")
+    .addHelpText("after", renderEvidencePayloadHelp(VERIFY_EVIDENCE_KIND.FINDING))
     .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
     .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
     .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
@@ -403,6 +489,7 @@ export function registerVerifyCommands(
   runCommand
     .command(VERIFY_CLI.finishCommandName)
     .description("Record terminal completion, seal the run journal, and report its terminal projection")
+    .addHelpText("after", renderFinishAccountingHelp())
     .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
     .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
     .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)

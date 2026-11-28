@@ -32,7 +32,15 @@ import {
 } from "@testing/generators/verify/change-runs";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import { CLI_PATH, NODE_EXECUTABLE, PRODUCT_ROOT } from "@testing/harnesses/constants";
-import { buildGitTestEnvironment, GIT_TEST_ENVIRONMENT_KEYS } from "@testing/harnesses/git-test-constants";
+import {
+  buildGitTestEnvironment,
+  GIT_TEST_ENVIRONMENT_KEYS,
+  GIT_TEST_FLAGS,
+  GIT_TEST_REF,
+  GIT_TEST_SUBCOMMANDS,
+  readGit,
+  runGit,
+} from "@testing/harnesses/git-test-constants";
 import { type StartedChangeRun, withChangeRunsRepository } from "@testing/harnesses/verify/change-runs";
 import {
   sampleDirectoryName,
@@ -54,6 +62,7 @@ const HEADLESS_RUN_TEMP_PREFIX = "verify-built-headless-run-";
 const HEADLESS_RUN_PRODUCT_DIRECTORY = "product";
 const EXPECTATIONS_FILE_NAME = "expectations.json";
 const RUN_PATHS_TEMP_PREFIX = "verify-built-run-paths-";
+const RUN_HELP_TEMP_PREFIX = "verify-built-run-help-";
 
 /** Captured streams and exit code of one built-executable run. */
 export interface BuiltVerificationCliRun {
@@ -630,7 +639,10 @@ export async function observeBuiltRunPathsAgainstStart(
 export const BUILT_RUN_COVERAGE = {
   EVERY_CHANGED_PATH: "every-changed-path",
   ALL_BUT_ONE_CHANGED_PATH: "all-but-one-changed-path",
+  ALL_BUT_ONE_HELD_AND_THE_DELETED_PATH: "all-but-one-held-and-the-deleted-path",
 } as const;
+
+const DELETE_FILE_MESSAGE = "Delete the file the base holds";
 
 export type BuiltRunCoverage = (typeof BUILT_RUN_COVERAGE)[keyof typeof BUILT_RUN_COVERAGE];
 
@@ -643,6 +655,8 @@ export type BuiltRunCoverage = (typeof BUILT_RUN_COVERAGE)[keyof typeof BUILT_RU
 export interface BuiltBoundRun {
   readonly productDir: string;
   readonly unaccountedPath: string;
+  /** The deleted path the evidence leaves unjudged, under coverage that deletes a path. */
+  readonly unaccountedDeletedPath?: string;
   readonly terminalStatus: string;
   readonly expectationsFile: string;
   readonly selectors: readonly string[];
@@ -666,17 +680,24 @@ async function withBuiltBoundRun<T>(
   const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.argvIdempotencyKey());
   const unaccountedPath = comparison.secondOnlyPath;
   return withChangeRunsRepository(scenario, async (repository) => {
-    const headCommit = await repository.commitFiles(comparison.files);
-    const changedPaths = [repository.filePath, ...comparison.files.map((file) => file.path)];
+    const deletesPath = coverage === BUILT_RUN_COVERAGE.ALL_BUT_ONE_HELD_AND_THE_DELETED_PATH;
+    const filesCommit = await repository.commitFiles(comparison.files);
+    const headCommit = deletesPath
+      ? await deleteFileAndCommit(repository.productDir, repository.filePath)
+      : filesCommit;
+    // A changeset that deletes a path starts at the commit that adds it, so the base holds the path.
+    const baseCommit = deletesPath ? repository.headCommit : repository.baseCommit;
+    const heldPaths = comparison.files.map((file) => file.path);
+    const changedPaths = deletesPath ? heldPaths : [repository.filePath, ...heldPaths];
     const judgedPaths = coverage === BUILT_RUN_COVERAGE.EVERY_CHANGED_PATH
       ? changedPaths
       : changedPaths.filter((path) => path !== unaccountedPath);
     const selectors = changesetReviewSelectors({
       productDir: repository.productDir,
-      baseCommit: repository.baseCommit,
+      baseCommit,
       headCommit,
     });
-    const scopeIdentity = `${repository.baseCommit}${VERIFY_SCOPE_SEPARATOR}${headCommit}`;
+    const scopeIdentity = `${baseCommit}${VERIFY_SCOPE_SEPARATOR}${headCommit}`;
     const evidence = sampleVerifyTestValue(
       VERIFY_TEST_GENERATOR.judgedEvidenceTerminalCase(VERIFY_VERIFICATION_TYPE.REVIEW, scopeIdentity, judgedPaths),
     );
@@ -700,6 +721,7 @@ async function withBuiltBoundRun<T>(
     const common = {
       productDir: repository.productDir,
       unaccountedPath,
+      ...(deletesPath ? { unaccountedDeletedPath: repository.filePath } : {}),
       terminalStatus: evidence.terminalStatus,
       expectationsFile,
       selectors,
@@ -724,6 +746,13 @@ async function withBuiltBoundRun<T>(
     );
     return callback({ ...common, runSelectors, start, scopeAdd });
   });
+}
+
+/** Remove `path` from the checkout at `productDir`, commit the removal, and return the new commit. */
+async function deleteFileAndCommit(productDir: string, path: string): Promise<string> {
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.RM, path]);
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, DELETE_FILE_MESSAGE]);
+  return readGit(productDir, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_REF.HEAD_NAME]);
 }
 
 /** Throw a setup failure unless the bound run's `start` and `scope add` both succeeded. */
@@ -772,6 +801,76 @@ export async function observeBuiltUnaccountedRun(): Promise<BuiltUnaccountedRunO
       statusReport: JSON.parse(status.stdout) as VerifyStatusReport,
     };
   });
+}
+
+/** The built `finish` and `status` runs over a bound run whose evidence leaves one held and one deleted path unjudged. */
+export interface BuiltHeldAndDeletedUnaccountedObservation {
+  readonly heldPath: string;
+  readonly deletedPath: string;
+  readonly finish: BuiltVerificationCliRun;
+  readonly status: BuiltVerificationCliRun;
+  readonly statusReport: VerifyStatusReport;
+}
+
+/**
+ * Over an expectations-bound changeset run whose changeset adds several paths and deletes one, and
+ * whose scope evidence judges every added path but one and no deletion, run the built `finish`
+ * with a terminal status the evidence accepts, then the built `status`.
+ */
+export async function observeBuiltHeldAndDeletedUnaccountedRun(): Promise<BuiltHeldAndDeletedUnaccountedObservation> {
+  return withBuiltBoundRun(BUILT_RUN_COVERAGE.ALL_BUT_ONE_HELD_AND_THE_DELETED_PATH, async (run) => {
+    requireBoundRunEvidence(run);
+    if (run.unaccountedDeletedPath === undefined) {
+      throw new Error("built-cli harness: the bound run deleted no path");
+    }
+    const finish = await runBuiltVerificationRun(
+      run.productDir,
+      [VERIFY_CLI.finishCommandName],
+      [...run.runSelectors, flagOf(VERIFY_CLI.terminalStatusOption), run.terminalStatus],
+    );
+    const status = await runBuiltVerificationRun(run.productDir, [VERIFY_CLI.statusCommandName], run.runSelectors);
+    return {
+      heldPath: run.unaccountedPath,
+      deletedPath: run.unaccountedDeletedPath,
+      finish,
+      status,
+      statusReport: JSON.parse(status.stdout) as VerifyStatusReport,
+    };
+  });
+}
+
+/** The command path of every `spx verification run` subcommand, each below `spx verification run`. */
+export const BUILT_RUN_SUBCOMMAND_PATHS: readonly (readonly string[])[] = [
+  [VERIFY_CLI.pathsCommandName],
+  [VERIFY_CLI.startCommandName],
+  [VERIFY_CLI.inputCommandName],
+  [VERIFY_CLI.scopeCommandName, VERIFY_CLI.addCommandName],
+  [VERIFY_CLI.findingCommandName, VERIFY_CLI.addCommandName],
+  [VERIFY_CLI.reconcileCommandName],
+  [VERIFY_CLI.finishCommandName],
+  [VERIFY_CLI.statusCommandName],
+  [VERIFY_CLI.renderCommandName],
+  [VERIFY_CLI.listCommandName],
+  [VERIFY_CLI.compareCommandName],
+];
+
+const HELP_FLAG = "--help";
+
+/** The built `--help` of one run subcommand, keyed by its command path. */
+export interface BuiltRunHelp {
+  readonly commandPath: readonly string[];
+  readonly help: BuiltVerificationCliRun;
+}
+
+/** Run the built `spx verification run <subcommand> --help` for every run subcommand, from a temporary directory. */
+export async function observeBuiltRunHelp(): Promise<readonly BuiltRunHelp[]> {
+  return withTempDir(RUN_HELP_TEMP_PREFIX, async (directory) =>
+    Promise.all(
+      BUILT_RUN_SUBCOMMAND_PATHS.map(async (commandPath) => ({
+        commandPath,
+        help: await runBuiltVerificationRun(directory, commandPath, [HELP_FLAG]),
+      })),
+    ));
 }
 
 /**
