@@ -1,9 +1,12 @@
 import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { GIT_CEILING_DIRECTORIES_KEY } from "@/lib/git/environment";
+import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
+  GIT_TEST_CONFIG,
   GIT_TEST_ENVIRONMENT_KEYS,
   GIT_TEST_FLAGS,
   GIT_TEST_OUTPUT,
@@ -13,12 +16,36 @@ import {
 } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { withProcessEnv } from "@testing/harnesses/process-env/process-env";
+import { removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 describe("withGitWorktreeEnv — safety and GIT_* isolation", () => {
   it("ALWAYS: productDir is rooted under os.tmpdir()", async () => {
     await withGitWorktreeEnv(async (env) => {
       expect(env.productDir.startsWith(tmpdir())).toBe(true);
     });
+  });
+
+  it("ALWAYS: the repository addSubmodule creates is rooted under os.tmpdir()", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const submodulePath = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.submodulePath());
+      await env.addSubmodule(submodulePath);
+
+      const submoduleRepository = await env.runGit([
+        GIT_TEST_SUBCOMMANDS.CONFIG,
+        GIT_TEST_FLAGS.FILE,
+        GIT_TEST_CONFIG.SUBMODULES_FILE,
+        GIT_TEST_FLAGS.GET,
+        [GIT_TEST_CONFIG.SUBMODULE_SECTION, submodulePath, GIT_TEST_CONFIG.URL_KEY].join("."),
+      ]);
+
+      expect(submoduleRepository.startsWith(tmpdir())).toBe(true);
+    });
+  });
+
+  it("ALWAYS: removal refuses a path outside os.tmpdir() before it removes anything", async () => {
+    const outsideTempRoot = join(dirname(resolve(tmpdir())), sampleGitWorktreeTestValue(arbitraryPathSegment()));
+
+    await expect(removeTempDir(outsideTempRoot)).rejects.toThrow(outsideTempRoot);
   });
 
   describe("strip-and-restore covers every GIT_* variable and keeps GIT_CEILING_DIRECTORIES at the caller's value", () => {
@@ -79,6 +106,58 @@ describe("withGitWorktreeEnv — safety and GIT_* isolation", () => {
       });
 
       expect(observedAfter).toEqual(callerValues);
+    });
+
+    it("removes every GIT_* variable absent before and restores the ceiling after a callback that sets them returns", async () => {
+      const callerCeiling = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.ceilingDirectory());
+      const callbackValues = sampleGitWorktreeTestValue(
+        GIT_WORKTREE_TEST_GENERATOR.environmentValues(Object.values(GIT_TEST_ENVIRONMENT_KEYS)),
+      );
+      const observedAfter: Record<string, string | undefined> = {};
+
+      await withProcessEnv({ [GIT_CEILING_DIRECTORIES_KEY]: callerCeiling }, async () => {
+        await withGitWorktreeEnv(async () => {
+          await withGitWorktreeEnv(async () => {
+            Object.assign(process.env, callbackValues);
+          });
+          for (const key of Object.keys(callbackValues)) {
+            observedAfter[key] = process.env[key];
+          }
+        });
+      });
+
+      for (const key of GIT_TEST_STRIPPED_ENVIRONMENT_KEYS) {
+        expect(observedAfter[key]).toBeUndefined();
+      }
+      expect(observedAfter[GIT_CEILING_DIRECTORIES_KEY]).toBe(callerCeiling);
+    });
+
+    it("removes every GIT_* variable absent before and restores the ceiling after a callback that sets them throws", async () => {
+      const callerCeiling = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.ceilingDirectory());
+      const callbackValues = sampleGitWorktreeTestValue(
+        GIT_WORKTREE_TEST_GENERATOR.environmentValues(Object.values(GIT_TEST_ENVIRONMENT_KEYS)),
+      );
+      const thrownError = new Error(sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.fileContent()));
+      const observedAfter: Record<string, string | undefined> = {};
+
+      await withProcessEnv({ [GIT_CEILING_DIRECTORIES_KEY]: callerCeiling }, async () => {
+        await withGitWorktreeEnv(async () => {
+          await expect(
+            withGitWorktreeEnv(async () => {
+              Object.assign(process.env, callbackValues);
+              throw thrownError;
+            }),
+          ).rejects.toBe(thrownError);
+          for (const key of Object.keys(callbackValues)) {
+            observedAfter[key] = process.env[key];
+          }
+        });
+      });
+
+      for (const key of GIT_TEST_STRIPPED_ENVIRONMENT_KEYS) {
+        expect(observedAfter[key]).toBeUndefined();
+      }
+      expect(observedAfter[GIT_CEILING_DIRECTORIES_KEY]).toBe(callerCeiling);
     });
 
     it("stripped GIT_DIR routes harness git invocations to productDir even when the caller set a bogus value", async () => {

@@ -327,7 +327,7 @@
       },
       "tests/spec-tree-fixtures.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "210406e8fc6065252cc95258de627eef647dda7b",
+        "commit": "f47aea0b61cc63fe63110f8bf6693ba808c84cd5",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
