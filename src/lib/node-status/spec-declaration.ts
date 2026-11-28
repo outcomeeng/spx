@@ -25,12 +25,14 @@ export interface NodeSpecDeclaration {
   readonly malleability: NodeStatusMalleability;
   /** The keys of the spec's keyed audit references, as the spec-tree library reads them, in document order. */
   readonly auditSlugs: readonly string[];
+  /** Whether the spec-tree library read an audit reference with no key from the spec, a pathless audit or review tag. */
+  readonly holdsUnkeyedAuditReference: boolean;
 }
 
 const MALLEABILITIES: ReadonlySet<string> = new Set(Object.values(NODE_STATUS_MALLEABILITY));
 
 /** The keys of a node's keyed audit references, as the spec-tree library reads them from its spec, each once, in order. */
-export function auditSlugsOfReferences(references: readonly SpecTreeEvidenceReference[]): readonly string[] {
+function auditSlugsOfReferences(references: readonly SpecTreeEvidenceReference[]): readonly string[] {
   const slugs = new Set<string>();
   for (const { verificationType, key } of references) {
     if (verificationType === SPEC_TREE_VERIFICATION_TYPE.AUDIT && key.kind === SPEC_TREE_EVIDENCE_KEY_KIND.SLUG) {
@@ -40,15 +42,25 @@ export function auditSlugsOfReferences(references: readonly SpecTreeEvidenceRefe
   return [...slugs];
 }
 
+/** Whether the spec-tree library read an audit reference with no key: a pathless audit tag or a legacy review tag. */
+function holdsUnkeyedAuditReference(references: readonly SpecTreeEvidenceReference[]): boolean {
+  return references.some(({ verificationType, key }) =>
+    verificationType === SPEC_TREE_VERIFICATION_TYPE.AUDIT && key.kind === SPEC_TREE_EVIDENCE_KEY_KIND.UNKEYED
+  );
+}
+
 /**
  * Read a node's spec: the malleability its front matter declares (the absent field means the implementation
- * layer), with the audit slugs the spec-tree library read from it. A spec that cannot be read declares the defaults.
+ * layer), with the audit slugs and the unkeyed audit references among the evidence references the spec-tree
+ * library read from it. A spec that cannot be read declares the defaults.
  */
 export async function readNodeSpecDeclaration(
   productDir: string,
   nodeId: string,
-  auditSlugs: readonly string[] = [],
+  references: readonly SpecTreeEvidenceReference[] = [],
 ): Promise<NodeSpecDeclaration> {
+  const auditSlugs = auditSlugsOfReferences(references);
+  const unkeyedAudit = holdsUnkeyedAuditReference(references);
   const nodePath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}${nodeId}`;
   const directoryName = nodeId.slice(nodeId.lastIndexOf(SPEC_TREE_GRAMMAR.PATH_SEPARATOR) + 1);
   const slug = parseSpecTreeNodeDirectoryName(directoryName)?.slug ?? directoryName;
@@ -63,12 +75,18 @@ export async function readNodeSpecDeclaration(
     } catch {
       continue;
     }
-    return { specPath, malleability: declaredMalleability(source, specPath), auditSlugs };
+    return {
+      specPath,
+      malleability: declaredMalleability(source, specPath),
+      auditSlugs,
+      holdsUnkeyedAuditReference: unkeyedAudit,
+    };
   }
   return {
     specPath: candidates[candidates.length - 1] ?? nodePath,
     malleability: NODE_STATUS_DEFAULT_MALLEABILITY,
     auditSlugs,
+    holdsUnkeyedAuditReference: unkeyedAudit,
   };
 }
 

@@ -39,7 +39,7 @@ import { createPinChangeReader } from "./currency";
 import { createNodeStatusExcludeReader } from "./exclude";
 import { foldNodeClaim, type NodeAttributedResultResolver, type NodeReadPathResolver } from "./fold";
 import { readNodeStatus } from "./read";
-import { auditSlugsOfReferences, readNodeSpecDeclaration } from "./spec-declaration";
+import { readNodeSpecDeclaration } from "./spec-declaration";
 import { collectNodeStatusFiles, nodeStatusPath } from "./status-files";
 
 /**
@@ -188,11 +188,7 @@ async function foldTrackedNodeClaims(options: UpdateNodeStatusOptions): Promise<
     const claim = await foldNodeClaim({
       ...claimFoldContext,
       nodeId: node.id,
-      declaration: await readNodeSpecDeclaration(
-        productDir,
-        node.id,
-        auditSlugsOfReferences(node.evidenceReferences),
-      ),
+      declaration: await readNodeSpecDeclaration(productDir, node.id, node.evidenceReferences),
       evidencePaths: evidencePaths(evidence),
       outcomes: evidence.length === 0 ? {} : await resolveOutcome(node.id, evidencePaths(evidence)),
       committed: committed?.[NODE_STATUS_FIELD.VERIFICATION] ?? NO_COMMITTED_RESULTS,

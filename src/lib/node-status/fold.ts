@@ -20,6 +20,7 @@ import { NODE_STATUS_CURRENCY, type PinChangeReader, resultCurrency } from "./cu
 import { withoutLockfile } from "./lockfile";
 import { NODE_STATUS_FILENAME } from "./read";
 import type { NodeSpecDeclaration } from "./spec-declaration";
+import { unrecordedRequirementResults } from "./unrecorded-requirements";
 
 const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 const ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}`;
@@ -153,14 +154,17 @@ export async function foldNodeClaim(input: NodeClaimFoldInput): Promise<NodeStat
   }
 
   const verification = sortedVerification(sections);
-  const results = await Promise.all(
-    Object.entries(verification).flatMap(([section, entries]) =>
-      Object.values(entries).map(async (entry) => ({
-        verdict: entry[NODE_STATUS_CLAIM_FIELD.VERDICT],
-        currency: await resultCurrency(section as NodeStatusClaimSection, entry, input.pinChanges),
-      }))
+  const results = [
+    ...await Promise.all(
+      Object.entries(verification).flatMap(([section, entries]) =>
+        Object.values(entries).map(async (entry) => ({
+          verdict: entry[NODE_STATUS_CLAIM_FIELD.VERDICT],
+          currency: await resultCurrency(section as NodeStatusClaimSection, entry, input.pinChanges),
+        }))
+      ),
     ),
-  );
+    ...unrecordedRequirementResults(input.declaration, verification),
+  ];
   const facts = {
     requiredArtifactsMissing: input.evidencePaths.length === 0,
     results,

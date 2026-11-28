@@ -44,7 +44,8 @@ describe("a tree holding a version-1 claim and a 4.0 claim", () => {
   it("reads both and reports each with its shape", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
     await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
-      await repository.writeClaim(repository.passedTestClaim(0));
+      const written = repository.passedTestClaim(0);
+      await repository.writeClaim(written);
       const versionOneDirectory = await repository.writeVersionOneSiblingClaim();
       const productDir = repository.env.productDir;
 
@@ -55,9 +56,9 @@ describe("a tree holding a version-1 claim and a 4.0 claim", () => {
       expect(versionOne?.shape).toBe(NODE_STATUS_CLAIM_SHAPE.VERSION_1);
       expect(
         current?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
-          ? nodeStatusClaimResults(current.claim).map((result) => result.key)
+          ? new Set(nodeStatusClaimResults(current.claim).map((result) => result.key))
           : undefined,
-      ).toEqual([repository.testKeys[0]]);
+      ).toEqual(new Set(Object.values(written).flatMap((entries) => Object.keys(entries ?? {}))));
       expect(
         versionOne?.shape === NODE_STATUS_CLAIM_SHAPE.VERSION_1
           ? versionOne.claim[NODE_STATUS_FIELD.SCHEMA_VERSION]
@@ -105,6 +106,7 @@ describe("given a pinned result whose commit Git cannot compare with the checkou
       const read = [repository.specPath, repository.testPaths[0] ?? "", repository.subjectPaths[0] ?? ""];
       const claimOf = (entry: ReturnType<typeof repository.passedEntry>) => ({
         [NODE_STATUS_CLAIM_SECTION.TEST]: { [repository.testKeys[0] ?? ""]: entry },
+        ...repository.passedEvidenceAudit(read),
       });
 
       await repository.writeClaim(claimOf(repository.passedEntry(read)), SPEC_TREE_NODE_STATE.PASSING);

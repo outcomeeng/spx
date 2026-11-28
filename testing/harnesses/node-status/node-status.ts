@@ -705,8 +705,13 @@ export type PinnedNodeRepository = {
   readonly pinChanges: PinChangeReader;
   /** A passed entry pinned to the repository's commit over `read`. */
   passedEntry(read: readonly string[]): NodeStatusClaimEntry;
-  /** The test results of a claim recording the node's first test passed, pinned over the spec, that test, and subject `subjectIndex`. */
+  /**
+   * The results of a claim recording the node's first test passed, pinned over the spec, that test, and subject
+   * `subjectIndex`, with the passed `evidence` entries an implementation-malleable node requires over the same paths.
+   */
   passedTestClaim(subjectIndex: number): NodeStatusClaimVerification;
+  /** The passed `evidence` entries, pinned over `read`, that the node's declared malleability requires; none below implementation. */
+  passedEvidenceAudit(read: readonly string[]): NodeStatusClaimVerification;
   /** A resolver answering every consulted evidence path as passed. */
   readonly passingOutcomes: NodeOutcomeResolver;
   /** A resolver answering every requested audit rule slug and evidence kind as passed, each reading `read`. */
@@ -829,11 +834,25 @@ export async function withPinnedNodeRepository(
       if (path === undefined) throw new Error(`No subject at index ${index}`);
       await env.writeRaw(path, `${testContent}${SUBJECT_APPENDIX}`);
     };
-    const passedTestClaim = (subjectIndex: number): NodeStatusClaimVerification => ({
-      [NODE_STATUS_CLAIM_SECTION.TEST]: {
-        [testKeys[0] ?? ""]: passedEntry([specPath, testPaths[0] ?? "", fixture.subjectPaths[subjectIndex] ?? ""]),
-      },
-    });
+    const evidenceKinds = [
+      ...new Set(links.map((link) => link.text).filter((text) => text !== SPEC_TREE_EVIDENCE_LINK_TEXT.PROBE)),
+    ]
+      .sort(compareAsciiStrings);
+    const passedEvidenceAudit = (read: readonly string[]): NodeStatusClaimVerification =>
+      declaredMalleability === NODE_STATUS_MALLEABILITY.IMPLEMENTATION
+        ? {
+          [NODE_STATUS_CLAIM_SECTION.EVIDENCE]: Object.fromEntries(
+            evidenceKinds.map((kind) => [kind, { ...passedEntry(read), ...attribution }] as const),
+          ),
+        }
+        : {};
+    const passedTestClaim = (subjectIndex: number): NodeStatusClaimVerification => {
+      const read = [specPath, testPaths[0] ?? "", fixture.subjectPaths[subjectIndex] ?? ""];
+      return {
+        [NODE_STATUS_CLAIM_SECTION.TEST]: { [testKeys[0] ?? ""]: passedEntry(read) },
+        ...passedEvidenceAudit(read),
+      };
+    };
     const readState = async (): Promise<string | undefined> => {
       const snapshot = await readSpecTree({
         source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
@@ -856,10 +875,7 @@ export async function withPinnedNodeRepository(
       testPaths,
       evalPaths,
       probePaths,
-      evidenceKinds: [
-        ...new Set(links.map((link) => link.text).filter((text) => text !== SPEC_TREE_EVIDENCE_LINK_TEXT.PROBE)),
-      ]
-        .sort(compareAsciiStrings),
+      evidenceKinds,
       declaredMalleability,
       testKeys,
       testKey: (path) => posix.relative(nodePath, path),
@@ -879,6 +895,7 @@ export async function withPinnedNodeRepository(
       },
       passedEntry,
       passedTestClaim,
+      passedEvidenceAudit,
       passingOutcomes: (_nodeId, evidencePaths) => Promise.resolve(passedFor(evidencePaths)),
       passedAttributedResults: (read) => (_nodeId, request) =>
         Promise.resolve({

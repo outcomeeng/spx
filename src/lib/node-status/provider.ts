@@ -4,12 +4,15 @@ import { dirname, join, relative } from "node:path";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
 import { listTrackedPaths } from "@/lib/git/tracked-paths";
 import {
+  createFilesystemSpecTreeSource,
   KIND_REGISTRY,
   parseSpecTreeNodeDirectoryName,
+  readSpecTree,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_NODE_STATE,
   type SpecTreeEvidenceProvider,
+  type SpecTreeEvidenceReference,
   type SpecTreeNodeSourceEntry,
   type SpecTreeNodeState,
 } from "@/lib/spec-tree";
@@ -30,7 +33,9 @@ import { classifyNodeStatus, hasNodeStatusVerificationReferences } from "./class
 import { createPinChangeReader, resultCurrency } from "./currency";
 import { createNodeStatusExcludeReader } from "./exclude";
 import { NODE_STATUS_FILENAME, parseNodeStatusFile } from "./read";
+import { readNodeSpecDeclaration } from "./spec-declaration";
 import { collectNodeStatusFiles } from "./status-files";
+import { unrecordedRequirementResults } from "./unrecorded-requirements";
 
 const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 const ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}`;
@@ -66,6 +71,9 @@ export async function createNodeStatusProvider(
   const readTrackedPaths = (): Promise<
     ReadonlySet<string>
   > => (trackedPaths ??= listTrackedPaths(productDir, gitDependencies).then((paths) => paths ?? new Set<string>()));
+  let referencesByNode: Promise<ReadonlyMap<string, readonly SpecTreeEvidenceReference[]>> | undefined;
+  const readReferences = (nodeId: string): Promise<readonly SpecTreeEvidenceReference[]> =>
+    (referencesByNode ??= readEvidenceReferencesByNode(productDir)).then((references) => references.get(nodeId) ?? []);
   const treeRoot = join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
   const statesByNode = new Map<string, SpecTreeNodeState>();
   const variantsByParent = new Map<string, string[]>();
@@ -104,12 +112,16 @@ export async function createNodeStatusProvider(
   };
 
   async function classifyClaim(nodeId: string, claim: NodeStatusClaim): Promise<SpecTreeNodeState> {
-    const results = await Promise.all(
-      nodeStatusClaimResults(claim).map(async ({ section, entry }) => ({
-        verdict: entry[NODE_STATUS_CLAIM_FIELD.VERDICT],
-        currency: await resultCurrency(section, entry, pinChanges),
-      })),
-    );
+    const declaration = await readNodeSpecDeclaration(productDir, nodeId, await readReferences(nodeId));
+    const results = [
+      ...await Promise.all(
+        nodeStatusClaimResults(claim).map(async ({ section, entry }) => ({
+          verdict: entry[NODE_STATUS_CLAIM_FIELD.VERDICT],
+          currency: await resultCurrency(section, entry, pinChanges),
+        })),
+      ),
+      ...unrecordedRequirementResults(declaration, claim[NODE_STATUS_CLAIM_FIELD.VERIFICATION]),
+    ];
     const nodePath = `${ROOT_PREFIX}${nodeId}`;
     const facts = {
       requiredArtifactsMissing: !claimLinksEvidenceArtifacts(claim),
@@ -127,6 +139,14 @@ export async function createNodeStatusProvider(
       ),
     });
   }
+}
+
+/** The evidence references the spec-tree library reads from each node's spec, by node id. */
+async function readEvidenceReferencesByNode(
+  productDir: string,
+): Promise<ReadonlyMap<string, readonly SpecTreeEvidenceReference[]>> {
+  const snapshot = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir }) });
+  return new Map(snapshot.allNodes.map((node) => [node.id, node.evidenceReferences] as const));
 }
 
 /** The tracked spec file of a node: the canonical `{slug}.spec.md` or the prior `{slug}.md`. */
