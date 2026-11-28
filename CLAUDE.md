@@ -1,28 +1,24 @@
 # Agent guide
 
-First step: pull `/Users/shz/Code/outcomeeng/methodology/methodology/` (`<version>` = `MAJOR.MINOR` of `methodology.version` in `spx.config.yaml`, or the version named in this Product's part).
-
-- **STOP — before reading or changing any file under `spx/`:** read `/Users/shz/Code/outcomeeng/methodology/methodology/versions/<version>/parts/product-tree.md`.
-- **STOP — before recording, refining, applying, auditing, or closing a Change:** read `/Users/shz/Code/outcomeeng/methodology/methodology/versions/<version>/parts/change.md`.
-- **STOP — when holding or overseeing a Position:** read `/Users/shz/Code/outcomeeng/methodology/methodology/versions/<version>/parts/positions.md`.
+Before any other step, pull the methodology checkout `/Users/shz/Code/outcomeeng/methodology/methodology/` and read the parts in `versions/<version>/parts/` your work needs: `product-tree.md` before you read or change a file under `spx/`, `change.md` before you record, refine, apply, audit or close a Change, and `positions.md` when you hold a Position or oversee one. `<version>` is the major and minor of `methodology.version` in `spx.config.yaml`, or, with no `spx.config.yaml`, the version your Product's part names. Methodology governs all work here, except where this guide departs from it. Each departure is deliberate: no one reports it as a finding, files it in an `ISSUES.md`, or records a Change for it. Where a skill and methodology differ, methodology holds.
 
 ## Authority
 
-Operator > this guide > methodology > Decision Records > specs > verification > implementation. Methodology overrides skills; departures in this guide from methodology are deliberate (never report one as a finding, file it in `ISSUES.md`, or record a Change for it). Never weaken a higher layer to match a lower one; fix the lower layer. Code names no Product Tree spec or decision in a comment or docstring.
+Operator > this guide > methodology > Decision Records > specs > verification > implementation. Never weaken a higher layer to match a lower one; fix the lower layer. Code names no Product Tree spec or decision in a comment or docstring.
 
 ## Stop and safety rules
 
 - **Operator question.** When the Operator asks a question, stop every running process that modifies files, external resources or state, and answer at once. Never stop a running verification unless the Operator says so.
-- **Dangerous-command guard.** A guard block on a command ends that command. Never reword, split or substitute a command to get past the guard. A compound command may be run again once, part by part, each with literal strings. Where no sanctioned operation reaches the goal, report the block and its reason to the Operator, and stop. Never pass a dynamic branch name to `git branch -d` or `-D`; type each name literally.
+- **Dangerous-command guard.** A guard block on one operation, a pipe, a subshell or a background job ends that command. A block on a command whose parts are joined only by `;`, a newline, `&&` alone or `||` alone allows one rerun, part by part in its order, each with literal strings. Never reword or substitute a command, or drop a flagged clause, to get past the guard. Where no sanctioned operation reaches the goal, report the block and its reason to the Operator, and stop. Never pass a dynamic branch name to `git branch -d` or `-D`; type each name literally.
 - **Payloads through files.** Multi-line text, or text with a code span, quote, shell metacharacter or JSON, reaches a command only through a file written with the file-write tool into the harness's scratch directory and passed by the tool's file argument. Never through a heredoc, a pipe, or an inline argument.
-- **No file removal.** Never run `rm`, `rmdir`, `unlink` or any command that deletes a file. A file a task needs gone goes to the Trash with `trash`. Git cleanup that a governing skill flow runs stays outside this rule.
+- **No file removal.** Never run `rm`, `rmdir`, `unlink` or any command that deletes a file. A file a task needs gone goes to the Trash with `trash`. A removal that Git cleanup in a governing skill flow, a skill's bundled script, or a command this guide or a Product's part names performs stays outside this rule.
 - **No discarding or hiding work.** Never run `git checkout -- <path>`, `git restore`, `git reset --hard`, `git clean -f` or `git stash` on uncommitted work; a discard goes to the Operator. Never `git reset` onto `origin/<base>`; the base comes in through `/sync-base`.
 - **Worktree occupancy.** Before you treat a worktree as free, run `spx worktree status` and require a live claim for that exact worktree root and the current session. A clean tree, a detached HEAD, a branch name or a pane title never proves a worktree free.
 - **Autonomy boundary.** Branching, committing, pushing and merging run only inside a governing skill flow. Never force-push a shared or protected ref, delete a ref no skill flow authorizes, bypass commit hooks (`--no-verify`) or bypass commit signing without the Operator's instruction in the same turn.
 - **Host lock.** Run every test suite, eval, full gate, compiling build or install verification as `spx orchestration lock [--run-id <id>] -- <command>` (`/wait-for-load`).
 - **Merge.** Every change to the default branch goes through `/merge`, unless your Product's part names its own merge path. Work is done only when it is merged into the default branch on origin. Passing checks, a review, an audit, a fresh commit or a detached HEAD is progress, not a stopping point.
 - **Commit before another reads.** Commit the exact current version through `/commit-changes` before another session or a person reads it for collaboration or verification.
-- **No agent identity** in a branch name, commit message, pull request, review comment or product file.
+- **No agent identity** in a branch name, commit message, pull request, review comment or authorship marker in a product file. Guidance that documents an agent's behavior may name the agent.
 - **Stop** only to hand off, to answer the Operator's question, or for an answer you cannot settle yourself. Before you ask or report blocked, finish every action that needs no answer.
 
 ## Skills
@@ -42,6 +38,7 @@ Use only `hold-position`, `product-tree:author-change`, `product-tree:manage-cha
 
 ## Asking
 
+- The Operator does not review line by line. Point out what does not make sense, and fix it yourself when the fix is obvious.
 - Ask the Operator only a question you are authorized and able to act on. Every other question goes by mail to the Position that can act.
 - When the orchestration file sets `operator_available = true`, the Director and the Maintainer ask the Operator through AskUserQuestion. Otherwise each asks on a page with comments on and points the Operator to it by URL. Only the highest-ranking declared Position writes `operator_available`, and sets it true only on the Operator's yes.
 - Put a proposal for the Operator on a page with comments on, and answer each comment in its thread.
