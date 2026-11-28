@@ -5,7 +5,7 @@
     "test": {
       "tests/literal-reuse.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b009dc24ca0778c5fdf1633b8bacd439fa6fb7a3",
+        "commit": "9da82ceb36981eccf111e8e297998648b01dcf2e",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/literal-reuse.md",
@@ -100,7 +100,7 @@
     "audit": {
       "validation-all-stage": {
         "verdict": "passed",
-        "commit": "42be9cf43ffc99f483234c8ba3d2677ec955e78c",
+        "commit": "9da82ceb36981eccf111e8e297998648b01dcf2e",
         "read": [
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/literal-reuse.md",
           "src/commands/validation/all.ts",
@@ -118,7 +118,7 @@
     "evidence": {
       "test": {
         "verdict": "passed",
-        "commit": "42be9cf43ffc99f483234c8ba3d2677ec955e78c",
+        "commit": "9da82ceb36981eccf111e8e297998648b01dcf2e",
         "read": [
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/literal-reuse.md",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/tests/literal-reuse.property.l1.test.ts"
